@@ -1,0 +1,31 @@
+{
+  "expo": {
+    "name": "Routh Flow (Pathy)",
+    "slug": "safetrack",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "dark",
+    "assetBundlePatterns": ["**/*"],
+    "ios": {
+      "supportsTablet": false,
+      "bundleIdentifier": "app.safetrack.mobile"
+    },
+    "android": {
+      "package": "app.safetrack.mobile",
+      "permissions": [
+        "ACCESS_FINE_LOCATION",
+        "ACCESS_COARSE_LOCATION",
+        "CAMERA",
+        "READ_EXTERNAL_STORAGE",
+        "WRITE_EXTERNAL_STORAGE",
+        "RECORD_AUDIO"
+      ]
+    },
+    "plugins": [
+      "expo-location",
+      "expo-av",
+      "expo-image-picker",
+      "expo-document-picker"
+    ]
+  }
+}

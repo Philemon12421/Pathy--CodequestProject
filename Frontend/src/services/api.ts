@@ -1,0 +1,77 @@
+import axios, { InternalAxiosRequestConfig } from 'axios';
+import useStore from '../store/useStore';
+
+const BASE_URL = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:4000/api';
+
+const api = axios.create({
+  baseURL: BASE_URL,
+  headers: {
+    'ngrok-skip-browser-warning': 'true',
+  },
+});
+
+api.interceptors.request.use((config: InternalAxiosRequestConfig) => {
+  const token = useStore.getState().token;
+  if (token && config.headers) {
+    config.headers.Authorization = `Bearer ${token}`;
+  }
+  return config;
+});
+
+api.interceptors.response.use(
+  (res) => res.data,
+  (err) => Promise.reject(err.response?.data || err)
+);
+
+// Auth
+export const authAPI = {
+  login: (data: any) => api.post('/auth/login', data),
+  register: (data: any) => api.post('/auth/register', data),
+};
+
+// Incidents
+export const incidentsAPI = {
+  getAll: () => api.get('/incidents'),
+  create: (formData: any) => api.post('/incidents', formData, { headers: { 'Content-Type': 'multipart/form-data' } }),
+  update: (id: string | number, data: any) => api.patch(`/incidents/${id}`, data),
+  delete: (id: string | number) => api.delete(`/incidents/${id}`),
+};
+
+// Routes
+export const routesAPI = {
+  getAll: () => api.get('/routes'),
+  save: (data: any) => api.post('/routes', data),
+  toggleFavorite: (id: string | number) => api.patch(`/routes/${id}/favorite`),
+  delete: (id: string | number) => api.delete(`/routes/${id}`),
+};
+
+// AI
+export const aiAPI = {
+  chat: (message: string, history: any[]) => api.post('/ai/chat', { message, history }),
+  getHistory: () => api.get('/ai/history'),
+  clearHistory: () => api.delete('/ai/history'),
+};
+
+// Music
+export const musicAPI = {
+  getTracks: () => api.get('/music/tracks'),
+  uploadTrack: (formData: any) => api.post('/music/tracks', formData, { headers: { 'Content-Type': 'multipart/form-data' } }),
+  deleteTrack: (id: string | number) => api.delete(`/music/tracks/${id}`),
+  getPlaylists: () => api.get('/music/playlists'),
+  createPlaylist: (data: any) => api.post('/music/playlists', data),
+  addToPlaylist: (id: string | number, data: any) => api.post(`/music/playlists/${id}/tracks`, data),
+  getPlaylistTracks: (id: string | number) => api.get(`/music/playlists/${id}/tracks`),
+};
+
+// Ads
+export const adsAPI = {
+  getAll: () => api.get('/ads'),
+  getNearby: (lat: number, lng: number) => api.get(`/ads/nearby?lat=${lat}&lng=${lng}`),
+  create: (data: any) => api.post('/ads', data),
+  checkout: (id: string | number) => api.post(`/ads/${id}/checkout`),
+  activate: (id: string | number) => api.post(`/ads/${id}/activate`),
+  getMine: () => api.get('/ads/mine'),
+  delete: (id: string | number) => api.delete(`/ads/${id}`),
+};
+
+export default api;
