@@ -1,0 +1,25 @@
+server:
+  port: ${PORT:4000}
+
+spring:
+  application:
+    name: safetrack-api
+  datasource:
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/safetrack}
+    username: ${SPRING_DATASOURCE_USERNAME:safetrack_user}
+    password: ${SPRING_DATASOURCE_PASSWORD:safetrack_pass}
+  sql:
+    init:
+      mode: always
+  servlet:
+    multipart:
+      max-file-size: 50MB
+      max-request-size: 55MB
+
+app:
+  jwt-secret: ${JWT_SECRET:change-me-to-a-long-random-secret}
+  upload-dir: ${UPLOAD_DIR:uploads}
+  groq-api-key: ${GROQ_API_KEY:}
+  gemini-api-key: ${GEMINI_API_KEY:}
+  paystack-secret-key: ${PAYSTACK_SECRET_KEY:}
+

@@ -1,0 +1,55 @@
+package com.safetrack.api.controller;
+
+import com.fasterxml.jackson.databind.ObjectMapper;
+import jakarta.servlet.http.HttpServletRequest;
+import org.springframework.http.ResponseEntity;
+import org.springframework.jdbc.core.simple.JdbcClient;
+import org.springframework.web.bind.annotation.*;
+
+import java.util.Map;
+import java.util.UUID;
+
+@RestController
+@RequestMapping("/api/routes")
+public class SavedRouteController extends BaseController {
+  private final JdbcClient jdbc;
+  private final ObjectMapper mapper;
+
+  public SavedRouteController(JdbcClient jdbc, ObjectMapper mapper) {
+    this.jdbc = jdbc;
+    this.mapper = mapper;
+  }
+
+  @GetMapping
+  public Object list(HttpServletRequest request) {
+    return jdbc.sql("SELECT * FROM saved_routes WHERE user_id=:user_id ORDER BY is_favorite DESC, created_at DESC")
+        .param("user_id", user(request).id()).query().listOfRows();
+  }
+
+  @PostMapping
+  public ResponseEntity<?> create(HttpServletRequest request, @RequestBody Map<String, Object> body) throws Exception {
+    String routeData = body.get("route_data") == null ? "{}" : mapper.writeValueAsString(body.get("route_data"));
+    Map<String, Object> route = jdbc.sql("""
+        INSERT INTO saved_routes (user_id, name, origin_name, destination_name, origin_lat, origin_lng, destination_lat, destination_lng, route_data)
+        VALUES (:user_id,:name,:origin_name,:destination_name,:origin_lat,:origin_lng,:destination_lat,:destination_lng,CAST(:route_data AS jsonb)) RETURNING *
+        """)
+        .param("user_id", user(request).id()).param("name", body.get("name")).param("origin_name", body.get("origin_name"))
+        .param("destination_name", body.get("destination_name")).param("origin_lat", body.get("origin_lat"))
+        .param("origin_lng", body.get("origin_lng")).param("destination_lat", body.get("destination_lat"))
+        .param("destination_lng", body.get("destination_lng")).param("route_data", routeData)
+        .query().singleRow();
+    return ResponseEntity.status(201).body(route);
+  }
+
+  @PatchMapping("/{id}/favorite")
+  public Object toggleFavorite(HttpServletRequest request, @PathVariable("id") UUID id) {
+    return jdbc.sql("UPDATE saved_routes SET is_favorite = NOT is_favorite WHERE id=:id AND user_id=:user_id RETURNING *")
+        .param("id", id).param("user_id", user(request).id()).query().singleRow();
+  }
+
+  @DeleteMapping("/{id}")
+  public Object delete(HttpServletRequest request, @PathVariable("id") UUID id) {
+    jdbc.sql("DELETE FROM saved_routes WHERE id=:id AND user_id=:user_id").param("id", id).param("user_id", user(request).id()).update();
+    return Map.of("success", true);
+  }
+}

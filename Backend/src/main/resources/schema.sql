@@ -57,17 +57,13 @@ CREATE TABLE IF NOT EXISTS ads (
   website_url TEXT,
   payment_status VARCHAR(20) DEFAULT 'pending', -- 'pending', 'paid', 'expired'
   stripe_payment_intent_id TEXT,
+  paystack_reference TEXT,
   active BOOLEAN DEFAULT FALSE,
   duration_days INTEGER DEFAULT 30,
   expires_at TIMESTAMP,
   created_at TIMESTAMP DEFAULT NOW()
 );
 
--- Migration: add duration_days if it doesn't exist (safe for existing DBs)
-DO $$ BEGIN
-  ALTER TABLE ads ADD COLUMN IF NOT EXISTS duration_days INTEGER DEFAULT 30;
-EXCEPTION WHEN duplicate_column THEN NULL;
-END $$;
 
 -- AI Chat history
 CREATE TABLE IF NOT EXISTS chat_messages (
@@ -120,3 +116,8 @@ CREATE INDEX IF NOT EXISTS idx_music_user ON music_tracks(user_id);
 INSERT INTO users (id, name, email, password_hash) VALUES
   ('00000000-0000-0000-0000-000000000001', 'Demo User', 'demo@safetrack.app', '$2a$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi')
 ON CONFLICT (email) DO NOTHING;
+
+-- Add paystack_reference column if not already present (safe migration)
+ALTER TABLE ads ADD COLUMN IF NOT EXISTS paystack_reference TEXT;
+
+

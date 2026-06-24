@@ -1,0 +1,129 @@
+package com.safetrack.api.controller;
+
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.safetrack.api.config.AppProperties;
+import jakarta.servlet.http.HttpServletRequest;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
+import org.springframework.jdbc.core.simple.JdbcClient;
+import org.springframework.web.bind.annotation.*;
+import org.springframework.web.client.RestClient;
+
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
+import java.util.regex.Pattern;
+
+@RestController
+@RequestMapping("/api/ai")
+public class AiController extends BaseController {
+  private static final String SYSTEM_PROMPT = """
+      You are RouteFlow AI - a smart, friendly assistant built into the RouteFlow app. You can help users with:
+      1. Navigation: when user wants to go somewhere: <action>{\"type\":\"navigate\",\"destination\":\"Place Name\"}</action>
+      2. Incidents: <action>{\"type\":\"report_incident\",\"incident_type\":\"accident|hazard|crime|weather|other\",\"title\":\"Short title\",\"severity\":\"low|medium|high|critical\"}</action>
+      3. Music: <action>{\"type\":\"music\",\"action\":\"play\"}</action>
+      4. Ads: <action>{\"type\":\"place_ad\",\"business_name\":\"name\"}</action>
+      Keep responses under 150 words.
+      """;
+  private static final Pattern ACTION = Pattern.compile("<a?action>(.*?)</a?action>", Pattern.DOTALL);
+
+  private final JdbcClient jdbc;
+  private final AppProperties properties;
+  private final ObjectMapper mapper;
+  private final RestClient groqClient = RestClient.create("https://api.groq.com/openai/v1");
+  private final RestClient geminiClient = RestClient.create("https://generativelanguage.googleapis.com/v1beta");
+
+  public AiController(JdbcClient jdbc, AppProperties properties, ObjectMapper mapper) {
+    this.jdbc = jdbc;
+    this.properties = properties;
+    this.mapper = mapper;
+  }
+
+  @PostMapping("/chat")
+  public ResponseEntity<?> chat(HttpServletRequest request, @RequestBody Map<String, Object> body) throws Exception {
+    String message = String.valueOf(body.get("message"));
+    jdbc.sql("INSERT INTO chat_messages (user_id, role, content) VALUES (:user_id, 'user', :content)")
+        .param("user_id", user(request).id()).param("content", message).update();
+
+    List<Map<String, String>> messages = buildMessages(message, body.get("history"));
+    String assistantContent = callAi(messages);
+
+    jdbc.sql("INSERT INTO chat_messages (user_id, role, content) VALUES (:user_id, 'assistant', :content)")
+        .param("user_id", user(request).id()).param("content", assistantContent).update();
+
+    var matcher = ACTION.matcher(assistantContent);
+    Object action = null;
+    if (matcher.find()) {
+      try { action = mapper.readValue(matcher.group(1), Object.class); } catch (Exception ignored) { }
+    }
+    String displayText = ACTION.matcher(assistantContent).replaceAll("").trim();
+    return ResponseEntity.ok(Map.of("text", displayText, "action", action == null ? Map.of() : action));
+  }
+
+  @GetMapping("/history")
+  public Object history(HttpServletRequest request) {
+    return jdbc.sql("SELECT role, content, created_at FROM chat_messages WHERE user_id=:user_id ORDER BY created_at ASC LIMIT 50")
+        .param("user_id", user(request).id()).query().listOfRows();
+  }
+
+  @DeleteMapping("/history")
+  public Object clear(HttpServletRequest request) {
+    jdbc.sql("DELETE FROM chat_messages WHERE user_id=:user_id").param("user_id", user(request).id()).update();
+    return Map.of("success", true);
+  }
+
+  private List<Map<String, String>> buildMessages(String message, Object history) {
+    List<Map<String, String>> messages = new ArrayList<>();
+    messages.add(Map.of("role", "system", "content", SYSTEM_PROMPT));
+    if (history instanceof List<?> items) {
+      items.stream().skip(Math.max(0, items.size() - 10)).forEach(item -> {
+        if (item instanceof Map<?, ?> m) {
+          String role = "assistant".equals(m.get("role")) ? "assistant" : "user";
+          messages.add(Map.of("role", role, "content", String.valueOf(m.get("content"))));
+        }
+      });
+    }
+    messages.add(Map.of("role", "user", "content", message));
+    return messages;
+  }
+
+  private String callAi(List<Map<String, String>> messages) throws Exception {
+    if (hasText(properties.geminiApiKey())) return callGemini(messages);
+    if (hasText(properties.groqApiKey())) return callGroq(messages);
+    return "AI is not configured. Set GEMINI_API_KEY or GROQ_API_KEY to enable chat responses.";
+  }
+
+  private String callGroq(List<Map<String, String>> messages) {
+    JsonNode response = groqClient.post().uri("/chat/completions")
+        .contentType(MediaType.APPLICATION_JSON)
+        .header("Authorization", "Bearer " + properties.groqApiKey())
+        .body(Map.of("model", "llama-3.3-70b-versatile", "messages", messages, "max_tokens", 512))
+        .retrieve().body(JsonNode.class);
+    JsonNode content = response.path("choices").path(0).path("message").path("content");
+    return content.isMissingNode() || content.asText().isBlank() ? "Sorry, I could not generate a response." : content.asText();
+  }
+
+  private String callGemini(List<Map<String, String>> messages) {
+    String prompt = toGeminiPrompt(messages);
+    JsonNode response = geminiClient.post()
+        .uri("/models/gemini-1.5-flash:generateContent?key={key}", properties.geminiApiKey())
+        .contentType(MediaType.APPLICATION_JSON)
+        .body(Map.of("contents", List.of(Map.of("role", "user", "parts", List.of(Map.of("text", prompt))))))
+        .retrieve().body(JsonNode.class);
+    JsonNode text = response.path("candidates").path(0).path("content").path("parts").path(0).path("text");
+    return text.isMissingNode() || text.asText().isBlank() ? "Sorry, I could not generate a response." : text.asText();
+  }
+
+  private String toGeminiPrompt(List<Map<String, String>> messages) {
+    StringBuilder prompt = new StringBuilder();
+    for (Map<String, String> message : messages) {
+      prompt.append(message.get("role")).append(": ").append(message.get("content")).append("\n\n");
+    }
+    return prompt.toString();
+  }
+
+  private boolean hasText(String value) {
+    return value != null && !value.isBlank();
+  }
+}
