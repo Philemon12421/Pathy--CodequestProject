@@ -1,0 +1,41 @@
+services:
+  db:
+    image: postgres:16-alpine
+    platform: linux/amd64
+    environment:
+      POSTGRES_DB: safetrack
+      POSTGRES_USER: safetrack_user
+      POSTGRES_PASSWORD: safetrack_pass
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U safetrack_user -d safetrack"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  api:
+    build: .
+    platform: linux/amd64
+    environment:
+      PORT: 4000
+      SPRING_DATASOURCE_URL: jdbc:postgresql://db:5432/safetrack
+      SPRING_DATASOURCE_USERNAME: safetrack_user
+      SPRING_DATASOURCE_PASSWORD: safetrack_pass
+      JWT_SECRET: change-me-to-a-long-random-secret
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+      GROQ_API_KEY: ${GROQ_API_KEY:-}
+      PAYSTACK_SECRET_KEY: ${PAYSTACK_SECRET_KEY:-}
+      UPLOAD_DIR: /app/uploads
+    ports:
+      - "4000:4000"
+    volumes:
+      - ./uploads:/app/uploads
+    depends_on:
+      db:
+        condition: service_healthy
+
+volumes:
+  pgdata:

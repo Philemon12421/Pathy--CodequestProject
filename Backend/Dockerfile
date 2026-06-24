@@ -1,15 +1,13 @@
-FROM node:20-alpine
-
+FROM --platform=linux/amd64 maven:3.9-eclipse-temurin-21 AS build
 WORKDIR /app
+COPY pom.xml .
+RUN mvn -q -DskipTests dependency:go-offline
+COPY src ./src
+RUN mvn -q -DskipTests package
 
-RUN apk add --no-cache python3 make g++
-
-COPY package*.json ./
-RUN npm install
-
-COPY . .
-RUN npm run build
-
+FROM --platform=linux/amd64 maven:3.9-eclipse-temurin-21
+WORKDIR /app
+COPY --from=build /app/target/safetrack-api-1.0.0.jar app.jar
+COPY uploads ./uploads
 EXPOSE 4000
-
-CMD ["npm", "run", "dev"]
+ENTRYPOINT ["java", "-jar", "app.jar"]
