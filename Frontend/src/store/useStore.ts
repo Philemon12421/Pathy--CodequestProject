@@ -44,7 +44,7 @@ export interface StoreState {
   myAds: any[];
   setMyAds: (ads: any[]) => void;
 
-  theme: 'dark' | 'light';
+  theme: 'light' | 'dark';
   toggleTheme: () => void;
 }
 
@@ -100,8 +100,8 @@ const useStore = create<StoreState>((set, get) => ({
   myAds: [],
   setMyAds: (ads) => set({ myAds: ads }),
 
-  theme: 'dark',
-  toggleTheme: () => set((s) => ({ theme: s.theme === 'dark' ? 'light' : 'dark' })),
+  theme: 'light',
+  toggleTheme: () => set((s) => ({ theme: s.theme === 'light' ? 'dark' : 'light' })),
 }));
 
 export default useStore;

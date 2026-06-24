@@ -1,5 +1,5 @@
 import 'react-native-gesture-handler';
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, TouchableOpacity, StyleSheet, Platform } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
@@ -8,7 +8,10 @@ import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
+import SplashScreen from './src/screens/SplashScreen';
+import OnboardingScreen from './src/screens/OnboardingScreen';
 import HomeScreen from './src/screens/HomeScreen';
 import MapScreen from './src/screens/MapScreen';
 import ReportScreen from './src/screens/ReportScreen';
@@ -28,15 +31,19 @@ const Tab = createBottomTabNavigator();
 const AppStack = createNativeStackNavigator();
 const MainStack = createNativeStackNavigator();
 
+const ONBOARDING_KEY = 'pathy_has_onboarded';
+
 // ─── Tab config ──────────────────────────────────────────────────────────────
+// NOTE: unchanged in spirit from original — Report/Music/Ads still exist as
+// real, fully working screens. They are just no longer separate tab bar
+// buttons — they're reachable from the Home screen's "+" quick-action menu,
+// and registered below in MainApp's stack so navigation.navigate('Report')
+// etc. continues to work exactly like before.
 const TAB_CONFIG: Record<string, { icon: string; iconFocused: string; label: string }> = {
-  Home:   { icon: 'home-outline',          iconFocused: 'home',          label: 'Home' },
-  Map:    { icon: 'map-outline',           iconFocused: 'map',           label: 'Map' },
-  AI:     { icon: 'sparkles-outline',      iconFocused: 'sparkles',      label: 'AI' },
-  Report: { icon: 'warning-outline',       iconFocused: 'warning',       label: 'Report' },
-  Routes: { icon: 'navigate-outline',      iconFocused: 'navigate',      label: 'Routes' },
-  Music:  { icon: 'musical-notes-outline', iconFocused: 'musical-notes', label: 'Music' },
-  Ads:    { icon: 'megaphone-outline',     iconFocused: 'megaphone',     label: 'Ads' },
+  Home:   { icon: 'home-outline',     iconFocused: 'home',     label: 'Home' },
+  Map:    { icon: 'map-outline',      iconFocused: 'map',      label: 'Map' },
+  AI:     { icon: 'sparkles-outline', iconFocused: 'sparkles', label: 'AI' },
+  Routes: { icon: 'navigate-outline', iconFocused: 'navigate', label: 'Routes' },
 };
 
 // ─── Custom Tab Bar ───────────────────────────────────────────────────────────
@@ -144,6 +151,9 @@ function tabStyles(COLORS: any) {
 }
 
 // ─── Main Tabs ────────────────────────────────────────────────────────────────
+// 4 visual elements total: Home, Map, raised AI center button, Routes.
+// Report / Music / Ads remain fully functional screens, reached via the
+// "+" quick-action menu on HomeScreen (see HomeScreen.tsx).
 const MainTabs: React.FC = () => {
   return (
     <Tab.Navigator
@@ -153,10 +163,7 @@ const MainTabs: React.FC = () => {
       <Tab.Screen name="Home"   component={HomeScreen} />
       <Tab.Screen name="Map"    component={MapScreen} />
       <Tab.Screen name="AI"     component={AIScreen} />
-      <Tab.Screen name="Report" component={ReportScreen} />
       <Tab.Screen name="Routes" component={RoutesScreen} />
-      <Tab.Screen name="Music"  component={MusicScreen} />
-      <Tab.Screen name="Ads"    component={AdPortalScreen} />
     </Tab.Navigator>
   );
 };
@@ -172,10 +179,87 @@ const MainApp: React.FC = () => {
           component={ProfileScreen}
           options={{ animation: 'slide_from_right' }}
         />
+        {/* Screens removed from the tab bar are still registered here so
+            navigation.navigate('Report') etc. from the Home "+" menu works
+            exactly like before. Nothing about these screens' internals changed. */}
+        <MainStack.Screen
+          name="Report"
+          component={ReportScreen}
+          options={{ animation: 'slide_from_bottom', presentation: 'modal' }}
+        />
+        <MainStack.Screen
+          name="Music"
+          component={MusicScreen}
+          options={{ animation: 'slide_from_bottom', presentation: 'modal' }}
+        />
+        <MainStack.Screen
+          name="Ads"
+          component={AdPortalScreen}
+          options={{ animation: 'slide_from_right' }}
+        />
       </MainStack.Navigator>
       {/* Global proximity popup — overlays everything */}
       <AdProximityManager />
     </View>
+  );
+};
+
+// ─── Boot Flow ────────────────────────────────────────────────────────────────
+// Phase 1: SplashScreen plays its animation (pure, no AsyncStorage, no nav —
+//          just calls onFinish when the animation timeline completes).
+// Phase 2: We read AsyncStorage ONCE to see if onboarding was already shown.
+// Phase 3a: First launch ever  -> Onboarding -> (Login or Main)
+// Phase 3b: Returning user     -> straight to (Login or Main), exactly like
+//           the original App.tsx behaved before Splash/Onboarding existed.
+type BootPhase = 'splash' | 'onboarding' | 'app';
+
+const RootFlow: React.FC<{ token: string | null }> = ({ token }) => {
+  const [phase, setPhase] = useState<BootPhase>('splash');
+  const [hasOnboarded, setHasOnboarded] = useState<boolean | null>(null);
+
+  // Kick off the AsyncStorage read in parallel with the splash animation,
+  // so there's no extra wait once the animation finishes.
+  useEffect(() => {
+    AsyncStorage.getItem(ONBOARDING_KEY)
+      .then((value) => setHasOnboarded(value === 'true'))
+      .catch(() => setHasOnboarded(false));
+  }, []);
+
+  const handleSplashFinish = () => {
+    // If the AsyncStorage read hasn't resolved yet (rare, very fast read),
+    // default to showing onboarding — safer than skipping it by mistake.
+    setPhase(hasOnboarded ? 'app' : 'onboarding');
+  };
+
+  if (phase === 'splash') {
+    return <SplashScreen onFinish={handleSplashFinish} />;
+  }
+
+  if (phase === 'onboarding') {
+    return (
+      <AppStack.Navigator screenOptions={{ headerShown: false }}>
+        <AppStack.Screen name="Onboarding">
+          {(props) => (
+            <OnboardingScreen
+              {...props}
+              hasToken={!!token}
+              onDone={() => setPhase('app')}
+            />
+          )}
+        </AppStack.Screen>
+      </AppStack.Navigator>
+    );
+  }
+
+  // phase === 'app'
+  return (
+    <AppStack.Navigator screenOptions={{ headerShown: false }}>
+      {!token ? (
+        <AppStack.Screen name="Login" component={LoginScreen} />
+      ) : (
+        <AppStack.Screen name="Main" component={MainApp} />
+      )}
+    </AppStack.Navigator>
   );
 };
 
@@ -190,13 +274,7 @@ const App: React.FC = () => {
         <NavigationContainer>
           <ThemeProvider>
             <StatusBar style={theme === 'dark' ? 'light' : 'dark'} backgroundColor={COLORS.background} />
-            <AppStack.Navigator screenOptions={{ headerShown: false }}>
-              {!token ? (
-                <AppStack.Screen name="Login" component={LoginScreen} />
-              ) : (
-                <AppStack.Screen name="Main" component={MainApp} />
-              )}
-            </AppStack.Navigator>
+            <RootFlow token={token} />
           </ThemeProvider>
         </NavigationContainer>
       </SafeAreaProvider>
