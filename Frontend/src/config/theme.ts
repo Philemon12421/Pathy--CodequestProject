@@ -1,63 +1,78 @@
-// ─── Premium Light Palette (reference design) ─────────────────────────────
+// ─── Pathy Green Palette (Stitch design system) ──────────────────────────
+// Replaces the old navy/blue palette. Every key name below already existed
+// in the original theme.ts EXCEPT primaryContainer / onSurface / secondary,
+// which are new additions needed by SplashScreen.tsx and OnboardingScreen.tsx.
+// No existing call site (HomeScreen, App.tsx, etc.) breaks — old keys are
+// all still present, just repointed to green values.
 export const LIGHT_COLORS = {
-  background:       '#F5F6FA',       // soft off-white page bg
-  surface:          '#FFFFFF',       // card / panel white
-  surfaceElevated:  '#F0F2F8',       // slightly dimmer surface
-  surfaceGlass:     'rgba(255,255,255,0.82)', // glassmorphism overlay
+  background:       '#e7fff1',       // soft mint page bg (was #F5F6FA)
+  surface:          '#FFFFFF',       // card / panel white — unchanged
+  surfaceElevated:  '#f0fbf5',       // slightly dimmer surface (was #F0F2F8)
+  surfaceGlass:     'rgba(255,255,255,0.82)', // unchanged
 
-  primary:          '#1A1A2E',       // near-black (main CTA, bold text)
-  primaryDark:      '#0D0D1A',
-  accent:           '#4F7FFA',       // vibrant blue (active states, highlights)
-  accentSoft:       '#EEF3FF',       // very light blue tint backgrounds
-  danger:           '#EF4444',
-  dangerSoft:       '#FEF2F2',
+  primary:          '#006c44',       // deep forest green (was #1A1A2E navy) — main CTA text/icons
+  primaryDark:      '#00482d',       // pressed state
+  primaryContainer: '#4caf7d',       // sage green — buttons, active pills, FAB (NEW)
+  onSurface:        '#0b1f17',       // near-black green-tinted text on white (NEW, replaces old `text`)
+  secondary:        '#55615c',       // muted green-grey for secondary text (NEW, alias of textSecondary)
+
+  accent:           '#006c44',       // was #4F7FFA blue — now matches primary
+  accentSoft:       '#e1f9eb',       // light green tint backgrounds (was light blue)
+  danger:           '#b3272a',
+  dangerSoft:       '#ffdad6',
   warning:          '#F59E0B',
   warningSoft:      '#FFFBEB',
   info:             '#6366F1',
   infoSoft:         '#EEF2FF',
-  success:          '#10B981',
-  successSoft:      '#ECFDF5',
+  success:          '#4caf7d',
+  successSoft:      '#e1f9eb',
 
-  text:             '#1A1A2E',       // bold headings
-  textSecondary:    '#52526E',       // body / labels
-  textMuted:        '#A0A3B1',       // placeholders, helper text
+  text:             '#0b1f17',       // bold headings — green-tinted near-black (was #1A1A2E)
+  textSecondary:    '#55615c',       // body / labels (was #52526E)
+  textMuted:        '#869a8d',       // placeholders, helper text (was #A0A3B1)
 
-  border:           '#E8E9F0',       // card border
-  borderLight:      '#F2F3F8',       // very subtle dividers
+  border:           '#d9ece1',       // card border (was #E8E9F0)
+  borderLight:      '#eef8f1',       // subtle dividers
   cardBg:           '#FFFFFF',
-  mapOverlay:       'rgba(245,246,250,0.88)',
+  mapOverlay:       'rgba(231,255,241,0.88)',
 
-  // Gradient endpoints for the AI orb
+  // Gradient endpoints for the AI orb — kept as-is, unrelated to brand green
   orbStart:         '#C77DFF',
   orbMid:           '#7B9FF9',
   orbEnd:           '#5EEAD4',
 
   tabBar:           '#FFFFFF',
-  tabBarBorder:     '#E8E9F0',
-  tabActive:        '#1A1A2E',
-  tabInactive:      '#A0A3B1',
-  tabAIBtn:         '#1A1A2E',       // center AI tab — dark pill
+  tabBarBorder:     '#d9ece1',
+  tabActive:        '#006c44',       // was #1A1A2E
+  tabInactive:      '#869a8d',       // was #A0A3B1
+  tabAIBtn:         '#006c44',       // was #1A1A2E — raised center AI button
 };
 
-// ─── Dark Palette (kept intact) ──────────────────────────────────────────────
+// ─── Dark Palette ─────────────────────────────────────────────────────────
+// Kept structurally intact — only the accent/tab colors shift to green so
+// the brand stays consistent when a user toggles dark mode.
 export const DARK_COLORS = {
   background:       '#0A0E1A',
   surface:          '#111827',
   surfaceElevated:  '#1A2235',
   surfaceGlass:     'rgba(17,24,39,0.88)',
 
-  primary:          '#3B82F6',
-  primaryDark:      '#2563EB',
-  accent:           '#10B981',
-  accentSoft:       '#052e16',
+  primary:          '#4caf7d',       // sage green reads well on dark bg (was #3B82F6 blue)
+  primaryDark:      '#3a8c63',
+  primaryContainer: '#1a3a2a',       // dark green container (NEW)
+  onSurface:        '#F9FAFB',       // (NEW)
+  secondary:        '#9CA3AF',       // (NEW)
+
+  accent:           '#4caf7d',       // was #10B981
+  accentSoft:       '#0d2818',
   danger:           '#EF4444',
   dangerSoft:       '#450a0a',
   warning:          '#F59E0B',
   warningSoft:      '#451a03',
   info:             '#6366F1',
   infoSoft:         '#1e1b4b',
-  success:          '#10B981',
-  successSoft:      '#052e16',
+  success:          '#4caf7d',
+  successSoft:      '#0d2818',
 
   text:             '#F9FAFB',
   textSecondary:    '#9CA3AF',
@@ -74,9 +89,9 @@ export const DARK_COLORS = {
 
   tabBar:           '#111827',
   tabBarBorder:     '#1F2937',
-  tabActive:        '#3B82F6',
+  tabActive:        '#4caf7d',       // was #3B82F6
   tabInactive:      '#6B7280',
-  tabAIBtn:         '#3B82F6',
+  tabAIBtn:         '#4caf7d',       // was #3B82F6
 };
 
 // ─── Backward compat ─────────────────────────────────────────────────────────
@@ -86,7 +101,7 @@ export function getColors(theme: 'dark' | 'light') {
   return theme === 'light' ? LIGHT_COLORS : DARK_COLORS;
 }
 
-// ─── Typography ───────────────────────────────────────────────────────────────
+// ─── Typography — UNCHANGED ──────────────────────────────────────────────
 export const FONTS = {
   family: {
     regular: 'System',
@@ -112,7 +127,7 @@ export const FONTS = {
   } as const,
 };
 
-// ─── Spacing & Radius ─────────────────────────────────────────────────────────
+// ─── Spacing & Radius — UNCHANGED ────────────────────────────────────────
 export const RADIUS = {
   xs:   6,
   sm:   10,
@@ -132,7 +147,7 @@ export const SPACING = {
   xxl: 32,
 };
 
-// ─── Shadows ──────────────────────────────────────────────────────────────────
+// ─── Shadows — UNCHANGED except `lg` glow now matches green, not blue ──────
 export const SHADOW = {
   xs: {
     shadowColor: '#000',
@@ -156,7 +171,7 @@ export const SHADOW = {
     elevation: 8,
   },
   lg: {
-    shadowColor: '#4F7FFA',
+    shadowColor: '#4caf7d',          // was #4F7FFA
     shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0.18,
     shadowRadius: 24,

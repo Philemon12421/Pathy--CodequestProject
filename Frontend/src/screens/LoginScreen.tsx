@@ -1,265 +1,401 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import {
-  View, Text, TextInput, TouchableOpacity, StyleSheet,
-  KeyboardAvoidingView, Platform, ActivityIndicator, ScrollView, Alert
+  View, Text, TextInput, TouchableOpacity, StyleSheet, Image,
+  KeyboardAvoidingView, Platform, ActivityIndicator,
+  ScrollView, Alert, Animated,
 } from 'react-native';
+import { BlurView } from 'expo-blur';
 import { Ionicons } from '@expo/vector-icons';
-import { useColors } from '../config/ThemeContext';
-import { FONTS, RADIUS, SPACING, SHADOW } from '../config/theme';
+import { FONTS, RADIUS, SPACING, SHADOW, getColors } from '../config/theme';
 import { authAPI } from '../services/api';
 import useStore from '../store/useStore';
 
+// Auth screens always light
+const C = getColors('light');
+
+// ─── Sandbox bypass ───────────────────────────────────────────────────────────
+// Only visible when running in Expo Go / development (__DEV__ === true).
+// In a production build this button is completely removed by the bundler.
+// Tapping it injects a fake token + fake user directly into Zustand store,
+// bypassing the backend entirely — safe for UI testing.
+const SANDBOX_USER = { id: 0, name: 'Demo User', email: 'demo@pathy.app', role: 'user' };
+const SANDBOX_TOKEN = 'sandbox_dev_token';
+
 export default function LoginScreen() {
-  const COLORS = useColors();
-  const s = makeStyles(COLORS);
+  const setAuth = useStore((s) => s.setAuth);
   const [isLogin, setIsLogin] = useState(true);
-  const [form, setForm] = useState({ name: '', email: '', password: '' });
+  const [form, setForm] = useState({ name: '', email: '', password: '', confirmPassword: '' });
+  const [agreed, setAgreed] = useState(false);
   const [loading, setLoading] = useState(false);
   const [showPw, setShowPw] = useState(false);
-  const setAuth = useStore((s) => s.setAuth);
+  const [showConfirm, setShowConfirm] = useState(false);
+  const [focused, setFocused] = useState<string | null>(null);
+
+  // Smooth fade when toggling Sign In ↔ Create Account
+  const fadeAnim = useRef(new Animated.Value(1)).current;
+
+  const switchTab = (toLogin: boolean) => {
+    if (toLogin === isLogin) return;
+    Animated.sequence([
+      Animated.timing(fadeAnim, { toValue: 0, duration: 120, useNativeDriver: true }),
+    ]).start(() => {
+      setIsLogin(toLogin);
+      Animated.timing(fadeAnim, { toValue: 1, duration: 200, useNativeDriver: true }).start();
+    });
+  };
 
   const handle = async () => {
+    if (!isLogin) {
+      if (form.password !== form.confirmPassword) {
+        Alert.alert("Passwords don't match", 'Make sure both password fields are the same.'); return;
+      }
+      if (!agreed) {
+        Alert.alert('Terms required', 'Please agree to continue.'); return;
+      }
+    }
     setLoading(true);
     try {
       const fn = isLogin ? authAPI.login : authAPI.register;
       const res = await fn(form);
       setAuth(res.token, res.user);
     } catch (err: any) {
-      Alert.alert('Error', err.error || 'Something went wrong');
+      Alert.alert('Error', err.error || 'Something went wrong. Please try again.');
     } finally {
       setLoading(false);
     }
   };
 
+  const border = (field: string) =>
+    focused === field ? C.primary : 'rgba(0,108,68,0.15)';
+
   return (
-    <KeyboardAvoidingView style={s.container} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-      <ScrollView contentContainerStyle={s.scroll} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
+    <KeyboardAvoidingView
+      style={s.root}
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+    >
+      {/* Background blobs */}
+      <View style={s.blobTR} />
+      <View style={s.blobBL} />
 
-        {/* ── Decorative gradient blobs ── */}
-        <View style={s.blobTopRight} />
-        <View style={s.blobBottomLeft} />
-
-        {/* ── Logo / Brand ── */}
-        <View style={s.logoSection}>
-          <View style={s.logoCircle}>
-            <View style={s.logoInner}>
-              <Ionicons name="shield-checkmark" size={32} color="#FFFFFF" />
-            </View>
-          </View>
-          <Text style={s.appName}>Routh Flow</Text>
-          <Text style={s.tagline}>Your AI-powered safety companion</Text>
+      <ScrollView
+        contentContainerStyle={s.scroll}
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
+      >
+        {/* Brand */}
+        <View style={s.brand}>
+          <BlurView intensity={50} tint="light" style={s.logoBadge}>
+            <Image
+              source={require('../../assets/pathy-logo.png')}
+              style={s.logoImg}
+              resizeMode="contain"
+            />
+          </BlurView>
+          <Text style={s.appName}>Pathy</Text>
         </View>
 
-        {/* ── Card ── */}
-        <View style={s.card}>
-          {/* Tab toggle */}
-          <View style={s.tabRow}>
-            <TouchableOpacity
-              style={[s.tabBtn, isLogin && s.tabBtnActive]}
-              onPress={() => setIsLogin(true)}
-            >
-              <Text style={[s.tabBtnText, isLogin && s.tabBtnTextActive]}>Sign In</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[s.tabBtn, !isLogin && s.tabBtnActive]}
-              onPress={() => setIsLogin(false)}
-            >
-              <Text style={[s.tabBtnText, !isLogin && s.tabBtnTextActive]}>Create Account</Text>
-            </TouchableOpacity>
-          </View>
+        {/* Tab toggle */}
+        <View style={s.tabWrap}>
+          <BlurView intensity={40} tint="light" style={s.tabBlur}>
+            <View style={s.tabRow}>
+              {['Sign In', 'Create Account'].map((label, i) => {
+                const active = isLogin ? i === 0 : i === 1;
+                return (
+                  <TouchableOpacity
+                    key={label}
+                    style={[s.tabBtn, active && s.tabBtnActive]}
+                    onPress={() => switchTab(i === 0)}
+                    activeOpacity={0.8}
+                  >
+                    <Text style={[s.tabText, active && s.tabTextActive]}>{label}</Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+          </BlurView>
+        </View>
 
-          <Text style={s.heading}>{isLogin ? 'Welcome back 👋' : 'Join Routh Flow'}</Text>
+        {/* Form card */}
+        <Animated.View style={{ opacity: fadeAnim }}>
+          <BlurView intensity={75} tint="light" style={s.card}>
 
-          {!isLogin && (
-            <View style={s.inputWrap}>
-              <View style={s.inputIconWrap}>
-                <Ionicons name="person-outline" size={16} color={COLORS.textMuted} />
+            <Text style={s.heading}>{isLogin ? 'Welcome back 👋' : 'Create your account'}</Text>
+            <Text style={s.sub}>{isLogin ? 'Sign in to continue your journey' : 'Join the community of everyday explorers'}</Text>
+
+            {/* Full name — sign up only */}
+            {!isLogin && (
+              <Field label="Full Name" icon="person-outline" focused={focused === 'name'}
+                input={
+                  <TextInput style={s.input} placeholder="Your full name"
+                    placeholderTextColor="rgba(0,108,68,0.35)"
+                    value={form.name} onChangeText={(v) => setForm({ ...form, name: v })}
+                    onFocus={() => setFocused('name')} onBlur={() => setFocused(null)} />
+                } borderColor={border('name')} />
+            )}
+
+            {/* Email */}
+            <Field label="Email" icon="mail-outline" focused={focused === 'email'}
+              input={
+                <TextInput style={s.input} placeholder="hello@example.com"
+                  placeholderTextColor="rgba(0,108,68,0.35)"
+                  keyboardType="email-address" autoCapitalize="none"
+                  value={form.email} onChangeText={(v) => setForm({ ...form, email: v })}
+                  onFocus={() => setFocused('email')} onBlur={() => setFocused(null)} />
+              } borderColor={border('email')} />
+
+            {/* Password */}
+            <View style={s.fieldGroup}>
+              <View style={s.labelRow}>
+                <Text style={s.label}>Password</Text>
+                {isLogin && (
+                  <TouchableOpacity onPress={() => Alert.alert('Reset password', 'Password reset coming soon.')}>
+                    <Text style={s.forgotLink}>Forgot password?</Text>
+                  </TouchableOpacity>
+                )}
               </View>
-              <TextInput
-                style={s.input}
-                placeholder="Full name"
-                placeholderTextColor={COLORS.textMuted}
-                value={form.name}
-                onChangeText={(v) => setForm({ ...form, name: v })}
-              />
+              <View style={[s.inputWrap, { borderColor: border('pw') }]}>
+                <Ionicons name="lock-closed-outline" size={17} color={focused === 'pw' ? C.primary : C.textMuted} style={s.icon} />
+                <TextInput style={s.input} placeholder="••••••••"
+                  placeholderTextColor="rgba(0,108,68,0.35)"
+                  secureTextEntry={!showPw}
+                  value={form.password} onChangeText={(v) => setForm({ ...form, password: v })}
+                  onFocus={() => setFocused('pw')} onBlur={() => setFocused(null)} />
+                <TouchableOpacity onPress={() => setShowPw(!showPw)} style={s.eye}>
+                  <Ionicons name={showPw ? 'eye-off-outline' : 'eye-outline'} size={17} color={C.textMuted} />
+                </TouchableOpacity>
+              </View>
             </View>
-          )}
 
-          <View style={s.inputWrap}>
-            <View style={s.inputIconWrap}>
-              <Ionicons name="mail-outline" size={16} color={COLORS.textMuted} />
-            </View>
-            <TextInput
-              style={s.input}
-              placeholder="Email address"
-              placeholderTextColor={COLORS.textMuted}
-              keyboardType="email-address"
-              autoCapitalize="none"
-              value={form.email}
-              onChangeText={(v) => setForm({ ...form, email: v })}
-            />
-          </View>
-
-          <View style={s.inputWrap}>
-            <View style={s.inputIconWrap}>
-              <Ionicons name="lock-closed-outline" size={16} color={COLORS.textMuted} />
-            </View>
-            <TextInput
-              style={[s.input, { flex: 1 }]}
-              placeholder="Password"
-              placeholderTextColor={COLORS.textMuted}
-              secureTextEntry={!showPw}
-              value={form.password}
-              onChangeText={(v) => setForm({ ...form, password: v })}
-            />
-            <TouchableOpacity onPress={() => setShowPw(!showPw)} style={s.eyeBtn}>
-              <Ionicons name={showPw ? 'eye-off-outline' : 'eye-outline'} size={16} color={COLORS.textMuted} />
-            </TouchableOpacity>
-          </View>
-
-          {/* Primary CTA */}
-          <TouchableOpacity style={s.btn} onPress={handle} disabled={loading} activeOpacity={0.88}>
-            {loading
-              ? <ActivityIndicator color="#fff" />
-              : (
-                <View style={s.btnContent}>
-                  <Text style={s.btnText}>{isLogin ? 'Sign In' : 'Create Account'}</Text>
-                  <Ionicons name="arrow-forward" size={18} color="#FFFFFF" />
+            {/* Confirm password — sign up only */}
+            {!isLogin && (
+              <View style={s.fieldGroup}>
+                <Text style={s.label}>Confirm Password</Text>
+                <View style={[s.inputWrap, { borderColor: border('cpw') }]}>
+                  <Ionicons name="lock-closed-outline" size={17} color={focused === 'cpw' ? C.primary : C.textMuted} style={s.icon} />
+                  <TextInput style={s.input} placeholder="••••••••"
+                    placeholderTextColor="rgba(0,108,68,0.35)"
+                    secureTextEntry={!showConfirm}
+                    value={form.confirmPassword} onChangeText={(v) => setForm({ ...form, confirmPassword: v })}
+                    onFocus={() => setFocused('cpw')} onBlur={() => setFocused(null)} />
+                  <TouchableOpacity onPress={() => setShowConfirm(!showConfirm)} style={s.eye}>
+                    <Ionicons name={showConfirm ? 'eye-off-outline' : 'eye-outline'} size={17} color={C.textMuted} />
+                  </TouchableOpacity>
                 </View>
-              )
-            }
+              </View>
+            )}
+
+            {/* Terms — sign up only */}
+            {!isLogin && (
+              <TouchableOpacity style={s.termsRow} onPress={() => setAgreed(!agreed)} activeOpacity={0.7}>
+                <View style={[s.checkbox, agreed && s.checkboxOn]}>
+                  {agreed && <Ionicons name="checkmark" size={12} color="#fff" />}
+                </View>
+                <Text style={s.termsText}>
+                  I agree to the <Text style={s.termsLink}>Terms of Service</Text> and <Text style={s.termsLink}>Privacy Policy</Text>
+                </Text>
+              </TouchableOpacity>
+            )}
+
+            {/* CTA */}
+            <TouchableOpacity style={[s.btn, loading && { opacity: 0.7 }]} onPress={handle} disabled={loading} activeOpacity={0.88}>
+              {loading
+                ? <ActivityIndicator color="#fff" />
+                : <View style={s.btnInner}>
+                    <Text style={s.btnText}>{isLogin ? 'Sign In' : 'Create Account'}</Text>
+                    <Ionicons name="arrow-forward" size={18} color="#fff" />
+                  </View>
+              }
+            </TouchableOpacity>
+
+            {/* Divider */}
+            <View style={s.divider}>
+              <View style={s.divLine} />
+              <Text style={s.divText}>OR CONTINUE WITH</Text>
+              <View style={s.divLine} />
+            </View>
+
+            {/* Social */}
+            <View style={s.socialRow}>
+              <TouchableOpacity style={s.socialBtn} activeOpacity={0.85}>
+                <Ionicons name="logo-google" size={18} color={C.text} />
+                <Text style={s.socialText}>Google</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={s.socialBtn} activeOpacity={0.85}>
+                <Ionicons name="logo-apple" size={19} color={C.text} />
+                <Text style={s.socialText}>Apple</Text>
+              </TouchableOpacity>
+            </View>
+
+          </BlurView>
+        </Animated.View>
+
+        {/* Switch link */}
+        <TouchableOpacity onPress={() => switchTab(!isLogin)} style={s.switchRow}>
+          <Text style={s.switchText}>
+            {isLogin ? "Don't have an account? " : 'Already have an account? '}
+            <Text style={s.switchLink}>{isLogin ? 'Sign Up' : 'Sign In'}</Text>
+          </Text>
+        </TouchableOpacity>
+
+        {/* ── Sandbox bypass — DEV only ─────────────────────────────────────
+             This block is stripped from production builds automatically.
+             Tap to skip the backend and go straight to the app with a fake user. */}
+        {__DEV__ && (
+          <TouchableOpacity
+            style={s.sandboxBtn}
+            onPress={() => setAuth(SANDBOX_TOKEN, SANDBOX_USER)}
+            activeOpacity={0.85}
+          >
+            <Ionicons name="flask-outline" size={15} color="#7c3aed" />
+            <Text style={s.sandboxText}>Dev Sandbox — Skip Login</Text>
           </TouchableOpacity>
+        )}
 
-          <TouchableOpacity onPress={() => setIsLogin(!isLogin)} style={s.switchWrap}>
-            <Text style={s.switchText}>
-              {isLogin ? "Don't have an account? " : 'Already have an account? '}
-              <Text style={s.switchLink}>{isLogin ? 'Sign up' : 'Sign in'}</Text>
-            </Text>
-          </TouchableOpacity>
-        </View>
-
-        {/* Feature pills */}
-        <View style={s.featureRow}>
-          <View style={s.featurePill}>
-            <Ionicons name="shield-checkmark" size={13} color="#10B981" />
-            <Text style={s.featurePillText}>Safe Routes</Text>
-          </View>
-          <View style={s.featurePill}>
-            <Ionicons name="sparkles" size={13} color="#4F7FFA" />
-            <Text style={s.featurePillText}>AI Powered</Text>
-          </View>
-          <View style={s.featurePill}>
-            <Ionicons name="location" size={13} color="#F59E0B" />
-            <Text style={s.featurePillText}>Live Map</Text>
-          </View>
-        </View>
-
-        <Text style={s.demo}>Demo: demo@safetrack.app / password</Text>
       </ScrollView>
     </KeyboardAvoidingView>
   );
 }
 
-function makeStyles(COLORS: any) {
-  return StyleSheet.create({
-    container: { flex: 1, backgroundColor: COLORS.background },
-    scroll: { flexGrow: 1, padding: SPACING.xl, paddingTop: 60 },
-
-    // Decorative blobs
-    blobTopRight: {
-      position: 'absolute', top: -40, right: -60,
-      width: 200, height: 200, borderRadius: 100,
-      backgroundColor: COLORS.accentSoft, opacity: 0.7,
-    },
-    blobBottomLeft: {
-      position: 'absolute', bottom: 80, left: -80,
-      width: 220, height: 220, borderRadius: 110,
-      backgroundColor: '#F3EEFF', opacity: 0.6,
-    },
-
-    // Logo
-    logoSection: { alignItems: 'center', marginBottom: SPACING.xxl },
-    logoCircle: {
-      width: 84, height: 84, borderRadius: RADIUS.full,
-      backgroundColor: COLORS.primary,
-      alignItems: 'center', justifyContent: 'center',
-      marginBottom: SPACING.md, ...SHADOW.dark,
-    },
-    logoInner: {
-      width: 64, height: 64, borderRadius: RADIUS.full,
-      alignItems: 'center', justifyContent: 'center',
-    },
-    appName: {
-      fontSize: FONTS.sizes.xxxl, fontWeight: FONTS.weights.black,
-      color: COLORS.text, letterSpacing: -1,
-    },
-    tagline: { fontSize: FONTS.sizes.sm, color: COLORS.textSecondary, marginTop: 4 },
-
-    // Card
-    card: {
-      backgroundColor: COLORS.surface, borderRadius: RADIUS.xl,
-      padding: SPACING.xl, ...SHADOW.md,
-      borderWidth: 1, borderColor: COLORS.border,
-    },
-    tabRow: {
-      flexDirection: 'row', backgroundColor: COLORS.surfaceElevated,
-      borderRadius: RADIUS.md, padding: 4, marginBottom: SPACING.xl,
-    },
-    tabBtn: {
-      flex: 1, paddingVertical: SPACING.sm,
-      alignItems: 'center', borderRadius: RADIUS.sm,
-    },
-    tabBtnActive: {
-      backgroundColor: COLORS.surface, ...SHADOW.xs,
-    },
-    tabBtnText: { fontSize: FONTS.sizes.sm, color: COLORS.textMuted, fontWeight: FONTS.weights.medium },
-    tabBtnTextActive: { color: COLORS.text, fontWeight: FONTS.weights.bold },
-
-    heading: {
-      fontSize: FONTS.sizes.xl, fontWeight: FONTS.weights.bold,
-      color: COLORS.text, marginBottom: SPACING.lg,
-    },
-
-    inputWrap: {
-      flexDirection: 'row', alignItems: 'center',
-      backgroundColor: COLORS.surfaceElevated,
-      borderRadius: RADIUS.md, borderWidth: 1, borderColor: COLORS.border,
-      marginBottom: SPACING.md,
-    },
-    inputIconWrap: {
-      width: 44, alignItems: 'center', justifyContent: 'center',
-    },
-    input: {
-      flex: 1, color: COLORS.text, fontSize: FONTS.sizes.md,
-      paddingVertical: 14, paddingRight: SPACING.md,
-    },
-    eyeBtn: { paddingHorizontal: SPACING.md, paddingVertical: 14 },
-
-    btn: {
-      backgroundColor: COLORS.primary, borderRadius: RADIUS.md,
-      paddingVertical: 16, alignItems: 'center',
-      marginTop: SPACING.sm, ...SHADOW.dark,
-    },
-    btnContent: { flexDirection: 'row', alignItems: 'center', gap: SPACING.sm },
-    btnText: { color: '#fff', fontSize: FONTS.sizes.md, fontWeight: FONTS.weights.bold },
-
-    switchWrap: { alignItems: 'center', marginTop: SPACING.lg },
-    switchText: { color: COLORS.textSecondary, fontSize: FONTS.sizes.sm },
-    switchLink: { color: COLORS.accent, fontWeight: FONTS.weights.semibold },
-
-    // Feature pills
-    featureRow: {
-      flexDirection: 'row', justifyContent: 'center', gap: SPACING.sm,
-      marginTop: SPACING.xl,
-    },
-    featurePill: {
-      flexDirection: 'row', alignItems: 'center', gap: 5,
-      backgroundColor: COLORS.surface, borderRadius: RADIUS.full,
-      paddingHorizontal: SPACING.md, paddingVertical: SPACING.sm,
-      borderWidth: 1, borderColor: COLORS.border,
-    },
-    featurePillText: { fontSize: FONTS.sizes.xs, color: COLORS.textSecondary, fontWeight: FONTS.weights.medium },
-
-    demo: { textAlign: 'center', color: COLORS.textMuted, fontSize: FONTS.sizes.xs, marginTop: SPACING.lg },
-  });
+// ─── Reusable Field wrapper ──────────────────────────────────────────────────
+function Field({ label, icon, input, borderColor, focused }: any) {
+  return (
+    <View style={s.fieldGroup}>
+      <Text style={s.label}>{label}</Text>
+      <View style={[s.inputWrap, { borderColor }]}>
+        <Ionicons name={icon} size={17} color={focused ? C.primary : C.textMuted} style={s.icon} />
+        {input}
+      </View>
+    </View>
+  );
 }
+
+// ─── Styles ──────────────────────────────────────────────────────────────────
+const s = StyleSheet.create({
+  root: { flex: 1, backgroundColor: '#ffffff' },
+
+  blobTR: {
+    position: 'absolute', top: -80, right: -80,
+    width: 280, height: 280, borderRadius: 140,
+    backgroundColor: '#e7fff1', opacity: 0.85,
+  },
+  blobBL: {
+    position: 'absolute', bottom: -60, left: -60,
+    width: 240, height: 240, borderRadius: 120,
+    backgroundColor: '#e1f9eb', opacity: 0.7,
+  },
+
+  scroll: { flexGrow: 1, paddingHorizontal: SPACING.xl, paddingTop: 64, paddingBottom: 48 },
+
+  // Brand
+  brand: { alignItems: 'center', marginBottom: SPACING.xl },
+  logoBadge: {
+    width: 72, height: 72, borderRadius: 20, overflow: 'hidden',
+    alignItems: 'center', justifyContent: 'center',
+    marginBottom: SPACING.sm,
+    borderWidth: 1, borderColor: 'rgba(0,108,68,0.12)', ...SHADOW.sm,
+  },
+  logoImg: { width: 44, height: 44 },
+  appName: { fontSize: 30, fontWeight: '800', color: C.primary, letterSpacing: -0.5 },
+
+  // Tabs
+  tabWrap: { marginBottom: SPACING.lg },
+  tabBlur: {
+    borderRadius: RADIUS.md, overflow: 'hidden',
+    borderWidth: 1, borderColor: 'rgba(0,108,68,0.1)',
+  },
+  tabRow: {
+    flexDirection: 'row', padding: 4,
+    backgroundColor: 'rgba(231,255,241,0.6)',
+  },
+  tabBtn: {
+    flex: 1, paddingVertical: 11,
+    alignItems: 'center', borderRadius: RADIUS.sm - 2,
+  },
+  tabBtnActive: {
+    backgroundColor: '#ffffff',
+    shadowColor: '#006c44', shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1, shadowRadius: 6, elevation: 3,
+  },
+  tabText: { fontSize: FONTS.sizes.sm, fontWeight: '500', color: 'rgba(0,108,68,0.45)' },
+  tabTextActive: { color: C.primary, fontWeight: '700' },
+
+  // Card
+  card: {
+    borderRadius: RADIUS.xl, overflow: 'hidden',
+    borderWidth: 1, borderColor: 'rgba(0,108,68,0.1)',
+    padding: SPACING.xl,
+    backgroundColor: 'rgba(255,255,255,0.8)',
+    ...SHADOW.sm,
+  },
+  heading: { fontSize: FONTS.sizes.xl, fontWeight: '700', color: C.text, marginBottom: 4 },
+  sub: { fontSize: FONTS.sizes.sm, color: C.textSecondary, marginBottom: SPACING.xl },
+
+  // Fields
+  fieldGroup: { marginBottom: SPACING.md },
+  labelRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: SPACING.xs },
+  label: { fontSize: FONTS.sizes.sm, fontWeight: '600', color: C.text, marginBottom: SPACING.xs },
+  forgotLink: { fontSize: FONTS.sizes.xs, color: C.primary, fontWeight: '600' },
+  inputWrap: {
+    flexDirection: 'row', alignItems: 'center',
+    backgroundColor: 'rgba(255,255,255,0.95)',
+    borderRadius: RADIUS.md, borderWidth: 1.5,
+  },
+  icon: { marginLeft: 14 },
+  input: {
+    flex: 1, fontSize: FONTS.sizes.md, color: '#0b1f17',
+    paddingVertical: 14, paddingHorizontal: SPACING.sm,
+  },
+  eye: { paddingHorizontal: 14, paddingVertical: 14 },
+
+  // Terms
+  termsRow: { flexDirection: 'row', alignItems: 'flex-start', gap: SPACING.sm, marginBottom: SPACING.lg, marginTop: SPACING.xs },
+  checkbox: {
+    width: 20, height: 20, borderRadius: 5,
+    borderWidth: 1.5, borderColor: 'rgba(0,108,68,0.3)',
+    alignItems: 'center', justifyContent: 'center', marginTop: 1,
+    backgroundColor: '#fff',
+  },
+  checkboxOn: { backgroundColor: C.primary, borderColor: C.primary },
+  termsText: { flex: 1, fontSize: FONTS.sizes.xs, color: C.textSecondary, lineHeight: 19 },
+  termsLink: { color: C.primary, fontWeight: '600' },
+
+  // CTA
+  btn: {
+    backgroundColor: C.primary, borderRadius: RADIUS.full,
+    paddingVertical: 16, alignItems: 'center', marginTop: SPACING.sm,
+    shadowColor: '#006c44', shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.28, shadowRadius: 12, elevation: 6,
+  },
+  btnInner: { flexDirection: 'row', alignItems: 'center', gap: SPACING.sm },
+  btnText: { color: '#fff', fontSize: FONTS.sizes.md, fontWeight: '700' },
+
+  // Divider
+  divider: { flexDirection: 'row', alignItems: 'center', gap: SPACING.sm, marginTop: SPACING.xl, marginBottom: SPACING.lg },
+  divLine: { flex: 1, height: 1, backgroundColor: 'rgba(0,108,68,0.12)' },
+  divText: { fontSize: 10, color: C.textMuted, fontWeight: '600', letterSpacing: 0.8 },
+
+  // Social
+  socialRow: { flexDirection: 'row', gap: SPACING.md },
+  socialBtn: {
+    flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: SPACING.sm,
+    backgroundColor: 'rgba(255,255,255,0.95)', borderRadius: RADIUS.full,
+    paddingVertical: 14, borderWidth: 1.5, borderColor: 'rgba(0,108,68,0.15)',
+  },
+  socialText: { fontSize: FONTS.sizes.sm, fontWeight: '600', color: C.text },
+
+  // Switch
+  switchRow: { alignItems: 'center', marginTop: SPACING.lg },
+  switchText: { fontSize: FONTS.sizes.sm, color: C.textSecondary },
+  switchLink: { color: C.primary, fontWeight: '700' },
+
+  // Sandbox bypass button
+  sandboxBtn: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+    gap: SPACING.sm, marginTop: SPACING.xl,
+    paddingVertical: 12, paddingHorizontal: SPACING.xl,
+    borderRadius: RADIUS.full,
+    borderWidth: 1.5, borderColor: 'rgba(124,58,237,0.3)',
+    backgroundColor: 'rgba(124,58,237,0.06)',
+  },
+  sandboxText: { fontSize: FONTS.sizes.xs, color: '#7c3aed', fontWeight: '600' },
+});
