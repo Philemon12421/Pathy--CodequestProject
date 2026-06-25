@@ -36,7 +36,10 @@ public class AdsController extends BaseController {
   }
 
   // ── Price helper ─────────────────────────────────────────────────────────────
-  // Mirrors the frontend: basePrice * 2^index (in GHS). Returned in pesewas for Paystack.
+  // Computes price where each larger radius option costs double the previous one.
+  // Smallest size (index 0) starts at GH₵ 50; subsequent sizes are 100, 200, 400, 800 GH₵.
+  // Returned amount is in pesewas for Paystack.
+
   private int computeAmountPesewas(double radiusKm) {
     int idx = 0;
     double minDiff = Double.MAX_VALUE;

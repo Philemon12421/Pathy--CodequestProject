@@ -12,8 +12,14 @@ import { FONTS, RADIUS, SPACING, SHADOW } from '../config/theme';
 import { adsAPI } from '../services/api';
 import useStore from '../store/useStore';
 
-const STEPS = ['Details', 'Location', 'Payment Details', 'Pay GHS 50'];
 const RADIUS_OPTIONS = ['0.5', '1', '2', '5', '10'];
+const BASE_PRICE_GHS = 50;
+
+// Price doubles with each larger radius: 50, 100, 200, 400, 800
+function computePrice(radiusKm: string): number {
+  const idx = RADIUS_OPTIONS.indexOf(radiusKm);
+  return BASE_PRICE_GHS * Math.pow(2, idx >= 0 ? idx : 0);
+}
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 function daysLeft(expiresAt: any) {
@@ -314,7 +320,7 @@ export default function AdPortalScreen() {
 
         {/* Step indicator */}
         <View style={s.stepRow}>
-          {STEPS.map((label, i) => (
+          {['Details', 'Location', 'Payment Details', `Pay GHS ${computePrice(form.radius_km)}`].map((label, i) => (
             <React.Fragment key={label}>
               <View style={s.stepItem}>
                 <View style={[s.stepCircle, i <= step && { backgroundColor: COLORS.primary }]}>
@@ -325,7 +331,7 @@ export default function AdPortalScreen() {
                 </View>
                 <Text style={[s.stepLabel, i === step && { color: COLORS.primary }]}>{label}</Text>
               </View>
-              {i < STEPS.length - 1 && <View style={[s.stepLine, i < step && { backgroundColor: COLORS.primary }]} />}
+              {i < 3 && <View style={[s.stepLine, i < step && { backgroundColor: COLORS.primary }]} />}
             </React.Fragment>
           ))}
         </View>
@@ -481,7 +487,7 @@ export default function AdPortalScreen() {
                     />
                     <View style={s.momoHintRow}>
                       <Ionicons name="information-circle" size={14} color={COLORS.textMuted} />
-                      <Text style={s.momoHintText}>You will receive a MoMo prompt to authorise GHS 50</Text>
+                      <Text style={s.momoHintText}>You will receive a MoMo prompt to authorise GHS {computePrice(form.radius_km)}</Text>
                     </View>
                   </View>
                 )}
@@ -573,7 +579,7 @@ export default function AdPortalScreen() {
                       <Text style={s.priceLabel}>Map Ad — 30 Days</Text>
                       <Text style={s.priceSubLabel}>Appear on Routh Flow for all nearby users</Text>
                     </View>
-                    <Text style={s.priceAmount}>GHS 50</Text>
+                    <Text style={s.priceAmount}>GHS {computePrice(form.radius_km)}</Text>
                   </View>
                   <View style={s.priceDivider} />
                   <View style={s.summaryRow}><Text style={s.summaryKey}>Business</Text><Text style={s.summaryVal}>{form.business_name}</Text></View>
@@ -591,7 +597,7 @@ export default function AdPortalScreen() {
                   </View>
                   <View style={[s.summaryRow, s.summaryTotal]}>
                     <Text style={s.summaryTotalKey}>Total</Text>
-                    <Text style={s.summaryTotalVal}>GHS 50.00</Text>
+                    <Text style={s.summaryTotalVal}>GHS {computePrice(form.radius_km).toFixed(2)}</Text>
                   </View>
                 </View>
 
@@ -603,7 +609,7 @@ export default function AdPortalScreen() {
                 <TouchableOpacity style={s.payBtn} onPress={payAndActivate} disabled={submitting}>
                   {submitting
                     ? <ActivityIndicator color="#fff" />
-                    : <><Ionicons name="card" size={20} color="#fff" /><Text style={s.payBtnText}>Pay GHS 50 & Go Live</Text></>
+                    : <><Ionicons name="card" size={20} color="#fff" /><Text style={s.payBtnText}>Pay GHS {computePrice(form.radius_km)} & Go Live</Text></>
                   }
                 </TouchableOpacity>
 
@@ -650,7 +656,7 @@ export default function AdPortalScreen() {
             </View>
           </View>
           <View style={s.promoPriceBadge}>
-            <Text style={s.promoPriceSub}>only</Text>
+            <Text style={s.promoPriceSub}>from</Text>
             <Text style={s.promoPriceAmount}>GHS</Text>
             <Text style={s.promoPriceNum}>50</Text>
           </View>
