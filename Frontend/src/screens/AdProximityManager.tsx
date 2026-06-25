@@ -5,6 +5,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useColors } from '../config/ThemeContext';
+import { FONTS, RADIUS, SPACING, SHADOW } from '../config/theme';
 import { adsAPI } from '../services/api';
 import useStore from '../store/useStore';
 

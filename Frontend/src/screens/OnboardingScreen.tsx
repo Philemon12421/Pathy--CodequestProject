@@ -86,7 +86,7 @@ export default function OnboardingScreen({ onDone }: Props) {
         scrollEventThrottle={16}
         onScroll={Animated.event(
           [{ nativeEvent: { contentOffset: { x: scrollX } } }],
-          { useNativeDriver: true }
+          { useNativeDriver: false }
         )}
         onMomentumScrollEnd={(e) => {
           const idx = Math.round(e.nativeEvent.contentOffset.x / width);
