@@ -21,7 +21,7 @@ const C = getColors('light');
 const SANDBOX_USER = { id: 0, name: 'Demo User', email: 'demo@pathy.app', role: 'user' };
 const SANDBOX_TOKEN = 'sandbox_dev_token';
 
-export default function LoginScreen() {
+export default function LoginScreen({ navigation }: any) {
   const setAuth = useStore((s) => s.setAuth);
   const [isLogin, setIsLogin] = useState(true);
   const [form, setForm] = useState({ name: '', email: '', password: '', confirmPassword: '' });
@@ -148,7 +148,7 @@ export default function LoginScreen() {
               <View style={s.labelRow}>
                 <Text style={s.label}>Password</Text>
                 {isLogin && (
-                  <TouchableOpacity onPress={() => Alert.alert('Reset password', 'Password reset coming soon.')}>
+                  <TouchableOpacity onPress={() => navigation.navigate('ForgotPassword')}>
                     <Text style={s.forgotLink}>Forgot password?</Text>
                   </TouchableOpacity>
                 )}
