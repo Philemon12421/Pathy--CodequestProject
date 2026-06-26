@@ -42,10 +42,10 @@ function timeAgo(ts: any) {
 
 // ─── FAB shortcuts ────────────────────────────────────────────────────────────
 const FAB_ITEMS = [
-  { key: 'report', label: 'Report',  icon: 'warning',       color: '#E24B4A', bg: '#fdecea', route: 'Report' },
-  { key: 'music',  label: 'Music',   icon: 'musical-notes', color: '#7F77DD', bg: '#f0effe', route: 'Music'  },
-  { key: 'ads',    label: 'Deals',   icon: 'megaphone',     color: '#EF9F27', bg: '#fff8e1', route: 'Ads'    },
-  { key: 'routes', label: 'Routes',  icon: 'navigate',      color: '#006c44', bg: '#e1f9eb', route: 'Routes' },
+  { key: 'report', label: 'Report',       icon: 'warning',       color: '#E24B4A', bg: '#fdecea', route: 'Report'      },
+  { key: 'music',  label: 'Music',        icon: 'musical-notes', color: '#7F77DD', bg: '#f0effe', route: 'Music'       },
+  { key: 'deals',  label: 'Nearby Deals', icon: 'storefront',    color: '#EF9F27', bg: '#fff8e1', route: 'NearbyDeals' },
+  { key: 'post',   label: 'Post Route',   icon: 'share-outline', color: '#006c44', bg: '#e1f9eb', route: 'PostRoute'   },
 ];
 
 export default function HomeScreen({ navigation }: any) {

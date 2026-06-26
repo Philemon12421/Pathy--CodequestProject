@@ -10,19 +10,25 @@ import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-cont
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-import SplashScreen from './src/screens/SplashScreen';
-import OnboardingScreen from './src/screens/OnboardingScreen';
-import HomeScreen from './src/screens/HomeScreen';
-import MapScreen from './src/screens/MapScreen';
-import AIScreen from './src/screens/AIScreen';
-import RoutesScreen from './src/screens/RoutesScreen';
-import ReportScreen from './src/screens/ReportScreen';
-import MusicScreen from './src/screens/MusicScreen';
-import LoginScreen from './src/screens/LoginScreen';
-import AdPortalScreen from './src/screens/AdPortalScreen';
-import AdProximityManager from './src/screens/AdProximityManager';
-import ProfileScreen from './src/screens/ProfileScreen';
+import SplashScreen        from './src/screens/SplashScreen';
+import OnboardingScreen    from './src/screens/OnboardingScreen';
+import LoginScreen         from './src/screens/LoginScreen';
 import ForgotPasswordScreen from './src/screens/ForgotPasswordScreen';
+import EmailVerificationScreen from './src/screens/EmailVerificationScreen';
+
+import HomeScreen          from './src/screens/HomeScreen';
+import MapScreen           from './src/screens/MapScreen';
+import LeaderboardScreen   from './src/screens/LeaderboardScreen';
+import AIScreen            from './src/screens/AIScreen';
+
+import RoutesScreen        from './src/screens/RoutesScreen';
+import ReportScreen        from './src/screens/ReportScreen';
+import MusicScreen         from './src/screens/MusicScreen';
+import AdPortalScreen      from './src/screens/AdPortalScreen';
+import NearbyDealsScreen   from './src/screens/NearbyDealsScreen';
+import PostRouteScreen     from './src/screens/PostRouteScreen';
+import ProfileScreen       from './src/screens/ProfileScreen';
+import AdProximityManager  from './src/screens/AdProximityManager';
 
 import useStore from './src/store/useStore';
 import { ThemeProvider } from './src/config/ThemeContext';
@@ -32,9 +38,7 @@ const AppStack = createNativeStackNavigator();
 const MainStack = createNativeStackNavigator();
 const ONBOARDING_KEY = 'pathy_has_onboarded';
 
-// ─── Stitch-style flat 4-tab navbar ──────────────────────────────────────────
-// Matches the Stitch design exactly: white bg, 4 tabs, active = deep green
-// icon + label, inactive = grey, flat (no pill/blur/floating style)
+// ─── Stitch flat 4-tab navbar ─────────────────────────────────────────────────
 const TAB_CONFIG: Record<string, { icon: string; iconActive: string; label: string }> = {
   Home:        { icon: 'home-outline',     iconActive: 'home',     label: 'Home' },
   Map:         { icon: 'navigate-outline', iconActive: 'navigate', label: 'Map' },
@@ -44,13 +48,11 @@ const TAB_CONFIG: Record<string, { icon: string; iconActive: string; label: stri
 
 function CustomTabBar({ state, descriptors, navigation }: any) {
   const insets = useSafeAreaInsets();
-
   return (
     <View style={[nb.bar, { paddingBottom: Math.max(insets.bottom, 8) }]}>
       {state.routes.map((route: any, index: number) => {
         const focused = state.index === index;
         const cfg = TAB_CONFIG[route.name] || { icon: 'ellipse-outline', iconActive: 'ellipse', label: route.name };
-
         return (
           <TouchableOpacity
             key={route.key}
@@ -61,11 +63,7 @@ function CustomTabBar({ state, descriptors, navigation }: any) {
             }}
             activeOpacity={0.7}
           >
-            <Ionicons
-              name={(focused ? cfg.iconActive : cfg.icon) as any}
-              size={24}
-              color={focused ? '#006c44' : '#9aa8a0'}
-            />
+            <Ionicons name={(focused ? cfg.iconActive : cfg.icon) as any} size={24} color={focused ? '#006c44' : '#9aa8a0'} />
             <Text style={[nb.label, focused && nb.labelActive]}>{cfg.label}</Text>
           </TouchableOpacity>
         );
@@ -75,27 +73,18 @@ function CustomTabBar({ state, descriptors, navigation }: any) {
 }
 
 const nb = StyleSheet.create({
-  bar: {
-    flexDirection: 'row',
-    backgroundColor: '#ffffff',
-    borderTopWidth: 1,
-    borderTopColor: 'rgba(0,108,68,0.1)',
-    paddingTop: 10,
-  },
+  bar: { flexDirection: 'row', backgroundColor: '#ffffff', borderTopWidth: 1, borderTopColor: 'rgba(0,108,68,0.1)', paddingTop: 10 },
   tab: { flex: 1, alignItems: 'center', gap: 3 },
   label: { fontSize: 11, color: '#9aa8a0', fontWeight: '500' },
   labelActive: { color: '#006c44', fontWeight: '700' },
 });
 
-// ─── Main Tabs ─────────────────────────────────────────────────────────────
-// 4 tabs matching Stitch: Home, Map, Leaderboard (Routes), Chat (AI)
-// Report / Music / Ads are in the MainStack reached via the Home FAB "+" menu
 function MainTabs() {
   return (
-    <Tab.Navigator tabBar={(p) => <CustomTabBar {...p} />} screenOptions={{ headerShown: false }}>
+    <Tab.Navigator tabBar={p => <CustomTabBar {...p} />} screenOptions={{ headerShown: false }}>
       <Tab.Screen name="Home"        component={HomeScreen} />
       <Tab.Screen name="Map"         component={MapScreen} />
-      <Tab.Screen name="Leaderboard" component={RoutesScreen} />
+      <Tab.Screen name="Leaderboard" component={LeaderboardScreen} />
       <Tab.Screen name="Chat"        component={AIScreen} />
     </Tab.Navigator>
   );
@@ -105,21 +94,21 @@ function MainApp() {
   return (
     <View style={{ flex: 1 }}>
       <MainStack.Navigator screenOptions={{ headerShown: false }}>
-        <MainStack.Screen name="Tabs"    component={MainTabs} />
-        <MainStack.Screen name="Profile" component={ProfileScreen} options={{ animation: 'slide_from_right' }} />
-        <MainStack.Screen name="Report"  component={ReportScreen} options={{ animation: 'slide_from_bottom', presentation: 'modal' }} />
-        <MainStack.Screen name="Music"   component={MusicScreen} options={{ animation: 'slide_from_bottom', presentation: 'modal' }} />
-        <MainStack.Screen name="Ads"     component={AdPortalScreen} options={{ animation: 'slide_from_right' }} />
-        {/* Keep these navigable by name from anywhere in the app */}
-        <MainStack.Screen name="Routes"  component={RoutesScreen} options={{ animation: 'slide_from_right' }} />
-        <MainStack.Screen name="AI"      component={AIScreen} options={{ animation: 'slide_from_right' }} />
+        <MainStack.Screen name="Tabs"         component={MainTabs} />
+        <MainStack.Screen name="Profile"      component={ProfileScreen}      options={{ animation: 'slide_from_right' }} />
+        <MainStack.Screen name="Routes"       component={RoutesScreen}       options={{ animation: 'slide_from_right' }} />
+        <MainStack.Screen name="Report"       component={ReportScreen}       options={{ animation: 'slide_from_bottom', presentation: 'modal' }} />
+        <MainStack.Screen name="Music"        component={MusicScreen}        options={{ animation: 'slide_from_bottom', presentation: 'modal' }} />
+        <MainStack.Screen name="Ads"          component={AdPortalScreen}     options={{ animation: 'slide_from_right' }} />
+        <MainStack.Screen name="NearbyDeals"  component={NearbyDealsScreen}  options={{ animation: 'slide_from_right' }} />
+        <MainStack.Screen name="PostRoute"    component={PostRouteScreen}    options={{ animation: 'slide_from_bottom', presentation: 'modal' }} />
+        <MainStack.Screen name="AI"           component={AIScreen}           options={{ animation: 'slide_from_right' }} />
       </MainStack.Navigator>
       <AdProximityManager />
     </View>
   );
 }
 
-// ─── Boot flow ─────────────────────────────────────────────────────────────
 type Phase = 'splash' | 'onboarding' | 'app';
 
 function RootFlow({ token }: { token: string | null }) {
@@ -128,28 +117,34 @@ function RootFlow({ token }: { token: string | null }) {
 
   useEffect(() => {
     AsyncStorage.getItem(ONBOARDING_KEY)
-      .then((v) => setHasOnboarded(v === 'true'))
+      .then(v => setHasOnboarded(v === 'true'))
       .catch(() => setHasOnboarded(false));
   }, []);
 
   if (phase === 'splash') {
     return <SplashScreen onFinish={() => setPhase(hasOnboarded ? 'app' : 'onboarding')} />;
   }
+
   if (phase === 'onboarding') {
     return (
       <AppStack.Navigator screenOptions={{ headerShown: false }}>
         <AppStack.Screen name="Onboarding">
           {() => <OnboardingScreen hasToken={!!token} onDone={() => setPhase('app')} />}
         </AppStack.Screen>
+        <AppStack.Screen name="Login"               component={LoginScreen} />
+        <AppStack.Screen name="ForgotPassword"      component={ForgotPasswordScreen}      options={{ animation: 'slide_from_right' }} />
+        <AppStack.Screen name="EmailVerification"   component={EmailVerificationScreen}   options={{ animation: 'slide_from_right' }} />
       </AppStack.Navigator>
     );
   }
+
   return (
     <AppStack.Navigator screenOptions={{ headerShown: false }}>
       {!token ? (
         <>
-          <AppStack.Screen name="Login" component={LoginScreen} />
-          <AppStack.Screen name="ForgotPassword" component={ForgotPasswordScreen} options={{ animation: 'slide_from_right' }} />
+          <AppStack.Screen name="Login"             component={LoginScreen} />
+          <AppStack.Screen name="ForgotPassword"    component={ForgotPasswordScreen}    options={{ animation: 'slide_from_right' }} />
+          <AppStack.Screen name="EmailVerification" component={EmailVerificationScreen} options={{ animation: 'slide_from_right' }} />
         </>
       ) : (
         <AppStack.Screen name="Main" component={MainApp} />
