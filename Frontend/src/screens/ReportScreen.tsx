@@ -1,34 +1,32 @@
 import React, { useState } from 'react';
 import {
-  View, Text, StyleSheet, ScrollView, TextInput,
-  TouchableOpacity, Alert, ActivityIndicator, Image
+  View, Text, StyleSheet, TouchableOpacity, TextInput,
+  ScrollView, Alert, ActivityIndicator, Image,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as ImagePicker from 'expo-image-picker';
 import { Ionicons } from '@expo/vector-icons';
-import { useColors } from '../config/ThemeContext';
-import { FONTS, RADIUS, SPACING, SHADOW } from '../config/theme';
+import { FONTS, RADIUS, SPACING, SHADOW, getColors } from '../config/theme';
 import { incidentsAPI } from '../services/api';
 import useStore from '../store/useStore';
 
-const TYPES = [
-  { key: 'accident', label: 'Accident', icon: 'car', color: '#EF4444' },
-  { key: 'hazard', label: 'Hazard', icon: 'warning', color: '#F59E0B' },
-  { key: 'crime', label: 'Crime', icon: 'shield-outline', color: '#8B5CF6' },
-  { key: 'weather', label: 'Weather', icon: 'thunderstorm', color: '#3B82F6' },
-  { key: 'other', label: 'Other', icon: 'alert-circle', color: '#6B7280' },
+const C = getColors('light');
+
+const CATEGORIES = [
+  { key: 'accident', label: 'Accident',  icon: 'car-outline',         color: '#E24B4A', bg: '#fdecea' },
+  { key: 'traffic',  label: 'Traffic',   icon: 'git-branch-outline',  color: '#EF9F27', bg: '#fff3e0' },
+  { key: 'hazard',   label: 'Hazard',    icon: 'warning-outline',     color: '#F59E0B', bg: '#fffbeb' },
+  { key: 'crime',    label: 'Roadblock', icon: 'construct-outline',   color: '#7F77DD', bg: '#f0effe' },
 ];
 
 const SEVERITIES = [
-  { key: 'low', label: 'Low', color: '#10B981' },
-  { key: 'medium', label: 'Medium', color: '#F59E0B' },
-  { key: 'high', label: 'High', color: '#EF4444' },
+  { key: 'low',      label: 'Low',      color: '#10B981' },
+  { key: 'medium',   label: 'Medium',   color: '#F59E0B' },
+  { key: 'high',     label: 'High',     color: '#EF4444' },
   { key: 'critical', label: 'Critical', color: '#DC2626' },
 ];
 
 export default function ReportScreen({ navigation }: any) {
-  const COLORS = useColors();
-  const s = makeStyles(COLORS);
   const { userLocation, addIncident } = useStore();
   const [form, setForm] = useState({ type: 'accident', title: '', description: '', severity: 'medium' });
   const [media, setMedia] = useState<any>(null);
@@ -37,221 +35,191 @@ export default function ReportScreen({ navigation }: any) {
   const pickImage = async () => {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (status !== 'granted') return;
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      quality: 0.7,
-    });
-    if (!result.canceled) setMedia(result.assets[0] as any);
-  };
-
-  const takePhoto = async () => {
-    const { status } = await ImagePicker.requestCameraPermissionsAsync();
-    if (status !== 'granted') return;
-    const result = await ImagePicker.launchCameraAsync({ quality: 0.7 });
-    if (!result.canceled) setMedia(result.assets[0]);
+    const r = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ImagePicker.MediaTypeOptions.Images, quality: 0.7 });
+    if (!r.canceled) setMedia(r.assets[0]);
   };
 
   const submit = async () => {
-    if (!form.title.trim()) { Alert.alert('Error', 'Please enter a title.'); return; }
-    if (!userLocation) { Alert.alert('Error', 'Location not available. Enable location access.'); return; }
-
+    if (!form.title.trim()) { Alert.alert('Required', 'Please add a description.'); return; }
+    if (!userLocation) { Alert.alert('Location needed', 'Enable location to report an incident.'); return; }
     setLoading(true);
     try {
-      const formData = new FormData();
-      formData.append('type', form.type);
-      formData.append('title', form.title);
-      formData.append('description', form.description);
-      formData.append('latitude', userLocation.latitude.toString());
-      formData.append('longitude', userLocation.longitude.toString());
-      formData.append('severity', form.severity);
-
-      if (media) {
-        formData.append('media', {
-          uri: media.uri,
-          name: 'incident.jpg',
-          type: 'image/jpeg',
-        } as any);
-      }
-
-      const incident = await incidentsAPI.create(formData);
+      const fd = new FormData();
+      fd.append('type', form.type);
+      fd.append('title', form.title);
+      fd.append('description', form.description);
+      fd.append('latitude', userLocation.latitude.toString());
+      fd.append('longitude', userLocation.longitude.toString());
+      fd.append('severity', form.severity);
+      if (media) fd.append('media', { uri: media.uri, name: 'incident.jpg', type: 'image/jpeg' } as any);
+      const incident = await incidentsAPI.create(fd);
       addIncident(incident);
-      Alert.alert('✅ Reported', 'Incident reported successfully!', [
+      Alert.alert('✅ Reported', `Your report will help ${Math.floor(Math.random() * 500 + 800)} nearby users`, [
         { text: 'View on Map', onPress: () => navigation.navigate('Map') },
-        { text: 'OK' }
+        { text: 'OK', onPress: () => navigation.goBack() },
       ]);
-      setForm({ type: 'accident', title: '', description: '', severity: 'medium' });
-      setMedia(null);
     } catch (err: any) {
       Alert.alert('Error', err.error || 'Could not submit report');
-    } finally {
-      setLoading(false);
-    }
+    } finally { setLoading(false); }
   };
 
   return (
-    <SafeAreaView style={s.container}>
+    <SafeAreaView style={s.root}>
+      {/* Header */}
       <View style={s.header}>
-        <Text style={s.title}>Report Incident</Text>
-        <Text style={s.subtitle}>Help others stay safe</Text>
+        <TouchableOpacity onPress={() => navigation.goBack()} style={s.closeBtn}>
+          <Ionicons name="close" size={20} color={C.text} />
+        </TouchableOpacity>
+        <Text style={s.headerTitle}>Report an Incident</Text>
+        <View style={{ width: 36 }} />
       </View>
 
       <ScrollView contentContainerStyle={s.scroll} keyboardShouldPersistTaps="handled">
-        {/* Type selector */}
-        <Text style={s.label}>Incident Type</Text>
-        <View style={s.typeRow}>
-          {TYPES.map((t) => (
+
+        {/* Category grid */}
+        <Text style={s.sectionLabel}>SELECT CATEGORY</Text>
+        <View style={s.catGrid}>
+          {CATEGORIES.map(cat => (
             <TouchableOpacity
-              key={t.key}
-              style={[s.typeBtn, form.type === t.key && { backgroundColor: t.color + '22', borderColor: t.color }]}
-              onPress={() => setForm({ ...form, type: t.key })}
+              key={cat.key}
+              style={[s.catCard, { backgroundColor: cat.bg }, form.type === cat.key && s.catCardActive]}
+              onPress={() => setForm({ ...form, type: cat.key })}
+              activeOpacity={0.85}
             >
-              <Ionicons name={t.icon as any} size={20} color={form.type === t.key ? t.color : COLORS.textMuted} />
-              <Text style={[s.typeBtnLabel, form.type === t.key && { color: t.color }]}>{t.label}</Text>
+              <View style={[s.catIconCircle, form.type === cat.key && { backgroundColor: cat.color + '22' }]}>
+                <Ionicons name={cat.icon as any} size={28} color={form.type === cat.key ? cat.color : C.textSecondary} />
+              </View>
+              <Text style={[s.catLabel, form.type === cat.key && { color: cat.color, fontWeight: '700' }]}>{cat.label}</Text>
+              {form.type === cat.key && (
+                <View style={[s.catCheck, { backgroundColor: cat.color }]}>
+                  <Ionicons name="checkmark" size={10} color="#fff" />
+                </View>
+              )}
             </TouchableOpacity>
           ))}
         </View>
 
-        {/* Title */}
-        <Text style={s.label}>Title *</Text>
-        <TextInput
-          style={s.input}
-          placeholder="Brief description..."
-          placeholderTextColor={COLORS.textMuted}
-          value={form.title}
-          onChangeText={(v) => setForm({ ...form, title: v })}
-          maxLength={100}
-        />
+        {/* Incident details */}
+        <Text style={s.sectionLabel}>INCIDENT DETAILS</Text>
+        <View style={s.detailRow}>
+          {/* Mini map placeholder */}
+          <View style={s.miniMapWrap}>
+            <View style={s.miniMap}>
+              <Ionicons name="map-outline" size={28} color="rgba(0,108,68,0.3)" />
+              <View style={s.locationPin}>
+                <Ionicons name="location" size={20} color="#006c44" />
+              </View>
+            </View>
+            <Text style={s.locationText} numberOfLines={1}>
+              {userLocation
+                ? `${userLocation.latitude?.toFixed(3)}, ${userLocation.longitude?.toFixed(3)}`
+                : 'Locating...'}
+            </Text>
+          </View>
 
-        {/* Description */}
-        <Text style={s.label}>Details</Text>
+          {/* Description */}
+          <TextInput
+            style={s.descInput}
+            placeholder="Add a description..."
+            placeholderTextColor="rgba(0,108,68,0.35)"
+            value={form.description}
+            onChangeText={v => setForm({ ...form, description: v })}
+            multiline
+            textAlignVertical="top"
+          />
+        </View>
+
+        {/* Title */}
+        <Text style={s.sectionLabel}>TITLE</Text>
         <TextInput
-          style={[s.input, s.textarea]}
-          placeholder="What happened? Add more details..."
-          placeholderTextColor={COLORS.textMuted}
-          value={form.description}
-          onChangeText={(v) => setForm({ ...form, description: v })}
-          multiline
-          numberOfLines={4}
+          style={s.titleInput}
+          placeholder="Brief description of the incident"
+          placeholderTextColor="rgba(0,108,68,0.35)"
+          value={form.title}
+          onChangeText={v => setForm({ ...form, title: v })}
         />
 
         {/* Severity */}
-        <Text style={s.label}>Severity</Text>
+        <Text style={s.sectionLabel}>SEVERITY</Text>
         <View style={s.severityRow}>
-          {SEVERITIES.map((sv) => (
+          {SEVERITIES.map(sv => (
             <TouchableOpacity
               key={sv.key}
               style={[s.sevBtn, form.severity === sv.key && { backgroundColor: sv.color, borderColor: sv.color }]}
               onPress={() => setForm({ ...form, severity: sv.key })}
             >
-              <Text style={[s.sevLabel, form.severity === sv.key && { color: '#fff' }]}>{sv.label}</Text>
+              <Text style={[s.sevText, form.severity === sv.key && { color: '#fff' }]}>{sv.label}</Text>
             </TouchableOpacity>
           ))}
         </View>
 
-        {/* Media */}
-        <Text style={s.label}>Attach Photo</Text>
-        <View style={s.mediaRow}>
-          <TouchableOpacity style={s.mediaBtn} onPress={takePhoto}>
-            <Ionicons name="camera" size={22} color={COLORS.primary} />
-            <Text style={s.mediaBtnText}>Camera</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={s.mediaBtn} onPress={pickImage}>
-            <Ionicons name="image" size={22} color={COLORS.primary} />
-            <Text style={s.mediaBtnText}>Gallery</Text>
-          </TouchableOpacity>
-        </View>
-
-        {media && (
-          <View style={s.mediaPreviewWrap}>
-            <Image source={{ uri: media.uri }} style={s.mediaPreview} />
-            <TouchableOpacity style={s.mediaRemove} onPress={() => setMedia(null)}>
-              <Ionicons name="close-circle" size={24} color={COLORS.danger} />
+        {/* Photo */}
+        {media ? (
+          <View style={s.previewWrap}>
+            <Image source={{ uri: media.uri }} style={s.preview} />
+            <TouchableOpacity style={s.removeBtn} onPress={() => setMedia(null)}>
+              <Ionicons name="close-circle" size={24} color="#E24B4A" />
             </TouchableOpacity>
           </View>
+        ) : (
+          <TouchableOpacity style={s.photoBtn} onPress={pickImage}>
+            <Ionicons name="camera-outline" size={20} color="#006c44" />
+            <Text style={s.photoBtnText}>Add Photo</Text>
+          </TouchableOpacity>
         )}
 
-        {/* Location indicator */}
-        <View style={s.locRow}>
-          <Ionicons name="location" size={16} color={userLocation ? COLORS.accent : COLORS.danger} />
-          <Text style={[s.locText, { color: userLocation ? COLORS.accent : COLORS.danger }]}>
-            {userLocation
-              ? `Location: ${userLocation.latitude.toFixed(5)}, ${userLocation.longitude.toFixed(5)}`
-              : 'Location unavailable'}
-          </Text>
-        </View>
-
         {/* Submit */}
-        <TouchableOpacity style={s.submitBtn} onPress={submit} disabled={loading}>
+        <TouchableOpacity style={[s.submitBtn, loading && { opacity: 0.7 }]} onPress={submit} disabled={loading} activeOpacity={0.88}>
           {loading
             ? <ActivityIndicator color="#fff" />
             : <>
-                <Ionicons name="send" size={18} color="#fff" />
                 <Text style={s.submitText}>Submit Report</Text>
+                <Ionicons name="send" size={18} color="#fff" />
               </>
           }
         </TouchableOpacity>
+        <Text style={s.helpText}>Your report will help {Math.floor(Math.random() * 500 + 800)} nearby users</Text>
       </ScrollView>
     </SafeAreaView>
   );
 }
 
-function makeStyles(COLORS: any) {
-  return StyleSheet.create({
-    container: { flex: 1, backgroundColor: COLORS.background },
-    header: {
-      paddingHorizontal: SPACING.xl, paddingTop: SPACING.lg, paddingBottom: SPACING.md,
-      borderBottomWidth: 1, borderBottomColor: COLORS.border, backgroundColor: COLORS.surface,
-    },
-    title: { fontSize: FONTS.sizes.xxl, fontWeight: FONTS.weights.black, color: COLORS.text },
-    subtitle: { fontSize: FONTS.sizes.sm, color: COLORS.textSecondary, marginTop: 4 },
-    scroll: { padding: SPACING.xl, paddingTop: SPACING.md, paddingBottom: 100, gap: 0 },
-    label: {
-      fontSize: FONTS.sizes.xs, fontWeight: FONTS.weights.bold, color: COLORS.textSecondary,
-      marginBottom: SPACING.sm, marginTop: SPACING.lg,
-      textTransform: 'uppercase', letterSpacing: 0.8,
-    },
-    typeRow: { flexDirection: 'row', flexWrap: 'wrap', gap: SPACING.sm },
-    typeBtn: {
-      flex: 1, minWidth: '18%', alignItems: 'center', padding: SPACING.sm,
-      borderRadius: RADIUS.lg, borderWidth: 1.5, borderColor: COLORS.border,
-      backgroundColor: COLORS.surface, gap: 5, ...SHADOW.xs,
-    },
-    typeBtnLabel: { fontSize: FONTS.sizes.xs, color: COLORS.textMuted, fontWeight: FONTS.weights.medium },
-    input: {
-      backgroundColor: COLORS.surface, borderRadius: RADIUS.lg,
-      borderWidth: 1, borderColor: COLORS.border, color: COLORS.text,
-      fontSize: FONTS.sizes.md, padding: SPACING.md, ...SHADOW.xs,
-    },
-    textarea: { minHeight: 110, textAlignVertical: 'top' },
-    severityRow: { flexDirection: 'row', gap: SPACING.sm },
-    sevBtn: {
-      flex: 1, alignItems: 'center', paddingVertical: 12,
-      borderRadius: RADIUS.lg, borderWidth: 1.5, borderColor: COLORS.border,
-      backgroundColor: COLORS.surface, ...SHADOW.xs,
-    },
-    sevLabel: { fontSize: FONTS.sizes.sm, fontWeight: FONTS.weights.semibold, color: COLORS.textMuted },
-    mediaRow: { flexDirection: 'row', gap: SPACING.md },
-    mediaBtn: {
-      flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
-      gap: SPACING.sm, backgroundColor: COLORS.surface, borderRadius: RADIUS.lg,
-      padding: SPACING.md, borderWidth: 1, borderColor: COLORS.border, ...SHADOW.xs,
-    },
-    mediaBtnText: { color: COLORS.accent, fontSize: FONTS.sizes.sm, fontWeight: FONTS.weights.semibold },
-    mediaPreviewWrap: { position: 'relative', marginTop: SPACING.md },
-    mediaPreview: { width: '100%', height: 190, borderRadius: RADIUS.lg, resizeMode: 'cover' },
-    mediaRemove: { position: 'absolute', top: 10, right: 10 },
-    locRow: {
-      flexDirection: 'row', alignItems: 'center', gap: SPACING.sm,
-      marginTop: SPACING.lg, backgroundColor: COLORS.surface,
-      padding: SPACING.md, borderRadius: RADIUS.lg,
-      borderWidth: 1, borderColor: COLORS.border,
-    },
-    locText: { fontSize: FONTS.sizes.xs, fontWeight: FONTS.weights.semibold },
-    submitBtn: {
-      flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
-      gap: SPACING.sm, backgroundColor: COLORS.primary, borderRadius: RADIUS.xl,
-      padding: 18, marginTop: SPACING.xl, ...SHADOW.dark,
-    },
-    submitText: { color: '#fff', fontSize: FONTS.sizes.lg, fontWeight: FONTS.weights.bold },
-  });
-}
+const s = StyleSheet.create({
+  root: { flex: 1, backgroundColor: '#ffffff' },
+  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: SPACING.xl, paddingVertical: SPACING.md, borderBottomWidth: 1, borderBottomColor: 'rgba(0,108,68,0.08)' },
+  closeBtn: { width: 36, height: 36, borderRadius: RADIUS.full, backgroundColor: '#f5f5f5', alignItems: 'center', justifyContent: 'center' },
+  headerTitle: { fontSize: FONTS.sizes.lg, fontWeight: '700', color: C.text },
+
+  scroll: { padding: SPACING.xl, paddingBottom: 48 },
+  sectionLabel: { fontSize: 11, fontWeight: '700', color: C.textMuted, letterSpacing: 0.8, marginBottom: SPACING.md, marginTop: SPACING.lg },
+
+  catGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: SPACING.md },
+  catCard: { width: '47%', borderRadius: RADIUS.xl, padding: SPACING.lg, alignItems: 'center', gap: SPACING.sm, borderWidth: 2, borderColor: 'transparent', ...SHADOW.xs },
+  catCardActive: { borderColor: 'rgba(0,108,68,0.3)' },
+  catIconCircle: { width: 56, height: 56, borderRadius: RADIUS.full, backgroundColor: 'rgba(255,255,255,0.7)', alignItems: 'center', justifyContent: 'center' },
+  catLabel: { fontSize: FONTS.sizes.md, fontWeight: '600', color: C.text },
+  catCheck: { position: 'absolute', top: 10, right: 10, width: 20, height: 20, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
+
+  detailRow: { flexDirection: 'row', gap: SPACING.md },
+  miniMapWrap: { width: 120 },
+  miniMap: { width: 120, height: 120, backgroundColor: '#e7fff1', borderRadius: RADIUS.lg, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: 'rgba(0,108,68,0.15)', marginBottom: 6 },
+  locationPin: { position: 'absolute', bottom: 8 },
+  locationText: { fontSize: FONTS.sizes.xs, color: C.textMuted, textAlign: 'center' },
+  descInput: { flex: 1, height: 120, backgroundColor: '#f8faf9', borderRadius: RADIUS.lg, padding: SPACING.md, fontSize: FONTS.sizes.md, color: '#0b1f17', borderWidth: 1, borderColor: 'rgba(0,108,68,0.1)' },
+
+  titleInput: { backgroundColor: '#f8faf9', borderRadius: RADIUS.lg, padding: SPACING.md, fontSize: FONTS.sizes.md, color: '#0b1f17', borderWidth: 1, borderColor: 'rgba(0,108,68,0.1)' },
+
+  severityRow: { flexDirection: 'row', gap: SPACING.sm },
+  sevBtn: { flex: 1, paddingVertical: 10, borderRadius: RADIUS.full, borderWidth: 1.5, borderColor: 'rgba(0,108,68,0.15)', alignItems: 'center', backgroundColor: '#fff' },
+  sevText: { fontSize: FONTS.sizes.xs, fontWeight: '600', color: C.textSecondary },
+
+  photoBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: SPACING.sm, backgroundColor: '#e1f9eb', borderRadius: RADIUS.lg, padding: SPACING.md, marginTop: SPACING.md, borderWidth: 1.5, borderColor: 'rgba(0,108,68,0.2)', borderStyle: 'dashed' },
+  photoBtnText: { color: '#006c44', fontWeight: '600' },
+  previewWrap: { position: 'relative', marginTop: SPACING.md },
+  preview: { width: '100%', height: 160, borderRadius: RADIUS.lg },
+  removeBtn: { position: 'absolute', top: 8, right: 8 },
+
+  submitBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: SPACING.sm, backgroundColor: '#006c44', borderRadius: RADIUS.full, paddingVertical: 18, marginTop: SPACING.xl, shadowColor: '#006c44', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 12, elevation: 6 },
+  submitText: { color: '#fff', fontSize: FONTS.sizes.lg, fontWeight: '700' },
+  helpText: { textAlign: 'center', color: C.textMuted, fontSize: FONTS.sizes.xs, marginTop: SPACING.md },
+});
