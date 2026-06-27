@@ -1,127 +1,65 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
-  RefreshControl, ActivityIndicator, Alert, Switch,
+  RefreshControl, ActivityIndicator, Alert, Switch, TextInput,
+  Image, Animated,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import * as ImagePicker from 'expo-image-picker';
 import { Ionicons } from '@expo/vector-icons';
-import { FONTS, RADIUS, SPACING, SHADOW } from '../config/theme';
-import { useColors } from '../config/ThemeContext';
+import { BlurView } from 'expo-blur';
+import { FONTS, RADIUS, SPACING, SHADOW, getColors } from '../config/theme';
 import { routesAPI } from '../services/api';
 import useStore from '../store/useStore';
 
-// Medal colours for top-3 ranks
+const C = getColors('light');
+
 const MEDAL: Record<number, string> = { 1: '#FFD700', 2: '#C0C0C0', 3: '#CD7F32' };
 
-function rankIcon(rank: number) {
-  if (rank === 1) return 'trophy';
-  if (rank === 2) return 'medal';
-  if (rank === 3) return 'ribbon';
-  return 'navigate-circle-outline';
-}
-
-// ─── Leaderboard row ─────────────────────────────────────────────────────────
-function LeaderRow({ route, rank }: { route: any; rank: number }) {
-  const COLORS = useColors();
-  const lb = makeLbStyles(COLORS);
-  const medal = MEDAL[rank];
+// ─── Setting row ─────────────────────────────────────────────────────────────
+function SettingRow({ icon, label, sub, onPress, color, trailing, last }: any) {
   return (
-    <View style={[lb.row, rank <= 3 && { borderColor: medal + '55', borderWidth: 1.5 }]}>
-      {/* Rank badge */}
-      <View style={[lb.badge, medal ? { backgroundColor: medal + '22' } : { backgroundColor: COLORS.surface }]}>
-        <Ionicons name={rankIcon(rank) as any} size={18} color={medal || COLORS.textMuted} />
-        <Text style={[lb.badgeNum, { color: medal || COLORS.textMuted }]}>#{rank}</Text>
+    <TouchableOpacity
+      style={[s.settingRow, last && { borderBottomWidth: 0 }]}
+      onPress={onPress}
+      activeOpacity={onPress ? 0.7 : 1}
+    >
+      <View style={[s.settingIcon, { backgroundColor: (color || '#006c44') + '18' }]}>
+        <Ionicons name={icon} size={18} color={color || '#006c44'} />
       </View>
-
-      {/* Route info */}
-      <View style={{ flex: 1, gap: 3 }}>
-        <Text style={lb.name} numberOfLines={1}>{route.name}</Text>
-        <View style={lb.detail}>
-          <Ionicons name="radio-button-on" size={9} color={COLORS.accent} />
-          <Text style={lb.detailText} numberOfLines={1}>{route.origin_name || 'My Location'}</Text>
-        </View>
-        <View style={lb.detail}>
-          <Ionicons name="location" size={9} color={COLORS.danger} />
-          <Text style={lb.detailText} numberOfLines={1}>{route.destination_name || 'Destination'}</Text>
-        </View>
+      <View style={s.settingInfo}>
+        <Text style={s.settingLabel}>{label}</Text>
+        {sub && <Text style={s.settingSub}>{sub}</Text>}
       </View>
-
-      {/* Score pills */}
-      <View style={lb.pills}>
-        <View style={lb.pill}>
-          <Ionicons name="star" size={11} color={COLORS.warning} />
-          <Text style={lb.pillText}>{route.is_favorite ? 1 : 0}</Text>
-        </View>
-        <View style={[lb.pill, { backgroundColor: COLORS.primary + '22' }]}>
-          <Ionicons name="repeat" size={11} color={COLORS.primary} />
-          <Text style={[lb.pillText, { color: COLORS.primary }]}>{route.use_count ?? 0}x</Text>
-        </View>
-      </View>
-    </View>
+      {trailing || (
+        onPress && <Ionicons name="chevron-forward" size={16} color={C.textMuted} />
+      )}
+    </TouchableOpacity>
   );
-}
-
-function makeLbStyles(COLORS: any) {
-  return StyleSheet.create({
-    row: {
-      flexDirection: 'row', alignItems: 'center', backgroundColor: COLORS.surface,
-      borderRadius: RADIUS.xl, padding: SPACING.md, marginBottom: SPACING.sm,
-      gap: SPACING.md, borderWidth: 1, borderColor: COLORS.border, ...SHADOW.xs,
-    },
-    badge: { alignItems: 'center', justifyContent: 'center', width: 50, height: 50, borderRadius: RADIUS.lg, gap: 2 },
-    badgeNum: { fontSize: FONTS.sizes.xs, fontWeight: FONTS.weights.bold },
-    name: { fontSize: FONTS.sizes.md, fontWeight: FONTS.weights.bold, color: COLORS.text },
-    detail: { flexDirection: 'row', alignItems: 'center', gap: 4 },
-    detailText: { fontSize: FONTS.sizes.xs, color: COLORS.textSecondary, flex: 1 },
-    pills: { gap: 5, alignItems: 'flex-end' },
-    pill: {
-      flexDirection: 'row', alignItems: 'center', gap: 3,
-      backgroundColor: COLORS.warningSoft, borderRadius: RADIUS.full,
-      paddingHorizontal: 7, paddingVertical: 3,
-    },
-    pillText: { fontSize: FONTS.sizes.xs, color: COLORS.warning, fontWeight: FONTS.weights.bold },
-  });
 }
 
 // ─── Stat tile ────────────────────────────────────────────────────────────────
 function StatTile({ icon, label, value, color }: any) {
-  const COLORS = useColors();
-  const st = makeStStyles(COLORS);
   return (
-    <View style={[st.tile, { borderTopColor: color }]}>
+    <View style={[s.tile, { borderTopColor: color }]}>
       <Ionicons name={icon} size={20} color={color} />
-      <Text style={st.val}>{value}</Text>
-      <Text style={st.lbl}>{label}</Text>
+      <Text style={[s.tileVal, { color }]}>{value}</Text>
+      <Text style={s.tileLbl}>{label}</Text>
     </View>
   );
 }
 
-function makeStStyles(COLORS: any) {
-  return StyleSheet.create({
-    tile: {
-      flex: 1, backgroundColor: COLORS.surface, borderRadius: RADIUS.xl,
-      padding: SPACING.md, alignItems: 'center', borderTopWidth: 3,
-      borderWidth: 1, borderColor: COLORS.border, ...SHADOW.xs,
-    },
-    val: { fontSize: FONTS.sizes.xxl, fontWeight: FONTS.weights.black, color: COLORS.text, marginTop: 4 },
-    lbl: { fontSize: FONTS.sizes.xs, color: COLORS.textMuted, textAlign: 'center', marginTop: 2 },
-  });
-}
-
-// ─── Main Screen ──────────────────────────────────────────────────────────────
 export default function ProfileScreen({ navigation }: any) {
-  const COLORS = useColors();
-  const s = makeSStyles(COLORS);
-  
-  const { user, logout, savedRoutes, setSavedRoutes, theme, toggleTheme, myAds } = useStore();
+  const { user, logout, savedRoutes, setSavedRoutes, theme, toggleTheme, myAds, setAuth } = useStore();
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+  const [editingName, setEditingName] = useState(false);
+  const [nameValue, setNameValue] = useState(user?.name || '');
+  const [avatarUri, setAvatarUri] = useState<string | null>(null);
+  const avatarAnim = useRef(new Animated.Value(1)).current;
 
   const loadRoutes = useCallback(async () => {
-    try {
-      const data = await routesAPI.getAll();
-      setSavedRoutes(data as any);
-    } catch { }
+    try { const d = await routesAPI.getAll(); setSavedRoutes(d as any); } catch {}
   }, [setSavedRoutes]);
 
   useEffect(() => {
@@ -129,207 +67,279 @@ export default function ProfileScreen({ navigation }: any) {
     loadRoutes().finally(() => setLoading(false));
   }, [loadRoutes]);
 
-  const onRefresh = async () => {
-    setRefreshing(true);
-    await loadRoutes();
-    setRefreshing(false);
+  const onRefresh = async () => { setRefreshing(true); await loadRoutes(); setRefreshing(false); };
+
+  const pickAvatar = async () => {
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (status !== 'granted') { Alert.alert('Permission needed', 'Allow photo access to change your profile picture.'); return; }
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: true, aspect: [1, 1], quality: 0.85,
+    });
+    if (!result.canceled) {
+      Animated.sequence([
+        Animated.timing(avatarAnim, { toValue: 0.85, duration: 120, useNativeDriver: true }),
+        Animated.spring(avatarAnim, { toValue: 1, friction: 4, useNativeDriver: true }),
+      ]).start();
+      setAvatarUri(result.assets[0].uri);
+    }
   };
 
-  // Rank routes: favorites first, then by use_count desc, then alphabetically
-  const ranked = [...savedRoutes].sort((a, b) => {
-    const aScore = (a.is_favorite ? 1000 : 0) + (a.use_count ?? 0);
-    const bScore = (b.is_favorite ? 1000 : 0) + (b.use_count ?? 0);
-    if (bScore !== aScore) return bScore - aScore;
-    return (a.name || '').localeCompare(b.name || '');
+  const saveName = () => {
+    if (!nameValue.trim()) { Alert.alert('Invalid', 'Name cannot be empty.'); return; }
+    setAuth(useStore.getState().token, { ...user, name: nameValue.trim() });
+    setEditingName(false);
+  };
+
+  const confirmLogout = () => Alert.alert('Log Out', 'Are you sure?', [
+    { text: 'Cancel', style: 'cancel' },
+    { text: 'Log Out', style: 'destructive', onPress: logout },
+  ]);
+
+  const ranked = [...savedRoutes].sort((a: any, b: any) => {
+    const aS = (a.is_favorite ? 1000 : 0) + (a.use_count ?? 0);
+    const bS = (b.is_favorite ? 1000 : 0) + (b.use_count ?? 0);
+    return bS !== aS ? bS - aS : (a.name || '').localeCompare(b.name || '');
   });
 
-  const favCount = savedRoutes.filter((r) => r.is_favorite).length;
-  const totalRoutes = savedRoutes.length;
-  const initials = user?.name
-    ? user.name.split(' ').map((n: string) => n[0]).join('').toUpperCase().slice(0, 2)
-    : 'U';
-
-  const confirmLogout = () => {
-    Alert.alert('Log Out', 'Are you sure you want to log out?', [
-      { text: 'Cancel', style: 'cancel' },
-      { text: 'Log Out', style: 'destructive', onPress: logout },
-    ]);
-  };
+  const initials = user?.name?.split(' ').map((n: string) => n[0]).join('').toUpperCase().slice(0, 2) || 'U';
 
   return (
-    <SafeAreaView style={s.container}>
-      {/* ── Header ── */}
+    <SafeAreaView style={s.root}>
+      {/* Header */}
       <View style={s.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={s.backBtn}>
-          <Ionicons name="chevron-back" size={22} color={COLORS.text} />
+        <TouchableOpacity onPress={() => navigation.goBack()} style={s.headerBtn}>
+          <Ionicons name="chevron-back" size={22} color={C.text} />
         </TouchableOpacity>
         <Text style={s.headerTitle}>Profile</Text>
-        <TouchableOpacity onPress={confirmLogout} style={s.logoutBtn}>
-          <Ionicons name="log-out-outline" size={20} color={COLORS.danger} />
+        <TouchableOpacity onPress={confirmLogout} style={[s.headerBtn, s.logoutBtn]}>
+          <Ionicons name="log-out-outline" size={20} color="#E24B4A" />
         </TouchableOpacity>
       </View>
 
       <ScrollView
         contentContainerStyle={s.scroll}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={COLORS.primary} />}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#006c44" />}
       >
-        {/* ── Avatar card ── */}
-        <View style={s.profileCard}>
-          <View style={s.avatarCircle}>
-            <Text style={s.avatarText}>{initials}</Text>
-          </View>
-          <View style={s.profileInfo}>
-            <Text style={s.profileName}>{user?.name || 'Unknown User'}</Text>
-            <Text style={s.profileEmail}>{user?.email || ''}</Text>
-            <View style={s.rolePill}>
-              <Ionicons name="shield-checkmark" size={12} color={COLORS.primary} />
-              <Text style={s.roleText}>{user?.role || 'User'}</Text>
-            </View>
-          </View>
-        </View>
+        {/* Avatar + name card */}
+        <BlurView intensity={60} tint="light" style={s.profileCard}>
+          {/* Avatar with edit overlay */}
+          <TouchableOpacity onPress={pickAvatar} activeOpacity={0.85}>
+            <Animated.View style={[s.avatarWrap, { transform: [{ scale: avatarAnim }] }]}>
+              {avatarUri ? (
+                <Image source={{ uri: avatarUri }} style={s.avatarImg} />
+              ) : (
+                <View style={s.avatarPlaceholder}>
+                  <Text style={s.avatarInitials}>{initials}</Text>
+                </View>
+              )}
+              <View style={s.avatarEditBadge}>
+                <Ionicons name="camera" size={12} color="#fff" />
+              </View>
+            </Animated.View>
+          </TouchableOpacity>
 
-        {/* ── Theme Toggle Section ── */}
-        <View style={s.settingsCard}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: SPACING.md }}>
-            <View style={[s.iconBg, { backgroundColor: COLORS.primary + '22' }]}>
-              <Ionicons name={theme === 'dark' ? 'moon' : 'sunny'} size={20} color={COLORS.primary} />
+          {/* Name */}
+          {editingName ? (
+            <View style={s.nameEditRow}>
+              <TextInput
+                style={s.nameInput}
+                value={nameValue}
+                onChangeText={setNameValue}
+                autoFocus
+                selectTextOnFocus
+                returnKeyType="done"
+                onSubmitEditing={saveName}
+              />
+              <TouchableOpacity onPress={saveName} style={s.nameSaveBtn}>
+                <Ionicons name="checkmark" size={18} color="#fff" />
+              </TouchableOpacity>
+              <TouchableOpacity onPress={() => setEditingName(false)} style={s.nameCancelBtn}>
+                <Ionicons name="close" size={18} color={C.textMuted} />
+              </TouchableOpacity>
             </View>
-            <View>
-              <Text style={s.settingsTitle}>App Theme</Text>
-              <Text style={s.settingsSub}>{theme === 'dark' ? 'Dark Mode' : 'Light Mode'}</Text>
-            </View>
+          ) : (
+            <TouchableOpacity style={s.nameRow} onPress={() => setEditingName(true)} activeOpacity={0.8}>
+              <Text style={s.profileName}>{user?.name || 'Your Name'}</Text>
+              <Ionicons name="pencil" size={14} color="#4caf7d" />
+            </TouchableOpacity>
+          )}
+          <Text style={s.profileEmail}>{user?.email || ''}</Text>
+          <View style={s.rolePill}>
+            <Ionicons name="shield-checkmark" size={11} color="#006c44" />
+            <Text style={s.roleText}>{user?.role || 'User'}</Text>
           </View>
-          <Switch
-            value={theme === 'dark'}
-            onValueChange={toggleTheme}
-            trackColor={{ false: COLORS.border, true: COLORS.primary + '55' }}
-            thumbColor={theme === 'dark' ? COLORS.primary : COLORS.textMuted}
-          />
-        </View>
+        </BlurView>
 
-        {/* ── Stats ── */}
+        {/* Stats */}
         <View style={s.statsRow}>
-          <StatTile icon="navigate" label="Routes Saved" value={totalRoutes} color={COLORS.primary} />
-          <StatTile icon="star" label="Favourites" value={favCount} color={COLORS.warning} />
-          <StatTile icon="megaphone-outline" label="Ads Posted" value={myAds.length} color={COLORS.accent} />
+          <StatTile icon="navigate"        label="Routes"     value={savedRoutes.length} color="#006c44" />
+          <StatTile icon="star"            label="Favourites" value={savedRoutes.filter((r: any) => r.is_favorite).length} color="#FFD700" />
+          <StatTile icon="megaphone-outline" label="Ads"      value={myAds.length}        color="#EF9F27" />
         </View>
 
-        {/* ── Leaderboard ── */}
+        {/* Preferences */}
+        <View style={s.section}>
+          <Text style={s.sectionLabel}>PREFERENCES</Text>
+          <View style={s.card}>
+            <SettingRow
+              icon={theme === 'dark' ? 'moon' : 'sunny-outline'}
+              label="App Theme"
+              sub={theme === 'dark' ? 'Dark mode' : 'Light mode'}
+              trailing={
+                <Switch
+                  value={theme === 'dark'}
+                  onValueChange={toggleTheme}
+                  trackColor={{ false: 'rgba(0,108,68,0.15)', true: '#006c44' }}
+                  thumbColor="#fff"
+                />
+              }
+            />
+            <SettingRow icon="notifications-outline" label="Notifications" sub="Incidents & leaderboard alerts" onPress={() => Alert.alert('Coming soon', 'Notification settings coming in the next update.')} last />
+          </View>
+        </View>
+
+        {/* Account */}
+        <View style={s.section}>
+          <Text style={s.sectionLabel}>ACCOUNT</Text>
+          <View style={s.card}>
+            <SettingRow icon="person-outline"   label="Edit Profile"     sub="Change name and photo"    onPress={() => setEditingName(true)} />
+            <SettingRow icon="lock-closed-outline" label="Change Password" sub="Update your password"  onPress={() => navigation.navigate('ForgotPassword')} />
+            <SettingRow icon="mail-outline"     label="Verify Email"     sub="Verify your email address" onPress={() => navigation.navigate('EmailVerification', { email: user?.email })} last />
+          </View>
+        </View>
+
+        {/* Support */}
+        <View style={s.section}>
+          <Text style={s.sectionLabel}>SUPPORT & LEGAL</Text>
+          <View style={s.card}>
+            <SettingRow icon="chatbubble-outline"  label="Contact Us"        onPress={() => Alert.alert('Contact Us', 'Email: support@pathy.app\nWhatsApp: +233 XX XXX XXXX')} />
+            <SettingRow icon="information-circle-outline" label="About Pathy" sub="Version 1.0.0 · University Project" onPress={() => Alert.alert('About Pathy', 'Pathy is a GPS route sharing and incident reporting app built as a university project.\n\nBuilt with React Native + Spring Boot.')} />
+            <SettingRow icon="document-text-outline" label="Terms & Conditions" onPress={() => Alert.alert('Terms & Conditions', 'By using Pathy, you agree to report incidents accurately and use the platform responsibly. Routes and reports you share are visible to other users.')} />
+            <SettingRow icon="shield-outline"     label="Privacy Policy"    onPress={() => Alert.alert('Privacy Policy', 'Pathy collects your location only while the app is active. We never sell your data. Location data is used solely to show nearby incidents and ads.')} />
+            <SettingRow icon="star-outline"       label="Rate the App"      onPress={() => Alert.alert('Rate Pathy', 'Thank you for using Pathy! App Store rating coming soon.')} color="#FFD700" last />
+          </View>
+        </View>
+
+        {/* Danger zone */}
+        <View style={s.section}>
+          <View style={s.card}>
+            <SettingRow icon="log-out-outline" label="Log Out" color="#E24B4A" onPress={confirmLogout} last />
+          </View>
+        </View>
+
+        {/* Leaderboard */}
         <View style={s.sectionHeader}>
-          <Ionicons name="trophy" size={18} color={COLORS.warning} />
+          <Ionicons name="trophy" size={18} color="#FFD700" />
           <Text style={s.sectionTitle}>Route Leaderboard</Text>
         </View>
-        <Text style={s.sectionSub}>Ranked by favourites & most used</Text>
 
         {loading ? (
-          <ActivityIndicator size="large" color={COLORS.primary} style={{ marginTop: 32 }} />
+          <ActivityIndicator color="#006c44" style={{ marginTop: 24 }} />
         ) : ranked.length === 0 ? (
-          <View style={s.emptyWrap}>
-            <Ionicons name="navigate-circle-outline" size={56} color={COLORS.border} />
+          <View style={s.empty}>
+            <Ionicons name="navigate-circle-outline" size={48} color="rgba(0,108,68,0.2)" />
             <Text style={s.emptyTitle}>No routes yet</Text>
-            <Text style={s.emptyText}>Save routes from the Map tab and they'll appear here ranked by popularity.</Text>
-            <TouchableOpacity style={s.goMapBtn} onPress={() => { navigation.goBack(); navigation.navigate('Map'); }}>
-              <Ionicons name="map" size={16} color="#fff" />
-              <Text style={s.goMapText}>Open Map</Text>
+            <Text style={s.emptyText}>Save routes from the Map tab.</Text>
+            <TouchableOpacity style={s.mapBtn} onPress={() => navigation.goBack()}>
+              <Text style={s.mapBtnText}>Open Map</Text>
             </TouchableOpacity>
           </View>
         ) : (
-          <View style={s.leaderList}>
-            {ranked.map((route, idx) => (
-              <LeaderRow key={route.id} route={route} rank={idx + 1} />
-            ))}
-          </View>
+          ranked.map((route: any, idx: number) => {
+            const medal = MEDAL[idx + 1];
+            return (
+              <View key={route.id} style={[s.leaderRow, medal && { borderColor: medal + '44', borderWidth: 1.5 }]}>
+                <View style={[s.leaderBadge, { backgroundColor: (medal || 'rgba(0,108,68,0.1)') + (medal ? '22' : '') }]}>
+                  <Ionicons name={idx === 0 ? 'trophy' : idx === 1 ? 'medal' : idx === 2 ? 'ribbon' : 'navigate-circle-outline'} size={18} color={medal || C.textMuted} />
+                  <Text style={[s.leaderRank, { color: medal || C.textMuted }]}>#{idx + 1}</Text>
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={s.leaderName} numberOfLines={1}>{route.name}</Text>
+                  <Text style={s.leaderMeta} numberOfLines={1}>{route.destination_name || 'Destination'}</Text>
+                </View>
+                <View style={s.leaderPill}>
+                  <Ionicons name="star" size={11} color="#FFD700" />
+                  <Text style={s.leaderPillText}>{route.is_favorite ? '★' : '—'}</Text>
+                </View>
+              </View>
+            );
+          })
         )}
+
+        <Text style={s.versionText}>Pathy v1.0.0 · Built with ❤️ for university</Text>
       </ScrollView>
     </SafeAreaView>
   );
 }
 
-function makeSStyles(COLORS: any) {
-  return StyleSheet.create({
-    container: { flex: 1, backgroundColor: COLORS.background },
+const s = StyleSheet.create({
+  root: { flex: 1, backgroundColor: '#e7fff1' },
 
-    // Header
-    header: {
-      flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-      paddingHorizontal: SPACING.xl, paddingVertical: SPACING.md,
-      borderBottomWidth: 1, borderBottomColor: COLORS.border,
-      backgroundColor: COLORS.surface,
-    },
-    backBtn: {
-      width: 38, height: 38, borderRadius: RADIUS.full,
-      backgroundColor: COLORS.surfaceElevated,
-      alignItems: 'center', justifyContent: 'center',
-    },
-    headerTitle: { fontSize: FONTS.sizes.lg, fontWeight: FONTS.weights.bold, color: COLORS.text },
-    logoutBtn: {
-      width: 38, height: 38, borderRadius: RADIUS.full,
-      backgroundColor: '#FEF2F2',
-      alignItems: 'center', justifyContent: 'center',
-    },
+  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: SPACING.xl, paddingVertical: SPACING.md },
+  headerBtn: { width: 40, height: 40, borderRadius: RADIUS.full, backgroundColor: 'rgba(255,255,255,0.7)', alignItems: 'center', justifyContent: 'center' },
+  logoutBtn: { backgroundColor: '#fdecea' },
+  headerTitle: { fontSize: FONTS.sizes.lg, fontWeight: '700', color: C.text },
 
-    scroll: { padding: SPACING.xl, paddingBottom: 110, gap: SPACING.lg },
+  scroll: { paddingHorizontal: SPACING.xl, paddingBottom: 120, gap: SPACING.lg },
 
-    // Profile card
-    profileCard: {
-      flexDirection: 'row', alignItems: 'center', gap: SPACING.lg,
-      backgroundColor: COLORS.surface, borderRadius: RADIUS.xl, padding: SPACING.lg,
-      borderWidth: 1, borderColor: COLORS.border, ...SHADOW.sm,
-    },
-    avatarCircle: {
-      width: 72, height: 72, borderRadius: RADIUS.full,
-      backgroundColor: COLORS.primary, alignItems: 'center', justifyContent: 'center',
-      ...SHADOW.dark,
-    },
-    avatarText: { fontSize: FONTS.sizes.xxl, fontWeight: FONTS.weights.black, color: '#fff' },
-    profileInfo: { flex: 1, gap: 5 },
-    profileName: { fontSize: FONTS.sizes.xl, fontWeight: FONTS.weights.bold, color: COLORS.text },
-    profileEmail: { fontSize: FONTS.sizes.sm, color: COLORS.textSecondary },
-    rolePill: {
-      flexDirection: 'row', alignItems: 'center', gap: 4, alignSelf: 'flex-start',
-      backgroundColor: COLORS.accentSoft, borderRadius: RADIUS.full,
-      paddingHorizontal: SPACING.sm, paddingVertical: 4, marginTop: 2,
-    },
-    roleText: {
-      fontSize: FONTS.sizes.xs, color: COLORS.accent,
-      fontWeight: FONTS.weights.bold, textTransform: 'capitalize',
-    },
+  // Profile card
+  profileCard: {
+    borderRadius: RADIUS.xl, overflow: 'hidden',
+    padding: SPACING.xl, alignItems: 'center', gap: SPACING.sm,
+    borderWidth: 1, borderColor: 'rgba(0,108,68,0.12)',
+    backgroundColor: 'rgba(255,255,255,0.75)',
+    ...SHADOW.sm,
+  },
+  avatarWrap: { position: 'relative', marginBottom: SPACING.sm },
+  avatarImg: { width: 90, height: 90, borderRadius: 45, borderWidth: 3, borderColor: '#006c44' },
+  avatarPlaceholder: { width: 90, height: 90, borderRadius: 45, backgroundColor: '#006c44', alignItems: 'center', justifyContent: 'center', borderWidth: 3, borderColor: '#4caf7d' },
+  avatarInitials: { fontSize: FONTS.sizes.xxl, fontWeight: '800', color: '#fff' },
+  avatarEditBadge: { position: 'absolute', bottom: 2, right: 2, width: 26, height: 26, borderRadius: 13, backgroundColor: '#4caf7d', alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: '#fff' },
 
-    // Theme Switch Card
-    settingsCard: {
-      flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-      backgroundColor: COLORS.surface, borderRadius: RADIUS.xl, padding: SPACING.md,
-      borderWidth: 1, borderColor: COLORS.border, ...SHADOW.xs,
-    },
-    iconBg: {
-      width: 40, height: 40, borderRadius: RADIUS.lg,
-      alignItems: 'center', justifyContent: 'center',
-    },
-    settingsTitle: { fontSize: FONTS.sizes.md, fontWeight: FONTS.weights.semibold, color: COLORS.text },
-    settingsSub: { fontSize: FONTS.sizes.xs, color: COLORS.textMuted },
+  nameRow: { flexDirection: 'row', alignItems: 'center', gap: SPACING.sm },
+  profileName: { fontSize: FONTS.sizes.xl, fontWeight: '800', color: C.text },
+  nameEditRow: { flexDirection: 'row', alignItems: 'center', gap: SPACING.sm },
+  nameInput: { flex: 1, backgroundColor: '#fff', borderRadius: RADIUS.md, borderWidth: 1.5, borderColor: '#006c44', paddingHorizontal: SPACING.md, paddingVertical: 10, fontSize: FONTS.sizes.md, color: C.text, minWidth: 140 },
+  nameSaveBtn: { width: 36, height: 36, borderRadius: RADIUS.full, backgroundColor: '#006c44', alignItems: 'center', justifyContent: 'center' },
+  nameCancelBtn: { width: 36, height: 36, borderRadius: RADIUS.full, backgroundColor: '#f5f5f5', alignItems: 'center', justifyContent: 'center' },
+  profileEmail: { fontSize: FONTS.sizes.sm, color: C.textSecondary },
+  rolePill: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: '#e1f9eb', borderRadius: RADIUS.full, paddingHorizontal: SPACING.md, paddingVertical: 4, marginTop: 2 },
+  roleText: { fontSize: FONTS.sizes.xs, color: '#006c44', fontWeight: '700', textTransform: 'capitalize' },
 
-    // Stats
-    statsRow: { flexDirection: 'row', gap: SPACING.md },
+  // Stats
+  statsRow: { flexDirection: 'row', gap: SPACING.md },
+  tile: { flex: 1, backgroundColor: '#fff', borderRadius: RADIUS.xl, padding: SPACING.md, alignItems: 'center', borderTopWidth: 3, borderWidth: 1, borderColor: 'rgba(0,108,68,0.1)', ...SHADOW.xs },
+  tileVal: { fontSize: FONTS.sizes.xxl, fontWeight: '800', marginTop: 4 },
+  tileLbl: { fontSize: FONTS.sizes.xs, color: C.textMuted, textAlign: 'center', marginTop: 2 },
 
-    // Section
-    sectionHeader: { flexDirection: 'row', alignItems: 'center', gap: SPACING.sm, marginTop: SPACING.sm },
-    sectionTitle: { fontSize: FONTS.sizes.lg, fontWeight: FONTS.weights.bold, color: COLORS.text },
-    sectionSub: { fontSize: FONTS.sizes.xs, color: COLORS.textMuted, marginTop: -SPACING.sm },
-    leaderList: { gap: 0 },
+  // Settings sections
+  section: { gap: SPACING.sm },
+  sectionLabel: { fontSize: 11, fontWeight: '700', color: C.textMuted, letterSpacing: 0.8, paddingLeft: 4 },
+  card: { backgroundColor: '#fff', borderRadius: RADIUS.xl, overflow: 'hidden', ...SHADOW.xs, borderWidth: 1, borderColor: 'rgba(0,108,68,0.08)' },
+  settingRow: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: SPACING.lg, paddingVertical: SPACING.md, gap: SPACING.md, borderBottomWidth: 1, borderBottomColor: 'rgba(0,108,68,0.06)' },
+  settingIcon: { width: 36, height: 36, borderRadius: RADIUS.md, alignItems: 'center', justifyContent: 'center' },
+  settingInfo: { flex: 1 },
+  settingLabel: { fontSize: FONTS.sizes.md, fontWeight: '600', color: C.text },
+  settingSub: { fontSize: FONTS.sizes.xs, color: C.textMuted, marginTop: 1 },
 
-    // Empty
-    emptyWrap: { alignItems: 'center', paddingVertical: SPACING.xxl, gap: SPACING.md },
-    emptyTitle: { fontSize: FONTS.sizes.xl, fontWeight: FONTS.weights.bold, color: COLORS.textSecondary },
-    emptyText: {
-      fontSize: FONTS.sizes.sm, color: COLORS.textMuted,
-      textAlign: 'center', maxWidth: 260, lineHeight: 18,
-    },
-    goMapBtn: {
-      flexDirection: 'row', alignItems: 'center', gap: SPACING.sm,
-      backgroundColor: COLORS.primary, borderRadius: RADIUS.xl,
-      paddingHorizontal: SPACING.xl, paddingVertical: SPACING.md,
-      marginTop: SPACING.sm, ...SHADOW.dark,
-    },
-    goMapText: { color: '#fff', fontWeight: FONTS.weights.bold, fontSize: FONTS.sizes.md },
-  });
-}
+  // Leaderboard
+  sectionHeader: { flexDirection: 'row', alignItems: 'center', gap: SPACING.sm },
+  sectionTitle: { fontSize: FONTS.sizes.lg, fontWeight: '700', color: C.text },
+  leaderRow: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#fff', borderRadius: RADIUS.xl, padding: SPACING.md, marginBottom: SPACING.sm, gap: SPACING.md, ...SHADOW.xs, borderWidth: 1, borderColor: 'rgba(0,108,68,0.08)' },
+  leaderBadge: { alignItems: 'center', justifyContent: 'center', width: 48, height: 48, borderRadius: RADIUS.lg, gap: 2 },
+  leaderRank: { fontSize: FONTS.sizes.xs, fontWeight: '700' },
+  leaderName: { fontSize: FONTS.sizes.md, fontWeight: '700', color: C.text },
+  leaderMeta: { fontSize: FONTS.sizes.xs, color: C.textSecondary, marginTop: 2 },
+  leaderPill: { flexDirection: 'row', alignItems: 'center', gap: 3, backgroundColor: '#fffbeb', borderRadius: RADIUS.full, paddingHorizontal: 8, paddingVertical: 3 },
+  leaderPillText: { fontSize: FONTS.sizes.xs, color: '#FFD700', fontWeight: '700' },
+
+  // Empty
+  empty: { alignItems: 'center', paddingVertical: SPACING.xl, gap: SPACING.md },
+  emptyTitle: { fontSize: FONTS.sizes.xl, fontWeight: '700', color: C.text },
+  emptyText: { fontSize: FONTS.sizes.sm, color: C.textSecondary },
+  mapBtn: { backgroundColor: '#006c44', borderRadius: RADIUS.full, paddingHorizontal: SPACING.xl, paddingVertical: SPACING.md },
+  mapBtnText: { color: '#fff', fontWeight: '700', fontSize: FONTS.sizes.sm },
+
+  versionText: { textAlign: 'center', fontSize: FONTS.sizes.xs, color: C.textMuted, paddingVertical: SPACING.lg },
+});
