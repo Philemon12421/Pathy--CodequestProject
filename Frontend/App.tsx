@@ -28,6 +28,10 @@ import NearbyDealsScreen       from './src/screens/NearbyDealsScreen';
 import PostRouteScreen         from './src/screens/PostRouteScreen';
 import ProfileScreen           from './src/screens/ProfileScreen';
 import AdProximityManager      from './src/screens/AdProximityManager';
+import ContactUsScreen         from './src/screens/ContactUsScreen';
+import AboutUsScreen           from './src/screens/AboutUsScreen';
+import PrivacyPolicyScreen     from './src/screens/PrivacyPolicyScreen';
+import TermsScreen             from './src/screens/TermsScreen';
 
 import useStore from './src/store/useStore';
 import { ThemeProvider } from './src/config/ThemeContext';
@@ -146,8 +150,10 @@ function MainApp() {
         <MainStack.Screen name="NearbyDeals" component={NearbyDealsScreen}  options={{ animation: 'slide_from_right' }} />
         <MainStack.Screen name="PostRoute"   component={PostRouteScreen}    options={{ animation: 'slide_from_bottom', presentation: 'modal' }} />
         <MainStack.Screen name="AI"          component={AIScreen}           options={{ animation: 'slide_from_right' }} />
-        <MainStack.Screen name="ForgotPassword"    component={ForgotPasswordScreen}    options={{ animation: 'slide_from_right' }} />
-        <MainStack.Screen name="EmailVerification" component={EmailVerificationScreen} options={{ animation: 'slide_from_right' }} />
+        <MainStack.Screen name="ContactUs"    component={ContactUsScreen}    options={{ animation: 'slide_from_right' }} />
+        <MainStack.Screen name="AboutUs"      component={AboutUsScreen}      options={{ animation: 'slide_from_right' }} />
+        <MainStack.Screen name="Privacy"      component={PrivacyPolicyScreen} options={{ animation: 'slide_from_right' }} />
+        <MainStack.Screen name="Terms"        component={TermsScreen}        options={{ animation: 'slide_from_right' }} />
       </MainStack.Navigator>
       <AdProximityManager />
     </View>
@@ -187,6 +193,8 @@ function RootFlow({ token }: { token: string | null }) {
           <AppStack.Screen name="Login"             component={LoginScreen} />
           <AppStack.Screen name="ForgotPassword"    component={ForgotPasswordScreen}    options={{ animation: 'slide_from_right' }} />
           <AppStack.Screen name="EmailVerification" component={EmailVerificationScreen} options={{ animation: 'slide_from_right' }} />
+          <AppStack.Screen name="Terms"             component={TermsScreen}             options={{ animation: 'slide_from_right' }} />
+          <AppStack.Screen name="Privacy"           component={PrivacyPolicyScreen}     options={{ animation: 'slide_from_right' }} />
         </>
       ) : (
         <AppStack.Screen name="Main" component={MainApp} />
