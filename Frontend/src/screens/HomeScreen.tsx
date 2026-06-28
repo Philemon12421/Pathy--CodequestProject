@@ -5,11 +5,11 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { FONTS, RADIUS, SPACING, SHADOW, getColors } from '../config/theme';
+import { useColors } from '../config/ThemeContext';
+import { FONTS, RADIUS, SPACING, SHADOW } from '../config/theme';
 import { incidentsAPI } from '../services/api';
 import useStore from '../store/useStore';
 
-const C = getColors('light');
 const { width } = Dimensions.get('window');
 
 // ─── Incident config ─────────────────────────────────────────────────────────
@@ -49,6 +49,8 @@ const FAB_ITEMS = [
 ];
 
 export default function HomeScreen({ navigation }: any) {
+  const C = useColors();
+  const s = makeStyles(C);
   const { user, incidents, setIncidents, userLocation, savedRoutes } = useStore();
   const [refreshing, setRefreshing] = useState(false);
   const [fabOpen, setFabOpen] = useState(false);
@@ -137,21 +139,15 @@ export default function HomeScreen({ navigation }: any) {
         </View>
 
         {savedRoutes.length === 0 ? (
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.routesScroll}>
-            {/* placeholder cards */}
-            {['Morning Run', 'Evening Walk'].map((name, i) => (
-              <TouchableOpacity key={i} style={s.routeCard} onPress={() => navigation.navigate('Map')} activeOpacity={0.9}>
-                <View style={s.routeImgPlaceholder}>
-                  <Ionicons name="map-outline" size={36} color="rgba(255,255,255,0.5)" />
-                  <View style={s.routeBadge}><Text style={s.routeBadgeText}>{i === 0 ? '2.4km' : '1.8km'}</Text></View>
-                </View>
-                <View style={s.routeInfo}>
-                  <Text style={s.routeName}>{name}</Text>
-                  <Text style={s.routeDate}>{i === 0 ? 'Yesterday, 5:30 PM' : 'Monday, 08:15 AM'}</Text>
-                </View>
-              </TouchableOpacity>
-            ))}
-          </ScrollView>
+          <View style={[s.emptyCard, { marginHorizontal: SPACING.xl }]}>
+            <View style={s.emptyIconWrap}>
+              <Ionicons name="navigate-circle-outline" size={28} color="#006c44" />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={s.emptyTitle}>No routes saved yet</Text>
+              <Text style={s.emptyText}>Search a destination on the Map and save your route.</Text>
+            </View>
+          </View>
         ) : (
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.routesScroll}>
             {savedRoutes.slice(0, 5).map((r: any) => (
@@ -193,6 +189,7 @@ export default function HomeScreen({ navigation }: any) {
               key={inc.id}
               incident={inc}
               onPress={() => navigation.navigate('Map', { selectedIncident: inc })}
+              s={s}
             />
           ))
         )}
@@ -248,7 +245,7 @@ export default function HomeScreen({ navigation }: any) {
 }
 
 // ─── Incident Row ─────────────────────────────────────────────────────────────
-function IncidentRow({ incident, onPress }: any) {
+function IncidentRow({ incident, onPress, s }: any) {
   const color = INC_COLOR[incident.type] || '#888780';
   const label = INC_LABEL[incident.type] || 'OTHER';
   return (
@@ -268,139 +265,145 @@ function IncidentRow({ incident, onPress }: any) {
 }
 
 // ─── Styles ──────────────────────────────────────────────────────────────────
-const s = StyleSheet.create({
-  root: { flex: 1, backgroundColor: '#e7fff1' },
+function makeStyles(C: any) {
+  return StyleSheet.create({
+    root: { flex: 1, backgroundColor: C.background },
 
-  backdrop: {
-    position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
-    backgroundColor: 'rgba(11,31,23,0.4)', zIndex: 40,
-  },
+    backdrop: {
+      position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
+      backgroundColor: 'rgba(11,31,23,0.4)', zIndex: 40,
+    },
 
-  // Header
-  header: {
-    flexDirection: 'row', alignItems: 'center',
-    paddingHorizontal: SPACING.xl, paddingTop: SPACING.md, paddingBottom: SPACING.lg,
-    gap: SPACING.sm,
-  },
-  avatarWrap: {},
-  avatar: {
-    width: 44, height: 44, borderRadius: RADIUS.full,
-    backgroundColor: '#006c44', alignItems: 'center', justifyContent: 'center',
-  },
-  avatarText: { fontSize: FONTS.sizes.sm, fontWeight: '700', color: '#fff' },
-  greetingText: { flex: 1, fontSize: FONTS.sizes.md, color: C.textSecondary },
-  greetingName: { fontWeight: '700', color: C.text },
-  settingsBtn: {
-    width: 40, height: 40, borderRadius: RADIUS.full,
-    backgroundColor: 'rgba(255,255,255,0.6)',
-    alignItems: 'center', justifyContent: 'center',
-  },
+    // Header
+    header: {
+      flexDirection: 'row', alignItems: 'center',
+      paddingHorizontal: SPACING.xl, paddingTop: SPACING.md, paddingBottom: SPACING.lg,
+      gap: SPACING.sm,
+    },
+    avatarWrap: {},
+    avatar: {
+      width: 44, height: 44, borderRadius: RADIUS.full,
+      backgroundColor: C.primary, alignItems: 'center', justifyContent: 'center',
+    },
+    avatarText: { fontSize: FONTS.sizes.sm, fontWeight: '700', color: '#fff' },
+    greetingText: { flex: 1, fontSize: FONTS.sizes.md, color: C.textSecondary },
+    greetingName: { fontWeight: '700', color: C.text },
+    settingsBtn: {
+      width: 40, height: 40, borderRadius: RADIUS.full,
+      backgroundColor: C.text === '#F9FAFB' ? 'rgba(255,255,255,0.08)' : 'rgba(255,255,255,0.6)',
+      alignItems: 'center', justifyContent: 'center',
+    },
 
-  // Stats card
-  statsCard: {
-    backgroundColor: '#fff', borderRadius: RADIUS.xl,
-    marginHorizontal: SPACING.xl, padding: SPACING.xl,
-    marginBottom: SPACING.xl, ...SHADOW.xs,
-  },
-  statsLabel: {
-    fontSize: 11, fontWeight: '700', color: C.textMuted,
-    letterSpacing: 0.8, marginBottom: SPACING.md,
-  },
-  statsRow: { flexDirection: 'row', alignItems: 'center' },
-  statCol: { flex: 1 },
-  statBig: { fontSize: FONTS.sizes.xxxl, fontWeight: '800', color: C.primary, letterSpacing: -1 },
-  statSub: { fontSize: FONTS.sizes.sm, color: C.textMuted, marginTop: 2 },
-  statDivider: { width: 1, height: 48, backgroundColor: 'rgba(0,108,68,0.15)', marginHorizontal: SPACING.xl },
+    // Stats card
+    statsCard: {
+      backgroundColor: C.surface, borderRadius: RADIUS.xl,
+      marginHorizontal: SPACING.xl, padding: SPACING.xl,
+      marginBottom: SPACING.xl, ...SHADOW.xs,
+      borderWidth: 1, borderColor: C.border,
+    },
+    statsLabel: {
+      fontSize: 11, fontWeight: '700', color: C.textMuted,
+      letterSpacing: 0.8, marginBottom: SPACING.md,
+    },
+    statsRow: { flexDirection: 'row', alignItems: 'center' },
+    statCol: { flex: 1 },
+    statBig: { fontSize: FONTS.sizes.xxxl, fontWeight: '800', color: C.primary, letterSpacing: -1 },
+    statSub: { fontSize: FONTS.sizes.sm, color: C.textMuted, marginTop: 2 },
+    statDivider: { width: 1, height: 48, backgroundColor: C.border, marginHorizontal: SPACING.xl },
 
-  // Section header
-  sectionHeader: {
-    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
-    paddingHorizontal: SPACING.xl, marginBottom: SPACING.md,
-  },
-  sectionTitle: { fontSize: FONTS.sizes.xl, fontWeight: '800', color: C.text },
-  seeAll: { fontSize: FONTS.sizes.sm, color: C.primary, fontWeight: '600' },
+    // Section header
+    sectionHeader: {
+      flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
+      paddingHorizontal: SPACING.xl, marginBottom: SPACING.md,
+    },
+    sectionTitle: { fontSize: FONTS.sizes.xl, fontWeight: '800', color: C.text },
+    seeAll: { fontSize: FONTS.sizes.sm, color: C.primary, fontWeight: '600' },
 
-  // Route cards (horizontal scroll)
-  routesScroll: { paddingHorizontal: SPACING.xl, paddingBottom: SPACING.md, gap: SPACING.md },
-  routeCard: {
-    width: width * 0.52, backgroundColor: '#fff',
-    borderRadius: RADIUS.xl, overflow: 'hidden', ...SHADOW.xs,
-    marginBottom: SPACING.md,
-  },
-  routeImgPlaceholder: {
-    width: '100%', height: 140,
-    backgroundColor: '#2d5a45',
-    alignItems: 'center', justifyContent: 'center',
-  },
-  routeBadge: {
-    position: 'absolute', bottom: 10, right: 10,
-    backgroundColor: '#4caf7d', borderRadius: RADIUS.full,
-    paddingHorizontal: 10, paddingVertical: 4,
-  },
-  routeBadgeText: { fontSize: FONTS.sizes.xs, color: '#fff', fontWeight: '700' },
-  routeInfo: { padding: SPACING.md },
-  routeName: { fontSize: FONTS.sizes.md, fontWeight: '700', color: C.text },
-  routeDate: { fontSize: FONTS.sizes.xs, color: C.textMuted, marginTop: 3 },
+    // Route cards (horizontal scroll)
+    routesScroll: { paddingHorizontal: SPACING.xl, paddingBottom: SPACING.md, gap: SPACING.md },
+    routeCard: {
+      width: width * 0.52, backgroundColor: C.surface,
+      borderRadius: RADIUS.xl, overflow: 'hidden', ...SHADOW.xs,
+      marginBottom: SPACING.md,
+      borderWidth: 1, borderColor: C.border,
+    },
+    routeImgPlaceholder: {
+      width: '100%', height: 140,
+      backgroundColor: C.primaryContainer,
+      alignItems: 'center', justifyContent: 'center',
+    },
+    routeBadge: {
+      position: 'absolute', bottom: 10, right: 10,
+      backgroundColor: C.success, borderRadius: RADIUS.full,
+      paddingHorizontal: 10, paddingVertical: 4,
+    },
+    routeBadgeText: { fontSize: FONTS.sizes.xs, color: '#fff', fontWeight: '700' },
+    routeInfo: { padding: SPACING.md },
+    routeName: { fontSize: FONTS.sizes.md, fontWeight: '700', color: C.text },
+    routeDate: { fontSize: FONTS.sizes.xs, color: C.textMuted, marginTop: 3 },
 
-  // Incidents
-  incCard: {
-    flexDirection: 'row', alignItems: 'center',
-    backgroundColor: '#fff',
-    marginHorizontal: SPACING.xl, marginBottom: SPACING.sm,
-    borderRadius: RADIUS.xl, padding: SPACING.md + 2, gap: SPACING.md,
-    ...SHADOW.xs,
-  },
-  incIconCircle: {
-    width: 44, height: 44, borderRadius: RADIUS.full,
-    alignItems: 'center', justifyContent: 'center',
-  },
-  incInfo: { flex: 1 },
-  incTitle: { fontSize: FONTS.sizes.md, fontWeight: '600', color: C.text },
-  incMeta: { fontSize: FONTS.sizes.xs, color: C.textMuted, marginTop: 3 },
-  incBadge: {
-    paddingHorizontal: 10, paddingVertical: 5,
-    borderRadius: RADIUS.full,
-  },
-  incBadgeText: { fontSize: 10, fontWeight: '800', color: '#fff', letterSpacing: 0.5 },
+    // Incidents
+    incCard: {
+      flexDirection: 'row', alignItems: 'center',
+      backgroundColor: C.surface,
+      marginHorizontal: SPACING.xl, marginBottom: SPACING.sm,
+      borderRadius: RADIUS.xl, padding: SPACING.md + 2, gap: SPACING.md,
+      ...SHADOW.xs,
+      borderWidth: 1, borderColor: C.border,
+    },
+    incIconCircle: {
+      width: 44, height: 44, borderRadius: RADIUS.full,
+      alignItems: 'center', justifyContent: 'center',
+    },
+    incInfo: { flex: 1 },
+    incTitle: { fontSize: FONTS.sizes.md, fontWeight: '600', color: C.text },
+    incMeta: { fontSize: FONTS.sizes.xs, color: C.textMuted, marginTop: 3 },
+    incBadge: {
+      paddingHorizontal: 10, paddingVertical: 5,
+      borderRadius: RADIUS.full,
+    },
+    incBadgeText: { fontSize: 10, fontWeight: '800', color: '#fff', letterSpacing: 0.5 },
 
-  // Empty
-  emptyCard: {
-    flexDirection: 'row', alignItems: 'center',
-    gap: SPACING.md,
-    backgroundColor: '#fff',
-    marginHorizontal: SPACING.xl, marginBottom: SPACING.sm,
-    borderRadius: RADIUS.xl, padding: SPACING.lg, ...SHADOW.xs,
-  },
-  emptyIconWrap: {
-    width: 44, height: 44, borderRadius: RADIUS.full,
-    backgroundColor: '#e1f9eb', alignItems: 'center', justifyContent: 'center',
-  },
-  emptyTitle: { fontSize: FONTS.sizes.md, fontWeight: '700', color: C.text },
-  emptyText: { fontSize: FONTS.sizes.xs, color: C.textMuted, marginTop: 2 },
+    // Empty
+    emptyCard: {
+      flexDirection: 'row', alignItems: 'center',
+      gap: SPACING.md,
+      backgroundColor: C.surface,
+      marginHorizontal: SPACING.xl, marginBottom: SPACING.sm,
+      borderRadius: RADIUS.xl, padding: SPACING.lg, ...SHADOW.xs,
+      borderWidth: 1, borderColor: C.border,
+    },
+    emptyIconWrap: {
+      width: 44, height: 44, borderRadius: RADIUS.full,
+      backgroundColor: C.successSoft, alignItems: 'center', justifyContent: 'center',
+    },
+    emptyTitle: { fontSize: FONTS.sizes.md, fontWeight: '700', color: C.text },
+    emptyText: { fontSize: FONTS.sizes.xs, color: C.textMuted, marginTop: 2 },
 
-  // FAB
-  fabContainer: {
-    position: 'absolute', right: SPACING.xl, bottom: 96,
-    alignItems: 'flex-end', zIndex: 50,
-  },
-  fab: {
-    width: 58, height: 58, borderRadius: RADIUS.full,
-    backgroundColor: '#006c44',
-    alignItems: 'center', justifyContent: 'center',
-    shadowColor: '#006c44', shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.4, shadowRadius: 12, elevation: 8,
-  },
-  fabItem: {
-    position: 'absolute', right: 4, bottom: 4,
-    flexDirection: 'row', alignItems: 'center', gap: SPACING.sm,
-  },
-  fabItemLabel: {
-    backgroundColor: '#0b1f17', paddingHorizontal: 12, paddingVertical: 6,
-    borderRadius: RADIUS.full, ...SHADOW.xs,
-  },
-  fabItemLabelText: { color: '#fff', fontSize: FONTS.sizes.xs, fontWeight: '600' },
-  fabItemBtn: {
-    width: 50, height: 50, borderRadius: RADIUS.full,
-    alignItems: 'center', justifyContent: 'center', ...SHADOW.sm,
-  },
-});
+    // FAB
+    fabContainer: {
+      position: 'absolute', right: SPACING.xl, bottom: 96,
+      alignItems: 'flex-end', zIndex: 50,
+    },
+    fab: {
+      width: 58, height: 58, borderRadius: RADIUS.full,
+      backgroundColor: C.primary,
+      alignItems: 'center', justifyContent: 'center',
+      shadowColor: C.primary, shadowOffset: { width: 0, height: 4 },
+      shadowOpacity: 0.4, shadowRadius: 12, elevation: 8,
+    },
+    fabItem: {
+      position: 'absolute', right: 4, bottom: 4,
+      flexDirection: 'row', alignItems: 'center', gap: SPACING.sm,
+    },
+    fabItemLabel: {
+      backgroundColor: C.text === '#F9FAFB' ? '#1f2937' : '#0b1f17', paddingHorizontal: 12, paddingVertical: 6,
+      borderRadius: RADIUS.full, ...SHADOW.xs,
+    },
+    fabItemLabelText: { color: '#fff', fontSize: FONTS.sizes.xs, fontWeight: '600' },
+    fabItemBtn: {
+      width: 50, height: 50, borderRadius: RADIUS.full,
+      alignItems: 'center', justifyContent: 'center', ...SHADOW.sm,
+    },
+  });
+}

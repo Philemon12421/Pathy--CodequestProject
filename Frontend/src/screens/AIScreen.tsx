@@ -30,7 +30,7 @@ export default function AIScreen({ navigation }: any) {
 
   useEffect(() => {
     aiAPI.getHistory()
-      .then((msgs) => setChatMessages(msgs.map((m: any) => ({ role: m.role, content: m.content, id: m.id || Math.random().toString() }))))
+      .then((msgs: any) => setChatMessages(msgs.map((m: any) => ({ role: m.role, content: m.content, id: m.id || Math.random().toString() }))))
       .catch(() => {})
       .finally(() => setHistLoading(false));
   }, [setChatMessages]);
@@ -283,7 +283,7 @@ function getActionIcon(type: string): any {
   return { navigate: 'map', report_incident: 'warning', place_ad: 'megaphone', music: 'musical-notes' }[type] || 'flash';
 }
 function getActionLabel(action: any) {
-  return { navigate: `→ Navigate to ${action.destination}`, report_incident: `→ Report ${action.incident_type}`, place_ad: `→ Place Ad`, music: `→ Music` }[action.type] || '→ Action';
+  return ({ navigate: `→ Navigate to ${action.destination}`, report_incident: `→ Report ${action.incident_type}`, place_ad: `→ Place Ad`, music: `→ Music` } as Record<string, string>)[action.type] || '→ Action';
 }
 
 // ─── Styles ───────────────────────────────────────────────────────────────────

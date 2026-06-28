@@ -13,6 +13,10 @@ export interface StoreState {
   setIncidents: (incidents: any[]) => void;
   addIncident: (inc: any) => void;
 
+  ads: any[];
+  setAds: (ads: any[]) => void;
+  addAd: (ad: any) => void;
+
   savedRoutes: any[];
   setSavedRoutes: (routes: any[]) => void;
   addRoute: (r: any) => void;
@@ -60,6 +64,10 @@ const useStore = create<StoreState>((set, get) => ({
   incidents: [],
   setIncidents: (incidents) => set({ incidents }),
   addIncident: (inc) => set((s) => ({ incidents: [inc, ...s.incidents] })),
+
+  ads: [],
+  setAds: (ads) => set({ ads }),
+  addAd: (ad) => set((s) => ({ ads: s.ads.some(a => a.id === ad.id) ? s.ads : [ad, ...s.ads] })),
 
   savedRoutes: [],
   setSavedRoutes: (routes) => set({ savedRoutes: routes }),

@@ -5,13 +5,14 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { FONTS, RADIUS, SPACING, SHADOW, getColors } from '../config/theme';
+import { useColors } from '../config/ThemeContext';
+import { FONTS, RADIUS, SPACING, SHADOW } from '../config/theme';
 import { routesAPI } from '../services/api';
 import useStore from '../store/useStore';
 
-const C = getColors('light');
-
 export default function RoutesScreen({ navigation }: any) {
+  const C = useColors();
+  const s = makeStyles(C);
   const { savedRoutes, setSavedRoutes } = useStore();
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
@@ -104,6 +105,8 @@ export default function RoutesScreen({ navigation }: any) {
 }
 
 function RouteCard({ route, onFav, onDelete, onNavigate, onPost }: any) {
+  const C = useColors();
+  const s = makeStyles(C);
   return (
     <View style={s.card}>
       {/* Map thumbnail */}
@@ -136,7 +139,7 @@ function RouteCard({ route, onFav, onDelete, onNavigate, onPost }: any) {
           <Ionicons name={route.is_favorite ? 'star' : 'star-outline'} size={18} color={route.is_favorite ? '#FFD700' : C.textMuted} />
         </TouchableOpacity>
         <TouchableOpacity onPress={onNavigate} style={s.actionBtn}>
-          <Ionicons name="navigate-outline" size={18} color="#006c44" />
+          <Ionicons name="navigate-outline" size={18} color={C.primary} />
         </TouchableOpacity>
         <TouchableOpacity onPress={onPost} style={s.actionBtn}>
           <Ionicons name="share-outline" size={18} color="#378ADD" />
@@ -149,35 +152,37 @@ function RouteCard({ route, onFav, onDelete, onNavigate, onPost }: any) {
   );
 }
 
-const s = StyleSheet.create({
-  root: { flex: 1, backgroundColor: '#e7fff1' },
-  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: SPACING.xl, paddingTop: SPACING.lg, paddingBottom: SPACING.md },
-  title: { fontSize: FONTS.sizes.xxl, fontWeight: '800', color: C.text },
-  addBtn: { width: 40, height: 40, borderRadius: RADIUS.full, backgroundColor: '#e1f9eb', alignItems: 'center', justifyContent: 'center', borderWidth: 1.5, borderColor: 'rgba(0,108,68,0.2)' },
+function makeStyles(C: any) {
+  return StyleSheet.create({
+    root: { flex: 1, backgroundColor: C.background },
+    header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: SPACING.xl, paddingTop: SPACING.lg, paddingBottom: SPACING.md },
+    title: { fontSize: FONTS.sizes.xxl, fontWeight: '800', color: C.text },
+    addBtn: { width: 40, height: 40, borderRadius: RADIUS.full, backgroundColor: C.text === '#F9FAFB' ? 'rgba(76,175,125,0.12)' : '#e1f9eb', alignItems: 'center', justifyContent: 'center', borderWidth: 1.5, borderColor: C.border },
 
-  tabRow: { flexDirection: 'row', marginHorizontal: SPACING.xl, backgroundColor: 'rgba(255,255,255,0.7)', borderRadius: RADIUS.md, padding: 4, marginBottom: SPACING.lg },
-  tab: { flex: 1, paddingVertical: 10, alignItems: 'center', borderRadius: RADIUS.sm - 2 },
-  tabActive: { backgroundColor: '#fff', ...SHADOW.xs },
-  tabText: { fontSize: FONTS.sizes.sm, color: C.textMuted, fontWeight: '500' },
-  tabTextActive: { color: '#006c44', fontWeight: '700' },
+    tabRow: { flexDirection: 'row', marginHorizontal: SPACING.xl, backgroundColor: C.text === '#F9FAFB' ? 'rgba(255,255,255,0.06)' : 'rgba(255,255,255,0.7)', borderRadius: RADIUS.md, padding: 4, marginBottom: SPACING.lg },
+    tab: { flex: 1, paddingVertical: 10, alignItems: 'center', borderRadius: RADIUS.sm - 2 },
+    tabActive: { backgroundColor: C.surface, ...SHADOW.xs },
+    tabText: { fontSize: FONTS.sizes.sm, color: C.textMuted, fontWeight: '500' },
+    tabTextActive: { color: C.primary, fontWeight: '700' },
 
-  list: { paddingHorizontal: SPACING.xl, paddingBottom: 100 },
-  card: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#fff', borderRadius: RADIUS.xl, marginBottom: SPACING.md, overflow: 'hidden', ...SHADOW.xs },
-  thumb: { width: 80, height: 80, backgroundColor: '#2d5a45', alignItems: 'center', justifyContent: 'center' },
-  favBadge: { position: 'absolute', top: 6, right: 6, width: 20, height: 20, borderRadius: 10, backgroundColor: 'rgba(0,0,0,0.3)', alignItems: 'center', justifyContent: 'center' },
-  cardInfo: { flex: 1, padding: SPACING.md, gap: 3 },
-  cardName: { fontSize: FONTS.sizes.md, fontWeight: '700', color: C.text },
-  cardRoute: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  routeDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: '#006c44' },
-  cardRouteText: { fontSize: FONTS.sizes.xs, color: C.textSecondary, flex: 1 },
-  cardDate: { fontSize: FONTS.sizes.xs, color: C.textMuted, marginTop: 2 },
-  cardActions: { flexDirection: 'column', gap: SPACING.xs, paddingRight: SPACING.sm },
-  actionBtn: { width: 32, height: 32, borderRadius: RADIUS.full, backgroundColor: '#f8f8f8', alignItems: 'center', justifyContent: 'center' },
+    list: { paddingHorizontal: SPACING.xl, paddingBottom: 100 },
+    card: { flexDirection: 'row', alignItems: 'center', backgroundColor: C.surface, borderRadius: RADIUS.xl, marginBottom: SPACING.md, overflow: 'hidden', ...SHADOW.xs, borderWidth: 1, borderColor: C.border },
+    thumb: { width: 80, height: 80, backgroundColor: C.text === '#F9FAFB' ? '#1c2638' : '#2d5a45', alignItems: 'center', justifyContent: 'center' },
+    favBadge: { position: 'absolute', top: 6, right: 6, width: 20, height: 20, borderRadius: 10, backgroundColor: 'rgba(0,0,0,0.3)', alignItems: 'center', justifyContent: 'center' },
+    cardInfo: { flex: 1, padding: SPACING.md, gap: 3 },
+    cardName: { fontSize: FONTS.sizes.md, fontWeight: '700', color: C.text },
+    cardRoute: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+    routeDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: C.primary },
+    cardRouteText: { fontSize: FONTS.sizes.xs, color: C.textSecondary, flex: 1 },
+    cardDate: { fontSize: FONTS.sizes.xs, color: C.textMuted, marginTop: 2 },
+    cardActions: { flexDirection: 'column', gap: SPACING.xs, paddingRight: SPACING.sm },
+    actionBtn: { width: 32, height: 32, borderRadius: RADIUS.full, backgroundColor: C.text === '#F9FAFB' ? 'rgba(255,255,255,0.06)' : '#f8f8f8', alignItems: 'center', justifyContent: 'center' },
 
-  empty: { alignItems: 'center', paddingTop: 64, gap: SPACING.md },
-  emptyIconWrap: { width: 88, height: 88, borderRadius: RADIUS.full, backgroundColor: 'rgba(255,255,255,0.6)', alignItems: 'center', justifyContent: 'center' },
-  emptyTitle: { fontSize: FONTS.sizes.xl, fontWeight: '700', color: C.text },
-  emptyText: { fontSize: FONTS.sizes.sm, color: C.textSecondary, textAlign: 'center', maxWidth: 240, lineHeight: 20 },
-  mapBtn: { flexDirection: 'row', alignItems: 'center', gap: SPACING.sm, backgroundColor: '#006c44', borderRadius: RADIUS.full, paddingHorizontal: SPACING.xl, paddingVertical: SPACING.md, marginTop: SPACING.sm, ...SHADOW.sm },
-  mapBtnText: { color: '#fff', fontWeight: '700', fontSize: FONTS.sizes.sm },
-});
+    empty: { alignItems: 'center', paddingTop: 64, gap: SPACING.md },
+    emptyIconWrap: { width: 88, height: 88, borderRadius: RADIUS.full, backgroundColor: C.text === '#F9FAFB' ? 'rgba(255,255,255,0.06)' : 'rgba(255,255,255,0.6)', alignItems: 'center', justifyContent: 'center' },
+    emptyTitle: { fontSize: FONTS.sizes.xl, fontWeight: '700', color: C.text },
+    emptyText: { fontSize: FONTS.sizes.sm, color: C.textSecondary, textAlign: 'center', maxWidth: 240, lineHeight: 20 },
+    mapBtn: { flexDirection: 'row', alignItems: 'center', gap: SPACING.sm, backgroundColor: C.primary, borderRadius: RADIUS.full, paddingHorizontal: SPACING.xl, paddingVertical: SPACING.md, marginTop: SPACING.sm, ...SHADOW.sm },
+    mapBtnText: { color: '#fff', fontWeight: '700', fontSize: FONTS.sizes.sm },
+  });
+}

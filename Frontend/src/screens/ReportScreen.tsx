@@ -6,11 +6,10 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as ImagePicker from 'expo-image-picker';
 import { Ionicons } from '@expo/vector-icons';
-import { FONTS, RADIUS, SPACING, SHADOW, getColors } from '../config/theme';
+import { useColors } from '../config/ThemeContext';
+import { FONTS, RADIUS, SPACING, SHADOW } from '../config/theme';
 import { incidentsAPI } from '../services/api';
 import useStore from '../store/useStore';
-
-const C = getColors('light');
 
 const CATEGORIES = [
   { key: 'accident', label: 'Accident',  icon: 'car-outline',         color: '#E24B4A', bg: '#fdecea' },
@@ -27,6 +26,8 @@ const SEVERITIES = [
 ];
 
 export default function ReportScreen({ navigation }: any) {
+  const C = useColors();
+  const s = makeStyles(C);
   const { userLocation, addIncident } = useStore();
   const [form, setForm] = useState({ type: 'accident', title: '', description: '', severity: 'medium' });
   const [media, setMedia] = useState<any>(null);
@@ -184,42 +185,44 @@ export default function ReportScreen({ navigation }: any) {
   );
 }
 
-const s = StyleSheet.create({
-  root: { flex: 1, backgroundColor: '#ffffff' },
-  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: SPACING.xl, paddingVertical: SPACING.md, borderBottomWidth: 1, borderBottomColor: 'rgba(0,108,68,0.08)' },
-  closeBtn: { width: 36, height: 36, borderRadius: RADIUS.full, backgroundColor: '#f5f5f5', alignItems: 'center', justifyContent: 'center' },
-  headerTitle: { fontSize: FONTS.sizes.lg, fontWeight: '700', color: C.text },
+function makeStyles(C: any) {
+  return StyleSheet.create({
+    root: { flex: 1, backgroundColor: C.background },
+    header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: SPACING.xl, paddingVertical: SPACING.md, borderBottomWidth: 1, borderBottomColor: C.border },
+    closeBtn: { width: 36, height: 36, borderRadius: RADIUS.full, backgroundColor: C.text === '#F9FAFB' ? 'rgba(255,255,255,0.08)' : '#f5f5f5', alignItems: 'center', justifyContent: 'center' },
+    headerTitle: { fontSize: FONTS.sizes.lg, fontWeight: '700', color: C.text },
 
-  scroll: { padding: SPACING.xl, paddingBottom: 48 },
-  sectionLabel: { fontSize: 11, fontWeight: '700', color: C.textMuted, letterSpacing: 0.8, marginBottom: SPACING.md, marginTop: SPACING.lg },
+    scroll: { padding: SPACING.xl, paddingBottom: 48 },
+    sectionLabel: { fontSize: 11, fontWeight: '700', color: C.textMuted, letterSpacing: 0.8, marginBottom: SPACING.md, marginTop: SPACING.lg },
 
-  catGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: SPACING.md },
-  catCard: { width: '47%', borderRadius: RADIUS.xl, padding: SPACING.lg, alignItems: 'center', gap: SPACING.sm, borderWidth: 2, borderColor: 'transparent', ...SHADOW.xs },
-  catCardActive: { borderColor: 'rgba(0,108,68,0.3)' },
-  catIconCircle: { width: 56, height: 56, borderRadius: RADIUS.full, backgroundColor: 'rgba(255,255,255,0.7)', alignItems: 'center', justifyContent: 'center' },
-  catLabel: { fontSize: FONTS.sizes.md, fontWeight: '600', color: C.text },
-  catCheck: { position: 'absolute', top: 10, right: 10, width: 20, height: 20, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
+    catGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: SPACING.md },
+    catCard: { width: '47%', borderRadius: RADIUS.xl, padding: SPACING.lg, alignItems: 'center', gap: SPACING.sm, borderWidth: 2, borderColor: 'transparent', backgroundColor: C.surface, ...SHADOW.xs },
+    catCardActive: { borderColor: C.primary },
+    catIconCircle: { width: 56, height: 56, borderRadius: RADIUS.full, backgroundColor: C.text === '#F9FAFB' ? 'rgba(255,255,255,0.08)' : 'rgba(255,255,255,0.7)', alignItems: 'center', justifyContent: 'center' },
+    catLabel: { fontSize: FONTS.sizes.md, fontWeight: '600', color: C.text },
+    catCheck: { position: 'absolute', top: 10, right: 10, width: 20, height: 20, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
 
-  detailRow: { flexDirection: 'row', gap: SPACING.md },
-  miniMapWrap: { width: 120 },
-  miniMap: { width: 120, height: 120, backgroundColor: '#e7fff1', borderRadius: RADIUS.lg, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: 'rgba(0,108,68,0.15)', marginBottom: 6 },
-  locationPin: { position: 'absolute', bottom: 8 },
-  locationText: { fontSize: FONTS.sizes.xs, color: C.textMuted, textAlign: 'center' },
-  descInput: { flex: 1, height: 120, backgroundColor: '#f8faf9', borderRadius: RADIUS.lg, padding: SPACING.md, fontSize: FONTS.sizes.md, color: '#0b1f17', borderWidth: 1, borderColor: 'rgba(0,108,68,0.1)' },
+    detailRow: { flexDirection: 'row', gap: SPACING.md },
+    miniMapWrap: { width: 120 },
+    miniMap: { width: 120, height: 120, backgroundColor: C.text === '#F9FAFB' ? '#1c2638' : '#e7fff1', borderRadius: RADIUS.lg, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: C.border, marginBottom: 6 },
+    locationPin: { position: 'absolute', bottom: 8 },
+    locationText: { fontSize: FONTS.sizes.xs, color: C.textMuted, textAlign: 'center' },
+    descInput: { flex: 1, height: 120, backgroundColor: C.text === '#F9FAFB' ? '#1c2638' : '#f8faf9', borderRadius: RADIUS.lg, padding: SPACING.md, fontSize: FONTS.sizes.md, color: C.text, borderWidth: 1, borderColor: C.border },
 
-  titleInput: { backgroundColor: '#f8faf9', borderRadius: RADIUS.lg, padding: SPACING.md, fontSize: FONTS.sizes.md, color: '#0b1f17', borderWidth: 1, borderColor: 'rgba(0,108,68,0.1)' },
+    titleInput: { backgroundColor: C.text === '#F9FAFB' ? '#1c2638' : '#f8faf9', borderRadius: RADIUS.lg, padding: SPACING.md, fontSize: FONTS.sizes.md, color: C.text, borderWidth: 1, borderColor: C.border },
 
-  severityRow: { flexDirection: 'row', gap: SPACING.sm },
-  sevBtn: { flex: 1, paddingVertical: 10, borderRadius: RADIUS.full, borderWidth: 1.5, borderColor: 'rgba(0,108,68,0.15)', alignItems: 'center', backgroundColor: '#fff' },
-  sevText: { fontSize: FONTS.sizes.xs, fontWeight: '600', color: C.textSecondary },
+    severityRow: { flexDirection: 'row', gap: SPACING.sm },
+    sevBtn: { flex: 1, paddingVertical: 10, borderRadius: RADIUS.full, borderWidth: 1.5, borderColor: C.border, alignItems: 'center', backgroundColor: C.surface },
+    sevText: { fontSize: FONTS.sizes.xs, fontWeight: '600', color: C.textSecondary },
 
-  photoBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: SPACING.sm, backgroundColor: '#e1f9eb', borderRadius: RADIUS.lg, padding: SPACING.md, marginTop: SPACING.md, borderWidth: 1.5, borderColor: 'rgba(0,108,68,0.2)', borderStyle: 'dashed' },
-  photoBtnText: { color: '#006c44', fontWeight: '600' },
-  previewWrap: { position: 'relative', marginTop: SPACING.md },
-  preview: { width: '100%', height: 160, borderRadius: RADIUS.lg },
-  removeBtn: { position: 'absolute', top: 8, right: 8 },
+    photoBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: SPACING.sm, backgroundColor: C.text === '#F9FAFB' ? 'rgba(76,175,125,0.12)' : '#e1f9eb', borderRadius: RADIUS.lg, padding: SPACING.md, marginTop: SPACING.md, borderWidth: 1.5, borderColor: C.border, borderStyle: 'dashed' },
+    photoBtnText: { color: C.primary, fontWeight: '600' },
+    previewWrap: { position: 'relative', marginTop: SPACING.md },
+    preview: { width: '100%', height: 160, borderRadius: RADIUS.lg },
+    removeBtn: { position: 'absolute', top: 8, right: 8 },
 
-  submitBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: SPACING.sm, backgroundColor: '#006c44', borderRadius: RADIUS.full, paddingVertical: 18, marginTop: SPACING.xl, shadowColor: '#006c44', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 12, elevation: 6 },
-  submitText: { color: '#fff', fontSize: FONTS.sizes.lg, fontWeight: '700' },
-  helpText: { textAlign: 'center', color: C.textMuted, fontSize: FONTS.sizes.xs, marginTop: SPACING.md },
-});
+    submitBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: SPACING.sm, backgroundColor: C.primary, borderRadius: RADIUS.full, paddingVertical: 18, marginTop: SPACING.xl, shadowColor: C.primary, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 12, elevation: 6 },
+    submitText: { color: '#fff', fontSize: FONTS.sizes.lg, fontWeight: '700' },
+    helpText: { textAlign: 'center', color: C.textMuted, fontSize: FONTS.sizes.xs, marginTop: SPACING.md },
+  });
+}

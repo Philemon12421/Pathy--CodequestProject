@@ -39,3 +39,11 @@ yarn-error.*
 # generated native folders
 /ios
 /android
+
+# Safetrack custom ignores
+**/uploads/
+**/target/
+.env
+.env.local
+*.m4a
+*.mp3

@@ -5,11 +5,10 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { FONTS, RADIUS, SPACING, SHADOW, getColors } from '../config/theme';
+import { useColors } from '../config/ThemeContext';
+import { FONTS, RADIUS, SPACING, SHADOW } from '../config/theme';
 import { routesAPI } from '../services/api';
 import useStore from '../store/useStore';
-
-const C = getColors('light');
 
 const ACTIVITIES = [
   { key: 'running',  label: 'Running',  icon: 'walk-outline'    },
@@ -19,6 +18,8 @@ const ACTIVITIES = [
 ];
 
 export default function PostRouteScreen({ navigation, route }: any) {
+  const C = useColors();
+  const s = makeStyles(C);
   const { savedRoutes, addRoute, userLocation } = useStore();
   const routeData = route?.params?.routeData;
   const [name, setName] = useState('');
@@ -158,42 +159,44 @@ export default function PostRouteScreen({ navigation, route }: any) {
   );
 }
 
-const s = StyleSheet.create({
-  root: { flex: 1, backgroundColor: '#e7fff1' },
-  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: SPACING.xl, paddingVertical: SPACING.md, backgroundColor: '#e7fff1' },
-  closeBtn: { width: 36, height: 36, borderRadius: RADIUS.full, backgroundColor: 'rgba(255,255,255,0.7)', alignItems: 'center', justifyContent: 'center' },
-  headerTitle: { fontSize: FONTS.sizes.lg, fontWeight: '700', color: C.text },
+function makeStyles(C: any) {
+  return StyleSheet.create({
+    root: { flex: 1, backgroundColor: C.background },
+    header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: SPACING.xl, paddingVertical: SPACING.md, backgroundColor: C.background },
+    closeBtn: { width: 36, height: 36, borderRadius: RADIUS.full, backgroundColor: C.text === '#F9FAFB' ? 'rgba(255,255,255,0.08)' : 'rgba(255,255,255,0.7)', alignItems: 'center', justifyContent: 'center' },
+    headerTitle: { fontSize: FONTS.sizes.lg, fontWeight: '700', color: C.text },
 
-  scroll: { padding: SPACING.xl, paddingBottom: 48 },
+    scroll: { padding: SPACING.xl, paddingBottom: 48 },
 
-  mapCard: { borderRadius: RADIUS.xl, overflow: 'hidden', marginBottom: SPACING.lg },
-  mapPlaceholder: { height: 180, backgroundColor: '#2d5a45', alignItems: 'center', justifyContent: 'center' },
-  routeLine: { position: 'absolute', width: '60%', height: 3, backgroundColor: '#4caf7d', borderRadius: 2, transform: [{ rotate: '-20deg' }] },
-  locationBadge: { flexDirection: 'row', alignItems: 'center', gap: 5, backgroundColor: '#fff', paddingHorizontal: SPACING.md, paddingVertical: SPACING.sm, borderRadius: RADIUS.full, alignSelf: 'flex-start', margin: SPACING.sm, position: 'absolute', bottom: SPACING.sm, left: SPACING.sm, ...SHADOW.xs },
-  locationBadgeText: { fontSize: FONTS.sizes.sm, color: '#006c44', fontWeight: '600' },
+    mapCard: { borderRadius: RADIUS.xl, overflow: 'hidden', marginBottom: SPACING.lg },
+    mapPlaceholder: { height: 180, backgroundColor: C.text === '#F9FAFB' ? '#1c2638' : '#2d5a45', alignItems: 'center', justifyContent: 'center' },
+    routeLine: { position: 'absolute', width: '60%', height: 3, backgroundColor: C.primaryContainer, borderRadius: 2, transform: [{ rotate: '-20deg' }] },
+    locationBadge: { flexDirection: 'row', alignItems: 'center', gap: 5, backgroundColor: C.surface, paddingHorizontal: SPACING.md, paddingVertical: SPACING.sm, borderRadius: RADIUS.full, alignSelf: 'flex-start', margin: SPACING.sm, position: 'absolute', bottom: SPACING.sm, left: SPACING.sm, ...SHADOW.xs },
+    locationBadgeText: { fontSize: FONTS.sizes.sm, color: C.primary, fontWeight: '600' },
 
-  statsCard: { flexDirection: 'row', backgroundColor: '#fff', borderRadius: RADIUS.xl, padding: SPACING.xl, marginBottom: SPACING.xl, ...SHADOW.xs },
-  statCol: { flex: 1, alignItems: 'center' },
-  statLabel: { fontSize: 10, fontWeight: '700', color: C.textMuted, letterSpacing: 0.8, marginBottom: SPACING.xs },
-  statValue: { fontSize: FONTS.sizes.xxxl, fontWeight: '800', color: '#006c44' },
-  statUnit: { fontSize: FONTS.sizes.md, color: C.textSecondary },
-  statDivider: { width: 1, backgroundColor: 'rgba(0,108,68,0.1)', marginHorizontal: SPACING.lg },
+    statsCard: { flexDirection: 'row', backgroundColor: C.surface, borderRadius: RADIUS.xl, padding: SPACING.xl, marginBottom: SPACING.xl, ...SHADOW.xs, borderWidth: 1, borderColor: C.border },
+    statCol: { flex: 1, alignItems: 'center' },
+    statLabel: { fontSize: 10, fontWeight: '700', color: C.textMuted, letterSpacing: 0.8, marginBottom: SPACING.xs },
+    statValue: { fontSize: FONTS.sizes.xxxl, fontWeight: '800', color: C.primary },
+    statUnit: { fontSize: FONTS.sizes.md, color: C.textSecondary },
+    statDivider: { width: 1, backgroundColor: C.border, marginHorizontal: SPACING.lg },
 
-  label: { fontSize: FONTS.sizes.sm, fontWeight: '600', color: C.text, marginBottom: SPACING.sm },
-  nameInput: { backgroundColor: '#fff', borderRadius: RADIUS.lg, padding: SPACING.md, fontSize: FONTS.sizes.md, color: '#0b1f17', borderWidth: 1.5, borderColor: 'rgba(0,108,68,0.15)', marginBottom: SPACING.xl },
+    label: { fontSize: FONTS.sizes.sm, fontWeight: '600', color: C.text, marginBottom: SPACING.sm },
+    nameInput: { backgroundColor: C.surface, borderRadius: RADIUS.lg, padding: SPACING.md, fontSize: FONTS.sizes.md, color: C.text, borderWidth: 1.5, borderColor: C.border, marginBottom: SPACING.xl },
 
-  activityRow: { gap: SPACING.sm, paddingBottom: SPACING.md, paddingRight: SPACING.sm },
-  actBtn: { flexDirection: 'row', alignItems: 'center', gap: SPACING.sm, paddingHorizontal: SPACING.lg, paddingVertical: SPACING.md, borderRadius: RADIUS.full, borderWidth: 1.5, borderColor: 'rgba(0,108,68,0.2)', backgroundColor: '#fff', marginBottom: SPACING.lg },
-  actBtnActive: { backgroundColor: '#e1f9eb', borderColor: '#006c44' },
-  actText: { fontSize: FONTS.sizes.sm, fontWeight: '600', color: C.textSecondary },
-  actTextActive: { color: '#006c44' },
+    activityRow: { gap: SPACING.sm, paddingBottom: SPACING.md, paddingRight: SPACING.sm },
+    actBtn: { flexDirection: 'row', alignItems: 'center', gap: SPACING.sm, paddingHorizontal: SPACING.lg, paddingVertical: SPACING.md, borderRadius: RADIUS.full, borderWidth: 1.5, borderColor: C.border, backgroundColor: C.surface, marginBottom: SPACING.lg },
+    actBtnActive: { backgroundColor: C.text === '#F9FAFB' ? 'rgba(76,175,125,0.15)' : '#e1f9eb', borderColor: C.primary },
+    actText: { fontSize: FONTS.sizes.sm, fontWeight: '600', color: C.textSecondary },
+    actTextActive: { color: C.primary },
 
-  toggleCard: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: '#fff', borderRadius: RADIUS.xl, padding: SPACING.lg, marginBottom: SPACING.xl, ...SHADOW.xs },
-  toggleLeft: { flexDirection: 'row', alignItems: 'center', gap: SPACING.md },
-  toggleIcon: { width: 44, height: 44, borderRadius: RADIUS.full, backgroundColor: '#e1f9eb', alignItems: 'center', justifyContent: 'center' },
-  toggleTitle: { fontSize: FONTS.sizes.md, fontWeight: '700', color: C.text },
-  toggleSub: { fontSize: FONTS.sizes.xs, color: C.textSecondary, marginTop: 2 },
+    toggleCard: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: C.surface, borderRadius: RADIUS.xl, padding: SPACING.lg, marginBottom: SPACING.xl, ...SHADOW.xs, borderWidth: 1, borderColor: C.border },
+    toggleLeft: { flexDirection: 'row', alignItems: 'center', gap: SPACING.md },
+    toggleIcon: { width: 44, height: 44, borderRadius: RADIUS.full, backgroundColor: C.text === '#F9FAFB' ? 'rgba(76,175,125,0.12)' : '#e1f9eb', alignItems: 'center', justifyContent: 'center' },
+    toggleTitle: { fontSize: FONTS.sizes.md, fontWeight: '700', color: C.text },
+    toggleSub: { fontSize: FONTS.sizes.xs, color: C.textSecondary, marginTop: 2 },
 
-  postBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: SPACING.sm, backgroundColor: '#4caf7d', borderRadius: RADIUS.full, paddingVertical: 18, shadowColor: '#006c44', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 12, elevation: 6 },
-  postBtnText: { color: '#fff', fontSize: FONTS.sizes.lg, fontWeight: '700' },
-});
+    postBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: SPACING.sm, backgroundColor: C.primary, borderRadius: RADIUS.full, paddingVertical: 18, shadowColor: C.primary, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 12, elevation: 6 },
+    postBtnText: { color: '#fff', fontSize: FONTS.sizes.lg, fontWeight: '700' },
+  });
+}

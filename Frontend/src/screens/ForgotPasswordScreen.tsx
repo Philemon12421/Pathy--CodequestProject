@@ -5,14 +5,16 @@ import {
 } from 'react-native';
 import { BlurView } from 'expo-blur';
 import { Ionicons } from '@expo/vector-icons';
-import { FONTS, RADIUS, SPACING, SHADOW, getColors } from '../config/theme';
-
-const C = getColors('light');
+import { useColors } from '../config/ThemeContext';
+import { FONTS, RADIUS, SPACING, SHADOW } from '../config/theme';
+import { authAPI } from '../services/api';
 
 // Steps: 'email' → 'code' → 'reset' → 'done'
 type Step = 'email' | 'code' | 'reset' | 'done';
 
 export default function ForgotPasswordScreen({ navigation }: any) {
+  const C = useColors();
+  const s = makeStyles(C);
   const [step, setStep] = useState<Step>('email');
   const [email, setEmail] = useState('');
   const [code, setCode] = useState('');
@@ -37,8 +39,11 @@ export default function ForgotPasswordScreen({ navigation }: any) {
       Alert.alert('Invalid email', 'Please enter a valid email address.'); return;
     }
     setLoading(true);
-    // TODO: call authAPI.requestPasswordReset(email)
-    await new Promise(r => setTimeout(r, 1000)); // simulate API
+    try {
+      await authAPI.requestPasswordReset(email.trim());
+    } catch (e: any) {
+      Alert.alert('Error', e?.error || 'Something went wrong.'); setLoading(false); return;
+    }
     setLoading(false);
     fadeTransition(() => setStep('code'));
   };
@@ -48,8 +53,11 @@ export default function ForgotPasswordScreen({ navigation }: any) {
       Alert.alert('Invalid code', 'Please enter the full verification code.'); return;
     }
     setLoading(true);
-    // TODO: call authAPI.verifyResetCode(email, code)
-    await new Promise(r => setTimeout(r, 800));
+    try {
+      await authAPI.verifyResetCode(email.trim(), code.trim());
+    } catch (e: any) {
+      Alert.alert('Invalid code', e?.error || 'That code is incorrect or expired.'); setLoading(false); return;
+    }
     setLoading(false);
     fadeTransition(() => setStep('reset'));
   };
@@ -62,8 +70,11 @@ export default function ForgotPasswordScreen({ navigation }: any) {
       Alert.alert("Passwords don't match", 'Make sure both fields are identical.'); return;
     }
     setLoading(true);
-    // TODO: call authAPI.resetPassword(email, code, password)
-    await new Promise(r => setTimeout(r, 1000));
+    try {
+      await authAPI.resetPassword(email.trim(), code.trim(), password);
+    } catch (e: any) {
+      Alert.alert('Error', e?.error || 'Could not reset password.'); setLoading(false); return;
+    }
     setLoading(false);
     fadeTransition(() => setStep('done'));
   };
@@ -233,38 +244,40 @@ export default function ForgotPasswordScreen({ navigation }: any) {
   );
 }
 
-const s = StyleSheet.create({
-  root: { flex: 1, backgroundColor: '#ffffff', paddingTop: 60 },
-  blobTR: { position: 'absolute', top: -80, right: -80, width: 260, height: 260, borderRadius: 130, backgroundColor: '#e7fff1', opacity: 0.9 },
-  blobBL: { position: 'absolute', bottom: -60, left: -60, width: 220, height: 220, borderRadius: 110, backgroundColor: '#e1f9eb', opacity: 0.7 },
+function makeStyles(C: any) {
+  return StyleSheet.create({
+    root: { flex: 1, backgroundColor: C.background, paddingTop: 60 },
+    blobTR: { position: 'absolute', top: -80, right: -80, width: 260, height: 260, borderRadius: 130, backgroundColor: C.text === '#F9FAFB' ? 'rgba(76,175,125,0.06)' : '#e7fff1', opacity: 0.9 },
+    blobBL: { position: 'absolute', bottom: -60, left: -60, width: 220, height: 220, borderRadius: 110, backgroundColor: C.text === '#F9FAFB' ? 'rgba(76,175,125,0.04)' : '#e1f9eb', opacity: 0.7 },
 
-  backBtn: { position: 'absolute', top: 56, left: SPACING.xl, zIndex: 10, width: 40, height: 40, borderRadius: RADIUS.full, backgroundColor: 'rgba(255,255,255,0.8)', alignItems: 'center', justifyContent: 'center', ...SHADOW.xs },
+    backBtn: { position: 'absolute', top: 56, left: SPACING.xl, zIndex: 10, width: 40, height: 40, borderRadius: RADIUS.full, backgroundColor: C.surface, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: C.border, ...SHADOW.xs },
 
-  progressRow: { flexDirection: 'row', justifyContent: 'center', gap: SPACING.sm, marginBottom: SPACING.xl, marginTop: SPACING.md },
-  progressDot: { width: 28, height: 6, borderRadius: 3, backgroundColor: 'rgba(0,108,68,0.15)' },
-  progressDotActive: { backgroundColor: '#006c44' },
+    progressRow: { flexDirection: 'row', justifyContent: 'center', gap: SPACING.sm, marginBottom: SPACING.xl, marginTop: SPACING.md },
+    progressDot: { width: 28, height: 6, borderRadius: 3, backgroundColor: C.border },
+    progressDotActive: { backgroundColor: C.primary },
 
-  content: { flex: 1, paddingHorizontal: SPACING.xl, alignItems: 'center', paddingTop: SPACING.lg },
-  iconBadge: { width: 80, height: 80, borderRadius: 24, overflow: 'hidden', alignItems: 'center', justifyContent: 'center', marginBottom: SPACING.lg, borderWidth: 1, borderColor: 'rgba(0,108,68,0.12)', ...SHADOW.sm },
-  title: { fontSize: FONTS.sizes.xxl, fontWeight: '800', color: '#0b1f17', textAlign: 'center', marginBottom: 8 },
-  sub: { fontSize: FONTS.sizes.sm, color: C.textSecondary, textAlign: 'center', marginBottom: SPACING.xl, paddingHorizontal: SPACING.md, lineHeight: 20 },
+    content: { flex: 1, paddingHorizontal: SPACING.xl, alignItems: 'center', paddingTop: SPACING.lg },
+    iconBadge: { width: 80, height: 80, borderRadius: 24, overflow: 'hidden', alignItems: 'center', justifyContent: 'center', marginBottom: SPACING.lg, borderWidth: 1, borderColor: C.border, ...SHADOW.sm },
+    title: { fontSize: FONTS.sizes.xxl, fontWeight: '800', color: C.text, textAlign: 'center', marginBottom: 8 },
+    sub: { fontSize: FONTS.sizes.sm, color: C.textSecondary, textAlign: 'center', marginBottom: SPACING.xl, paddingHorizontal: SPACING.md, lineHeight: 20 },
 
-  card: { width: '100%', borderRadius: RADIUS.xl, overflow: 'hidden', borderWidth: 1, borderColor: 'rgba(0,108,68,0.1)', padding: SPACING.xl, backgroundColor: 'rgba(255,255,255,0.8)', ...SHADOW.sm },
+    card: { width: '100%', borderRadius: RADIUS.xl, overflow: 'hidden', borderWidth: 1, borderColor: C.border, padding: SPACING.xl, backgroundColor: C.text === '#F9FAFB' ? 'rgba(30,40,55,0.85)' : 'rgba(255,255,255,0.8)', ...SHADOW.sm },
 
-  label: { fontSize: FONTS.sizes.sm, fontWeight: '600', color: '#0b1f17', marginBottom: SPACING.xs },
-  inputWrap: { flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.95)', borderRadius: RADIUS.md, borderWidth: 1.5, marginBottom: SPACING.lg },
-  icon: { marginLeft: 14 },
-  input: { flex: 1, fontSize: FONTS.sizes.md, color: '#0b1f17', paddingVertical: 14, paddingHorizontal: SPACING.sm },
-  eye: { paddingHorizontal: 14, paddingVertical: 14 },
+    label: { fontSize: FONTS.sizes.sm, fontWeight: '600', color: C.text, marginBottom: SPACING.xs },
+    inputWrap: { flexDirection: 'row', alignItems: 'center', backgroundColor: C.surface, borderRadius: RADIUS.md, borderWidth: 1.5, marginBottom: SPACING.lg },
+    icon: { marginLeft: 14 },
+    input: { flex: 1, fontSize: FONTS.sizes.md, color: C.text, paddingVertical: 14, paddingHorizontal: SPACING.sm },
+    eye: { paddingHorizontal: 14, paddingVertical: 14 },
 
-  btn: { backgroundColor: '#006c44', borderRadius: RADIUS.full, paddingVertical: 16, alignItems: 'center', shadowColor: '#006c44', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.28, shadowRadius: 12, elevation: 6 },
-  btnInner: { flexDirection: 'row', alignItems: 'center', gap: SPACING.sm },
-  btnText: { color: '#fff', fontSize: FONTS.sizes.md, fontWeight: '700' },
+    btn: { backgroundColor: C.primary, borderRadius: RADIUS.full, paddingVertical: 16, alignItems: 'center', shadowColor: C.primary, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.28, shadowRadius: 12, elevation: 6 },
+    btnInner: { flexDirection: 'row', alignItems: 'center', gap: SPACING.sm },
+    btnText: { color: '#fff', fontSize: FONTS.sizes.md, fontWeight: '700' },
 
-  resendBtn: { alignItems: 'center', marginTop: SPACING.md },
-  resendText: { fontSize: FONTS.sizes.xs, color: C.textSecondary },
-  resendLink: { color: '#006c44', fontWeight: '600' },
+    resendBtn: { alignItems: 'center', marginTop: SPACING.md },
+    resendText: { fontSize: FONTS.sizes.xs, color: C.textSecondary },
+    resendLink: { color: C.primary, fontWeight: '600' },
 
-  successIcon: { alignItems: 'center', marginBottom: SPACING.lg },
-  successText: { fontSize: FONTS.sizes.sm, color: C.textSecondary, textAlign: 'center', marginBottom: SPACING.xl, lineHeight: 20 },
-});
+    successIcon: { alignItems: 'center', marginBottom: SPACING.lg },
+    successText: { fontSize: FONTS.sizes.sm, color: C.textSecondary, textAlign: 'center', marginBottom: SPACING.xl, lineHeight: 20 },
+  });
+}

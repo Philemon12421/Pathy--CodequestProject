@@ -5,12 +5,15 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { FONTS, RADIUS, SPACING, SHADOW, getColors } from '../config/theme';
+import { useColors } from '../config/ThemeContext';
+import { FONTS, RADIUS, SPACING, SHADOW } from '../config/theme';
+import { authAPI } from '../services/api';
 
-const C = getColors('light');
 const CODE_LENGTH = 6;
 
 export default function EmailVerificationScreen({ navigation, route }: any) {
+  const C = useColors();
+  const s = makeStyles(C);
   const email = route?.params?.email || 'your email';
   const [code, setCode] = useState<string[]>(Array(CODE_LENGTH).fill(''));
   const [loading, setLoading] = useState(false);
@@ -58,8 +61,8 @@ export default function EmailVerificationScreen({ navigation, route }: any) {
     }
     setLoading(true);
     try {
-      // TODO: call authAPI.verifyEmail(email, full)
-      await new Promise(r => setTimeout(r, 1200));
+      // Call the real API
+      await authAPI.verifyEmail(email, full);
       Alert.alert('Verified!', 'Your email has been verified.', [
         { text: 'Continue', onPress: () => navigation.replace('Main') },
       ]);
@@ -74,8 +77,13 @@ export default function EmailVerificationScreen({ navigation, route }: any) {
   const resend = async () => {
     if (resendCooldown > 0) return;
     setResendCooldown(30);
-    // TODO: call authAPI.resendVerification(email)
-    Alert.alert('Sent!', 'A new code has been sent to your email.');
+    // Call the real API
+    try {
+      await authAPI.resendVerification(email);
+      Alert.alert('Sent!', 'A new code has been sent to your email.');
+    } catch {
+      Alert.alert('Error', 'Could not resend code. Try again.');
+    }
   };
 
   const filled = code.filter(Boolean).length;
@@ -159,38 +167,40 @@ export default function EmailVerificationScreen({ navigation, route }: any) {
   );
 }
 
-const s = StyleSheet.create({
-  root: { flex: 1, backgroundColor: '#ffffff' },
-  backBtn: { position: 'absolute', top: 56, left: SPACING.xl, zIndex: 10, width: 40, height: 40, borderRadius: RADIUS.full, backgroundColor: '#f5f5f5', alignItems: 'center', justifyContent: 'center' },
-  header: { alignItems: 'center', paddingTop: 60, marginBottom: SPACING.xxl },
-  appName: { fontSize: FONTS.sizes.xl, fontWeight: '800', color: '#006c44' },
+function makeStyles(C: any) {
+  return StyleSheet.create({
+    root: { flex: 1, backgroundColor: C.background },
+    backBtn: { position: 'absolute', top: 56, left: SPACING.xl, zIndex: 10, width: 40, height: 40, borderRadius: RADIUS.full, backgroundColor: C.surface, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: C.border },
+    header: { alignItems: 'center', paddingTop: 60, marginBottom: SPACING.xxl },
+    appName: { fontSize: FONTS.sizes.xl, fontWeight: '800', color: C.primary },
 
-  content: { flex: 1, paddingHorizontal: SPACING.xl, alignItems: 'center' },
-  iconWrap: { width: 88, height: 88, borderRadius: RADIUS.full, backgroundColor: '#e1f9eb', alignItems: 'center', justifyContent: 'center', marginBottom: SPACING.xl },
-  title: { fontSize: FONTS.sizes.xxl, fontWeight: '800', color: C.text, marginBottom: SPACING.sm },
-  sub: { fontSize: FONTS.sizes.md, color: C.textSecondary, textAlign: 'center', lineHeight: 22, marginBottom: SPACING.xxl },
-  emailText: { fontWeight: '700', color: C.text },
+    content: { flex: 1, paddingHorizontal: SPACING.xl, alignItems: 'center' },
+    iconWrap: { width: 88, height: 88, borderRadius: RADIUS.full, backgroundColor: C.text === '#F9FAFB' ? 'rgba(76,175,125,0.15)' : '#e1f9eb', alignItems: 'center', justifyContent: 'center', marginBottom: SPACING.xl },
+    title: { fontSize: FONTS.sizes.xxl, fontWeight: '800', color: C.text, marginBottom: SPACING.sm },
+    sub: { fontSize: FONTS.sizes.md, color: C.textSecondary, textAlign: 'center', lineHeight: 22, marginBottom: SPACING.xxl },
+    emailText: { fontWeight: '700', color: C.text },
 
-  codeRow: { flexDirection: 'row', gap: SPACING.md, marginBottom: SPACING.xxl },
-  codeBox: {
-    width: 48, height: 60, borderRadius: RADIUS.lg,
-    borderWidth: 1.5, borderColor: 'rgba(0,108,68,0.2)',
-    alignItems: 'center', justifyContent: 'center',
-    backgroundColor: '#f8faf9',
-  },
-  codeBoxFilled: { backgroundColor: '#e1f9eb', borderColor: '#006c44' },
-  codeBoxActive: { borderColor: '#006c44', borderWidth: 2, backgroundColor: '#fff' },
-  codeInput: { fontSize: FONTS.sizes.xxl, fontWeight: '800', color: '#0b1f17', textAlign: 'center', width: '100%', height: '100%' },
+    codeRow: { flexDirection: 'row', gap: SPACING.md, marginBottom: SPACING.xxl },
+    codeBox: {
+      width: 48, height: 60, borderRadius: RADIUS.lg,
+      borderWidth: 1.5, borderColor: C.border,
+      alignItems: 'center', justifyContent: 'center',
+      backgroundColor: C.surface,
+    },
+    codeBoxFilled: { backgroundColor: C.text === '#F9FAFB' ? 'rgba(76,175,125,0.12)' : '#e1f9eb', borderColor: C.primary },
+    codeBoxActive: { borderColor: C.primary, borderWidth: 2, backgroundColor: C.surface },
+    codeInput: { fontSize: FONTS.sizes.xxl, fontWeight: '800', color: C.text, textAlign: 'center', width: '100%', height: '100%' },
 
-  verifyBtn: { width: '100%', backgroundColor: '#006c44', borderRadius: RADIUS.full, paddingVertical: 18, alignItems: 'center', shadowColor: '#006c44', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 12, elevation: 6, marginBottom: SPACING.xl },
-  verifyText: { color: '#fff', fontSize: FONTS.sizes.md, fontWeight: '700' },
+    verifyBtn: { width: '100%', backgroundColor: C.primary, borderRadius: RADIUS.full, paddingVertical: 18, alignItems: 'center', shadowColor: C.primary, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 12, elevation: 6, marginBottom: SPACING.xl },
+    verifyText: { color: '#fff', fontSize: FONTS.sizes.md, fontWeight: '700' },
 
-  resendRow: { alignItems: 'center', gap: SPACING.xs },
-  resendLabel: { fontSize: FONTS.sizes.sm, color: C.textSecondary },
-  resendLink: { fontSize: FONTS.sizes.sm, color: '#006c44', fontWeight: '700' },
+    resendRow: { alignItems: 'center', gap: SPACING.xs },
+    resendLabel: { fontSize: FONTS.sizes.sm, color: C.textSecondary },
+    resendLink: { fontSize: FONTS.sizes.sm, color: C.primary, fontWeight: '700' },
 
-  footer: { paddingBottom: SPACING.xl },
-  footerDivider: { height: 1, backgroundColor: '#f0f0f0', marginBottom: SPACING.lg },
-  footerRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: SPACING.sm },
-  footerText: { fontSize: 11, color: C.textMuted, fontWeight: '600', letterSpacing: 1.5 },
-});
+    footer: { paddingBottom: SPACING.xl },
+    footerDivider: { height: 1, backgroundColor: C.border, marginBottom: SPACING.lg },
+    footerRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: SPACING.sm },
+    footerText: { fontSize: 11, color: C.textMuted, fontWeight: '600', letterSpacing: 1.5 },
+  });
+}

@@ -7,12 +7,13 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { BlurView } from 'expo-blur';
 import { Audio } from 'expo-av';
 import * as DocumentPicker from 'expo-document-picker';
+import * as FileSystem from 'expo-file-system/legacy';
 import { Ionicons } from '@expo/vector-icons';
-import { FONTS, RADIUS, SPACING, SHADOW, getColors } from '../config/theme';
+import { useColors } from '../config/ThemeContext';
+import { FONTS, RADIUS, SPACING, SHADOW } from '../config/theme';
 import { musicAPI } from '../services/api';
 import useStore from '../store/useStore';
 
-const C = getColors('light');
 const { width } = Dimensions.get('window');
 const BASE_URL = process.env.EXPO_PUBLIC_API_URL?.replace('/api', '') || 'http://localhost:4000';
 
@@ -22,18 +23,32 @@ function fmt(ms: number) {
 }
 
 export default function MusicScreen({ navigation }: any) {
+  const C = useColors();
+  const s = makeStyles(C);
   const { tracks, setTracks, playlists, setPlaylists, currentTrack,
           setCurrentTrack, isPlaying, setIsPlaying, setQueue } = useStore();
   const soundRef = useRef<Audio.Sound | null>(null);
   const [position, setPosition] = useState(0);
   const [duration, setDuration] = useState(0);
   const [uploading, setUploading] = useState(false);
+  const [loadingTrackId, setLoadingTrackId] = useState<string | null>(null);
   const [tab, setTab] = useState<'tracks' | 'playlists'>('tracks');
   const albumRotate = useRef(new Animated.Value(0)).current;
   const rotationRef = useRef<Animated.CompositeAnimation | null>(null);
 
   useEffect(() => {
     loadMusic();
+    const setupAudio = async () => {
+      try {
+        await Audio.setAudioModeAsync({
+          playsInSilentModeIOS: true,
+          staysActiveInBackground: true,
+        });
+      } catch (e) {
+        console.log('Audio setup error:', e);
+      }
+    };
+    setupAudio();
     return () => { soundRef.current?.unloadAsync(); };
   }, []);
 
@@ -62,9 +77,32 @@ export default function MusicScreen({ navigation }: any) {
 
   const playTrack = async (track: any) => {
     try {
-      if (soundRef.current) await soundRef.current.unloadAsync();
+      if (soundRef.current) {
+        await soundRef.current.unloadAsync();
+        soundRef.current = null;
+      }
+      
+      const fileUri = `${FileSystem.cacheDirectory}${track.id}.m4a`;
+      const fileInfo = await FileSystem.getInfoAsync(fileUri);
+      let localUri = fileUri;
+      
+      if (!fileInfo.exists) {
+        setLoadingTrackId(track.id);
+        const downloadResult = await FileSystem.downloadAsync(
+          `${BASE_URL}${track.file_url}`,
+          fileUri,
+          {
+            headers: {
+              'ngrok-skip-browser-warning': 'true',
+            }
+          }
+        );
+        localUri = downloadResult.uri;
+      }
+      
+      setLoadingTrackId(null);
       const { sound } = await Audio.Sound.createAsync(
-        { uri: `${BASE_URL}${track.file_url}` },
+        { uri: localUri },
         { shouldPlay: true },
         (status) => {
           if (status.isLoaded) {
@@ -76,8 +114,57 @@ export default function MusicScreen({ navigation }: any) {
       );
       soundRef.current = sound;
       setIsPlaying(true);
-      await Audio.setAudioModeAsync({ playsInSilentModeIOS: true, staysActiveInBackground: true });
-    } catch (e) { console.log('Playback error:', e); }
+    } catch (e) {
+      setLoadingTrackId(null);
+      console.log('Playback error:', e);
+      Alert.alert('Playback Error', 'Failed to load and play audio.');
+    }
+  };
+
+  const deleteTrack = async (id: string) => {
+    try {
+      await musicAPI.deleteTrack(id);
+      
+      // Stop and unload if currently playing
+      if (currentTrack?.id === id) {
+        if (soundRef.current) {
+          await soundRef.current.unloadAsync();
+          soundRef.current = null;
+        }
+        setCurrentTrack(null);
+        setIsPlaying(false);
+        setPosition(0);
+        setDuration(0);
+      }
+      
+      // Try to clean up local cache file
+      try {
+        const fileUri = `${FileSystem.cacheDirectory}${id}.m4a`;
+        const fileInfo = await FileSystem.getInfoAsync(fileUri);
+        if (fileInfo.exists) {
+          await FileSystem.deleteAsync(fileUri, { idempotent: true });
+        }
+      } catch (ce) {
+        console.log('Error deleting cached file:', ce);
+      }
+      
+      const updated = tracks.filter((t: any) => t.id !== id);
+      setTracks(updated);
+      setQueue(updated);
+    } catch (e) {
+      Alert.alert('Error', 'Failed to delete track from library');
+    }
+  };
+
+  const confirmDelete = (track: any) => {
+    Alert.alert(
+      'Delete Track',
+      `Are you sure you want to delete "${track.title}"?`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Delete', style: 'destructive', onPress: () => deleteTrack(track.id) }
+      ]
+    );
   };
 
   const togglePlay = async () => {
@@ -153,8 +240,12 @@ export default function MusicScreen({ navigation }: any) {
             <TouchableOpacity onPress={() => useStore.getState().prevTrack()} style={s.ctrlBtn}>
               <Ionicons name="play-skip-back" size={22} color={C.textSecondary} />
             </TouchableOpacity>
-            <TouchableOpacity onPress={togglePlay} style={s.playBtn}>
-              <Ionicons name={isPlaying ? 'pause' : 'play'} size={28} color="#fff" />
+            <TouchableOpacity onPress={togglePlay} style={s.playBtn} disabled={loadingTrackId === currentTrack.id}>
+              {loadingTrackId === currentTrack.id ? (
+                <ActivityIndicator size="small" color="#fff" />
+              ) : (
+                <Ionicons name={isPlaying ? 'pause' : 'play'} size={28} color="#fff" />
+              )}
             </TouchableOpacity>
             <TouchableOpacity onPress={() => useStore.getState().nextTrack()} style={s.ctrlBtn}>
               <Ionicons name="play-skip-forward" size={22} color={C.textSecondary} />
@@ -190,16 +281,24 @@ export default function MusicScreen({ navigation }: any) {
             onPress={() => setCurrentTrack(item)}
           >
             <View style={[s.trackNum, currentTrack?.id === item.id && s.trackNumActive]}>
-              {currentTrack?.id === item.id && isPlaying
-                ? <Ionicons name="volume-high" size={14} color="#006c44" />
-                : <Text style={[s.trackNumText, currentTrack?.id === item.id && { color: '#006c44' }]}>{index + 1}</Text>
-              }
+              {loadingTrackId === item.id ? (
+                <ActivityIndicator size="small" color="#006c44" />
+              ) : currentTrack?.id === item.id && isPlaying ? (
+                <Ionicons name="volume-high" size={14} color="#006c44" />
+              ) : (
+                <Text style={[s.trackNumText, currentTrack?.id === item.id && { color: '#006c44' }]}>{index + 1}</Text>
+              )}
             </View>
             <View style={s.trackInfo}>
               <Text style={[s.trackName, currentTrack?.id === item.id && { color: '#006c44' }]} numberOfLines={1}>{item.title}</Text>
               <Text style={s.trackArtistSmall}>{item.artist || 'Unknown'}</Text>
             </View>
-            {item.duration && <Text style={s.trackDur}>{fmt(item.duration * 1000)}</Text>}
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: SPACING.md }}>
+              {item.duration && <Text style={s.trackDur}>{fmt(item.duration * 1000)}</Text>}
+              <TouchableOpacity onPress={() => confirmDelete(item)} style={{ padding: 4 }} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+                <Ionicons name="trash-outline" size={18} color={C.textMuted} />
+              </TouchableOpacity>
+            </View>
           </TouchableOpacity>
         )}
         ListEmptyComponent={
@@ -214,69 +313,71 @@ export default function MusicScreen({ navigation }: any) {
   );
 }
 
-const s = StyleSheet.create({
-  root: { flex: 1, backgroundColor: '#e7fff1' },
-  header: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    paddingHorizontal: SPACING.xl, paddingVertical: SPACING.md,
-  },
-  backBtn: { width: 40, height: 40, borderRadius: RADIUS.full, backgroundColor: 'rgba(255,255,255,0.7)', alignItems: 'center', justifyContent: 'center' },
-  headerTitle: { fontSize: FONTS.sizes.lg, fontWeight: '700', color: C.text },
-  uploadBtn: { width: 40, height: 40, borderRadius: RADIUS.full, backgroundColor: 'rgba(255,255,255,0.7)', alignItems: 'center', justifyContent: 'center' },
+function makeStyles(C: any) {
+  return StyleSheet.create({
+    root: { flex: 1, backgroundColor: C.background },
+    header: {
+      flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+      paddingHorizontal: SPACING.xl, paddingVertical: SPACING.md,
+    },
+    backBtn: { width: 40, height: 40, borderRadius: RADIUS.full, backgroundColor: C.text === '#F9FAFB' ? 'rgba(255,255,255,0.08)' : 'rgba(255,255,255,0.7)', alignItems: 'center', justifyContent: 'center' },
+    headerTitle: { fontSize: FONTS.sizes.lg, fontWeight: '700', color: C.text },
+    uploadBtn: { width: 40, height: 40, borderRadius: RADIUS.full, backgroundColor: C.text === '#F9FAFB' ? 'rgba(255,255,255,0.08)' : 'rgba(255,255,255,0.7)', alignItems: 'center', justifyContent: 'center' },
 
-  // Player card
-  playerCard: {
-    marginHorizontal: SPACING.xl, borderRadius: RADIUS.xl, overflow: 'hidden',
-    padding: SPACING.xl, alignItems: 'center', gap: SPACING.sm,
-    borderWidth: 1, borderColor: 'rgba(0,108,68,0.12)', marginBottom: SPACING.lg,
-    backgroundColor: 'rgba(255,255,255,0.75)',
-  },
-  discOuter: {
-    width: 120, height: 120, borderRadius: 60,
-    backgroundColor: '#006c44', alignItems: 'center', justifyContent: 'center',
-    marginBottom: SPACING.sm, ...SHADOW.lg,
-  },
-  discInner: {
-    width: 80, height: 80, borderRadius: 40,
-    backgroundColor: '#e7fff1', alignItems: 'center', justifyContent: 'center',
-  },
-  trackTitle: { fontSize: FONTS.sizes.xl, fontWeight: '800', color: C.text, textAlign: 'center' },
-  trackArtist: { fontSize: FONTS.sizes.sm, color: C.textSecondary },
-  progressWrap: { width: '100%', marginVertical: SPACING.sm },
-  progressBg: { height: 4, backgroundColor: 'rgba(0,108,68,0.15)', borderRadius: 2, overflow: 'visible', position: 'relative' },
-  progressFill: { height: '100%', backgroundColor: '#006c44', borderRadius: 2 },
-  progressThumb: { position: 'absolute', top: -5, width: 14, height: 14, borderRadius: 7, backgroundColor: '#006c44', marginLeft: -7 },
-  timesRow: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 6 },
-  timeText: { fontSize: FONTS.sizes.xs, color: C.textMuted },
-  controls: { flexDirection: 'row', alignItems: 'center', gap: SPACING.xl, marginTop: SPACING.sm },
-  ctrlBtn: { width: 44, height: 44, borderRadius: RADIUS.full, backgroundColor: 'rgba(0,108,68,0.08)', alignItems: 'center', justifyContent: 'center' },
-  playBtn: { width: 64, height: 64, borderRadius: RADIUS.full, backgroundColor: '#006c44', alignItems: 'center', justifyContent: 'center', ...SHADOW.lg },
+    // Player card
+    playerCard: {
+      marginHorizontal: SPACING.xl, borderRadius: RADIUS.xl, overflow: 'hidden',
+      padding: SPACING.xl, alignItems: 'center', gap: SPACING.sm,
+      borderWidth: 1, borderColor: C.border, marginBottom: SPACING.lg,
+      backgroundColor: C.surfaceGlass,
+    },
+    discOuter: {
+      width: 120, height: 120, borderRadius: 60,
+      backgroundColor: C.primary, alignItems: 'center', justifyContent: 'center',
+      marginBottom: SPACING.sm, ...SHADOW.lg,
+    },
+    discInner: {
+      width: 80, height: 80, borderRadius: 40,
+      backgroundColor: C.background, alignItems: 'center', justifyContent: 'center',
+    },
+    trackTitle: { fontSize: FONTS.sizes.xl, fontWeight: '800', color: C.text, textAlign: 'center' },
+    trackArtist: { fontSize: FONTS.sizes.sm, color: C.textSecondary },
+    progressWrap: { width: '100%', marginVertical: SPACING.sm },
+    progressBg: { height: 4, backgroundColor: C.border, borderRadius: 2, overflow: 'visible', position: 'relative' },
+    progressFill: { height: '100%', backgroundColor: C.primary, borderRadius: 2 },
+    progressThumb: { position: 'absolute', top: -5, width: 14, height: 14, borderRadius: 7, backgroundColor: C.primary, marginLeft: -7 },
+    timesRow: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 6 },
+    timeText: { fontSize: FONTS.sizes.xs, color: C.textMuted },
+    controls: { flexDirection: 'row', alignItems: 'center', gap: SPACING.xl, marginTop: SPACING.sm },
+    ctrlBtn: { width: 44, height: 44, borderRadius: RADIUS.full, backgroundColor: C.text === '#F9FAFB' ? 'rgba(255,255,255,0.06)' : 'rgba(0,108,68,0.08)', alignItems: 'center', justifyContent: 'center' },
+    playBtn: { width: 64, height: 64, borderRadius: RADIUS.full, backgroundColor: C.primary, alignItems: 'center', justifyContent: 'center', ...SHADOW.lg },
 
-  // Empty player
-  emptyPlayer: { marginHorizontal: SPACING.xl, height: 200, backgroundColor: 'rgba(255,255,255,0.6)', borderRadius: RADIUS.xl, alignItems: 'center', justifyContent: 'center', gap: SPACING.sm, marginBottom: SPACING.lg },
-  emptyPlayerText: { fontSize: FONTS.sizes.sm, color: C.textMuted },
+    // Empty player
+    emptyPlayer: { marginHorizontal: SPACING.xl, height: 200, backgroundColor: C.surfaceGlass, borderRadius: RADIUS.xl, alignItems: 'center', justifyContent: 'center', gap: SPACING.sm, marginBottom: SPACING.lg, borderWidth: 1, borderColor: C.border },
+    emptyPlayerText: { fontSize: FONTS.sizes.sm, color: C.textMuted },
 
-  // Tabs
-  tabRow: { flexDirection: 'row', marginHorizontal: SPACING.xl, backgroundColor: 'rgba(255,255,255,0.6)', borderRadius: RADIUS.md, padding: 4, marginBottom: SPACING.md },
-  tab: { flex: 1, paddingVertical: 10, alignItems: 'center', borderRadius: RADIUS.sm - 2 },
-  tabActive: { backgroundColor: '#fff', ...SHADOW.xs },
-  tabText: { fontSize: FONTS.sizes.sm, color: C.textMuted, fontWeight: '500' },
-  tabTextActive: { color: '#006c44', fontWeight: '700' },
+    // Tabs
+    tabRow: { flexDirection: 'row', marginHorizontal: SPACING.xl, backgroundColor: C.text === '#F9FAFB' ? 'rgba(255,255,255,0.06)' : 'rgba(255,255,255,0.6)', borderRadius: RADIUS.md, padding: 4, marginBottom: SPACING.md },
+    tab: { flex: 1, paddingVertical: 10, alignItems: 'center', borderRadius: RADIUS.sm - 2 },
+    tabActive: { backgroundColor: C.surface, ...SHADOW.xs },
+    tabText: { fontSize: FONTS.sizes.sm, color: C.textMuted, fontWeight: '500' },
+    tabTextActive: { color: C.primary, fontWeight: '700' },
 
-  // Track list
-  list: { paddingHorizontal: SPACING.xl, paddingBottom: 100 },
-  trackRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: SPACING.md, gap: SPACING.md, borderBottomWidth: 1, borderBottomColor: 'rgba(0,108,68,0.08)' },
-  trackRowActive: { backgroundColor: 'rgba(0,108,68,0.06)', marginHorizontal: -SPACING.xl, paddingHorizontal: SPACING.xl, borderBottomWidth: 0, borderRadius: RADIUS.md },
-  trackNum: { width: 28, alignItems: 'center' },
-  trackNumActive: {},
-  trackNumText: { fontSize: FONTS.sizes.sm, color: C.textMuted },
-  trackInfo: { flex: 1 },
-  trackName: { fontSize: FONTS.sizes.md, fontWeight: '600', color: C.text },
-  trackArtistSmall: { fontSize: FONTS.sizes.xs, color: C.textMuted, marginTop: 2 },
-  trackDur: { fontSize: FONTS.sizes.xs, color: C.textMuted },
+    // Track list
+    list: { paddingHorizontal: SPACING.xl, paddingBottom: 100 },
+    trackRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: SPACING.md, gap: SPACING.md, borderBottomWidth: 1, borderBottomColor: C.borderLight },
+    trackRowActive: { backgroundColor: C.text === '#F9FAFB' ? 'rgba(255,255,255,0.06)' : 'rgba(0,108,68,0.06)', marginHorizontal: -SPACING.xl, paddingHorizontal: SPACING.xl, borderBottomWidth: 0, borderRadius: RADIUS.md },
+    trackNum: { width: 28, alignItems: 'center' },
+    trackNumActive: {},
+    trackNumText: { fontSize: FONTS.sizes.sm, color: C.textMuted },
+    trackInfo: { flex: 1 },
+    trackName: { fontSize: FONTS.sizes.md, fontWeight: '600', color: C.text },
+    trackArtistSmall: { fontSize: FONTS.sizes.xs, color: C.textMuted, marginTop: 2 },
+    trackDur: { fontSize: FONTS.sizes.xs, color: C.textMuted },
 
-  // Empty
-  empty: { alignItems: 'center', paddingTop: 48, gap: SPACING.md },
-  emptyTitle: { fontSize: FONTS.sizes.xl, fontWeight: '700', color: C.text },
-  emptyText: { fontSize: FONTS.sizes.sm, color: C.textSecondary, textAlign: 'center', maxWidth: 240 },
-});
+    // Empty
+    empty: { alignItems: 'center', paddingTop: 48, gap: SPACING.md },
+    emptyTitle: { fontSize: FONTS.sizes.xl, fontWeight: '700', color: C.text },
+    emptyText: { fontSize: FONTS.sizes.sm, color: C.textSecondary, textAlign: 'center', maxWidth: 240 },
+  });
+}

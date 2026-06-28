@@ -7,10 +7,10 @@ import { BlurView } from 'expo-blur';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { getColors, FONTS, RADIUS, SPACING } from '../config/theme';
+import { useColors } from '../config/ThemeContext';
+import { FONTS, RADIUS, SPACING } from '../config/theme';
 
-const COLORS = getColors('light');
-const { width, height } = Dimensions.get('window');
+const { width } = Dimensions.get('window');
 
 const SLIDES = [
   {
@@ -45,6 +45,8 @@ interface Props {
 }
 
 export default function OnboardingScreen({ onDone }: Props) {
+  const COLORS = useColors();
+  const s = makeStyles(COLORS);
   const insets = useSafeAreaInsets();
   const [activeIndex, setActiveIndex] = useState(0);
   const flatListRef = useRef<FlatList>(null);
@@ -67,7 +69,7 @@ export default function OnboardingScreen({ onDone }: Props) {
 
   return (
     <View style={[s.root, { paddingTop: insets.top }]}>
-      <StatusBar barStyle="dark-content" backgroundColor="#ffffff" />
+      <StatusBar barStyle={COLORS.text === '#F9FAFB' ? 'light-content' : 'dark-content'} backgroundColor={COLORS.background} />
 
       {/* Skip */}
       <TouchableOpacity style={s.skipBtn} onPress={finish} activeOpacity={0.7}>
@@ -86,7 +88,7 @@ export default function OnboardingScreen({ onDone }: Props) {
         scrollEventThrottle={16}
         onScroll={Animated.event(
           [{ nativeEvent: { contentOffset: { x: scrollX } } }],
-          { useNativeDriver: true }
+          { useNativeDriver: false }
         )}
         onMomentumScrollEnd={(e) => {
           const idx = Math.round(e.nativeEvent.contentOffset.x / width);
@@ -185,72 +187,74 @@ export default function OnboardingScreen({ onDone }: Props) {
   );
 }
 
-const s = StyleSheet.create({
-  root: { flex: 1, backgroundColor: '#ffffff' },
+function makeStyles(C: any) {
+  return StyleSheet.create({
+    root: { flex: 1, backgroundColor: C.background },
 
-  skipBtn: {
-    position: 'absolute', top: 56, right: SPACING.xl, zIndex: 10,
-    paddingHorizontal: SPACING.md, paddingVertical: SPACING.sm,
-  },
-  skipText: { fontSize: FONTS.sizes.sm, color: COLORS.textSecondary, fontWeight: '500' },
+    skipBtn: {
+      position: 'absolute', top: 56, right: SPACING.xl, zIndex: 10,
+      paddingHorizontal: SPACING.md, paddingVertical: SPACING.sm,
+    },
+    skipText: { fontSize: FONTS.sizes.sm, color: C.textSecondary, fontWeight: '500' },
 
-  slide: {
-    width,
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: SPACING.xl,
-    paddingBottom: 180,
-  },
+    slide: {
+      width,
+      flex: 1,
+      alignItems: 'center',
+      justifyContent: 'center',
+      paddingHorizontal: SPACING.xl,
+      paddingBottom: 180,
+    },
 
-  iconCard: {
-    width: 180, height: 180,
-    borderRadius: 48,
-    alignItems: 'center', justifyContent: 'center',
-    marginBottom: 40,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.08,
-    shadowRadius: 24,
-    elevation: 6,
-  },
+    iconCard: {
+      width: 180, height: 180,
+      borderRadius: 48,
+      alignItems: 'center', justifyContent: 'center',
+      marginBottom: 40,
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 8 },
+      shadowOpacity: 0.08,
+      shadowRadius: 24,
+      elevation: 6,
+    },
 
-  textBlock: { alignItems: 'center', paddingHorizontal: SPACING.md },
-  slideTitle: {
-    fontSize: FONTS.sizes.xxl, fontWeight: '800',
-    color: COLORS.text, textAlign: 'center',
-    letterSpacing: -0.3, marginBottom: SPACING.md,
-  },
-  slideSubtitle: {
-    fontSize: FONTS.sizes.md, color: COLORS.textSecondary,
-    textAlign: 'center', lineHeight: 24,
-  },
+    textBlock: { alignItems: 'center', paddingHorizontal: SPACING.md },
+    slideTitle: {
+      fontSize: FONTS.sizes.xxl, fontWeight: '800',
+      color: C.text, textAlign: 'center',
+      letterSpacing: -0.3, marginBottom: SPACING.md,
+    },
+    slideSubtitle: {
+      fontSize: FONTS.sizes.md, color: C.textSecondary,
+      textAlign: 'center', lineHeight: 24,
+    },
 
-  dotsRow: {
-    flexDirection: 'row', alignItems: 'center',
-    gap: SPACING.sm, marginBottom: SPACING.lg,
-  },
-  dot: {
-    height: 8, borderRadius: 4,
-    backgroundColor: COLORS.primary,
-  },
+    dotsRow: {
+      flexDirection: 'row', alignItems: 'center',
+      gap: SPACING.sm, marginBottom: SPACING.lg,
+    },
+    dot: {
+      height: 8, borderRadius: 4,
+      backgroundColor: C.primary,
+    },
 
-  bottomBar: {
-    paddingTop: SPACING.xl,
-    paddingHorizontal: SPACING.xl,
-    alignItems: 'center',
-    borderTopWidth: 1,
-    borderTopColor: 'rgba(0,108,68,0.08)',
-  },
+    bottomBar: {
+      paddingTop: SPACING.xl,
+      paddingHorizontal: SPACING.xl,
+      alignItems: 'center',
+      borderTopWidth: 1,
+      borderTopColor: C.border,
+    },
 
-  nextBtn: {
-    flexDirection: 'row', alignItems: 'center', gap: SPACING.sm,
-    backgroundColor: COLORS.primary,
-    paddingVertical: 16, width: '100%',
-    justifyContent: 'center', borderRadius: RADIUS.full,
-    shadowColor: '#006c44',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.28, shadowRadius: 12, elevation: 6,
-  },
-  nextText: { color: '#ffffff', fontSize: FONTS.sizes.md, fontWeight: '700' },
-});
+    nextBtn: {
+      flexDirection: 'row', alignItems: 'center', gap: SPACING.sm,
+      backgroundColor: C.primary,
+      paddingVertical: 16, width: '100%',
+      justifyContent: 'center', borderRadius: RADIUS.full,
+      shadowColor: '#006c44',
+      shadowOffset: { width: 0, height: 4 },
+      shadowOpacity: 0.28, shadowRadius: 12, elevation: 6,
+    },
+    nextText: { color: '#ffffff', fontSize: FONTS.sizes.md, fontWeight: '700' },
+  });
+}

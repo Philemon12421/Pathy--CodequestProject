@@ -8,16 +8,17 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import * as ImagePicker from 'expo-image-picker';
 import { Ionicons } from '@expo/vector-icons';
 import { BlurView } from 'expo-blur';
-import { FONTS, RADIUS, SPACING, SHADOW, getColors } from '../config/theme';
+import { useColors } from '../config/ThemeContext';
+import { FONTS, RADIUS, SPACING, SHADOW } from '../config/theme';
 import { routesAPI } from '../services/api';
 import useStore from '../store/useStore';
-
-const C = getColors('light');
 
 const MEDAL: Record<number, string> = { 1: '#FFD700', 2: '#C0C0C0', 3: '#CD7F32' };
 
 // ─── Setting row ─────────────────────────────────────────────────────────────
 function SettingRow({ icon, label, sub, onPress, color, trailing, last }: any) {
+  const C = useColors();
+  const s = makeStyles(C);
   return (
     <TouchableOpacity
       style={[s.settingRow, last && { borderBottomWidth: 0 }]}
@@ -40,6 +41,8 @@ function SettingRow({ icon, label, sub, onPress, color, trailing, last }: any) {
 
 // ─── Stat tile ────────────────────────────────────────────────────────────────
 function StatTile({ icon, label, value, color }: any) {
+  const C = useColors();
+  const s = makeStyles(C);
   return (
     <View style={[s.tile, { borderTopColor: color }]}>
       <Ionicons name={icon} size={20} color={color} />
@@ -50,6 +53,8 @@ function StatTile({ icon, label, value, color }: any) {
 }
 
 export default function ProfileScreen({ navigation }: any) {
+  const C = useColors();
+  const s = makeStyles(C);
   const { user, logout, savedRoutes, setSavedRoutes, theme, toggleTheme, myAds, setAuth } = useStore();
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
@@ -273,73 +278,75 @@ export default function ProfileScreen({ navigation }: any) {
   );
 }
 
-const s = StyleSheet.create({
-  root: { flex: 1, backgroundColor: '#e7fff1' },
+function makeStyles(C: any) {
+  return StyleSheet.create({
+    root: { flex: 1, backgroundColor: C.background },
 
-  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: SPACING.xl, paddingVertical: SPACING.md },
-  headerBtn: { width: 40, height: 40, borderRadius: RADIUS.full, backgroundColor: 'rgba(255,255,255,0.7)', alignItems: 'center', justifyContent: 'center' },
-  logoutBtn: { backgroundColor: '#fdecea' },
-  headerTitle: { fontSize: FONTS.sizes.lg, fontWeight: '700', color: C.text },
+    header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: SPACING.xl, paddingVertical: SPACING.md },
+    headerBtn: { width: 40, height: 40, borderRadius: RADIUS.full, backgroundColor: C.text === '#F9FAFB' ? 'rgba(255,255,255,0.08)' : 'rgba(255,255,255,0.7)', alignItems: 'center', justifyContent: 'center' },
+    logoutBtn: { backgroundColor: C.text === '#F9FAFB' ? '#450a0a' : '#fdecea' },
+    headerTitle: { fontSize: FONTS.sizes.lg, fontWeight: '700', color: C.text },
 
-  scroll: { paddingHorizontal: SPACING.xl, paddingBottom: 120, gap: SPACING.lg },
+    scroll: { paddingHorizontal: SPACING.xl, paddingBottom: 120, gap: SPACING.lg },
 
-  // Profile card
-  profileCard: {
-    borderRadius: RADIUS.xl, overflow: 'hidden',
-    padding: SPACING.xl, alignItems: 'center', gap: SPACING.sm,
-    borderWidth: 1, borderColor: 'rgba(0,108,68,0.12)',
-    backgroundColor: 'rgba(255,255,255,0.75)',
-    ...SHADOW.sm,
-  },
-  avatarWrap: { position: 'relative', marginBottom: SPACING.sm },
-  avatarImg: { width: 90, height: 90, borderRadius: 45, borderWidth: 3, borderColor: '#006c44' },
-  avatarPlaceholder: { width: 90, height: 90, borderRadius: 45, backgroundColor: '#006c44', alignItems: 'center', justifyContent: 'center', borderWidth: 3, borderColor: '#4caf7d' },
-  avatarInitials: { fontSize: FONTS.sizes.xxl, fontWeight: '800', color: '#fff' },
-  avatarEditBadge: { position: 'absolute', bottom: 2, right: 2, width: 26, height: 26, borderRadius: 13, backgroundColor: '#4caf7d', alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: '#fff' },
+    // Profile card
+    profileCard: {
+      borderRadius: RADIUS.xl, overflow: 'hidden',
+      padding: SPACING.xl, alignItems: 'center', gap: SPACING.sm,
+      borderWidth: 1, borderColor: C.border,
+      backgroundColor: C.surface,
+      ...SHADOW.sm,
+    },
+    avatarWrap: { position: 'relative', marginBottom: SPACING.sm },
+    avatarImg: { width: 90, height: 90, borderRadius: 45, borderWidth: 3, borderColor: C.primary },
+    avatarPlaceholder: { width: 90, height: 90, borderRadius: 45, backgroundColor: C.primary, alignItems: 'center', justifyContent: 'center', borderWidth: 3, borderColor: C.primaryContainer },
+    avatarInitials: { fontSize: FONTS.sizes.xxl, fontWeight: '800', color: '#fff' },
+    avatarEditBadge: { position: 'absolute', bottom: 2, right: 2, width: 26, height: 26, borderRadius: 13, backgroundColor: C.primaryContainer, alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: C.surface },
 
-  nameRow: { flexDirection: 'row', alignItems: 'center', gap: SPACING.sm },
-  profileName: { fontSize: FONTS.sizes.xl, fontWeight: '800', color: C.text },
-  nameEditRow: { flexDirection: 'row', alignItems: 'center', gap: SPACING.sm },
-  nameInput: { flex: 1, backgroundColor: '#fff', borderRadius: RADIUS.md, borderWidth: 1.5, borderColor: '#006c44', paddingHorizontal: SPACING.md, paddingVertical: 10, fontSize: FONTS.sizes.md, color: C.text, minWidth: 140 },
-  nameSaveBtn: { width: 36, height: 36, borderRadius: RADIUS.full, backgroundColor: '#006c44', alignItems: 'center', justifyContent: 'center' },
-  nameCancelBtn: { width: 36, height: 36, borderRadius: RADIUS.full, backgroundColor: '#f5f5f5', alignItems: 'center', justifyContent: 'center' },
-  profileEmail: { fontSize: FONTS.sizes.sm, color: C.textSecondary },
-  rolePill: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: '#e1f9eb', borderRadius: RADIUS.full, paddingHorizontal: SPACING.md, paddingVertical: 4, marginTop: 2 },
-  roleText: { fontSize: FONTS.sizes.xs, color: '#006c44', fontWeight: '700', textTransform: 'capitalize' },
+    nameRow: { flexDirection: 'row', alignItems: 'center', gap: SPACING.sm },
+    profileName: { fontSize: FONTS.sizes.xl, fontWeight: '800', color: C.text },
+    nameEditRow: { flexDirection: 'row', alignItems: 'center', gap: SPACING.sm },
+    nameInput: { flex: 1, backgroundColor: C.surface, borderRadius: RADIUS.md, borderWidth: 1.5, borderColor: C.primary, paddingHorizontal: SPACING.md, paddingVertical: 10, fontSize: FONTS.sizes.md, color: C.text, minWidth: 140 },
+    nameSaveBtn: { width: 36, height: 36, borderRadius: RADIUS.full, backgroundColor: C.primary, alignItems: 'center', justifyContent: 'center' },
+    nameCancelBtn: { width: 36, height: 36, borderRadius: RADIUS.full, backgroundColor: C.border, alignItems: 'center', justifyContent: 'center' },
+    profileEmail: { fontSize: FONTS.sizes.sm, color: C.textSecondary },
+    rolePill: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: C.accentSoft, borderRadius: RADIUS.full, paddingHorizontal: SPACING.md, paddingVertical: 4, marginTop: 2 },
+    roleText: { fontSize: FONTS.sizes.xs, color: C.primary, fontWeight: '700', textTransform: 'capitalize' },
 
-  // Stats
-  statsRow: { flexDirection: 'row', gap: SPACING.md },
-  tile: { flex: 1, backgroundColor: '#fff', borderRadius: RADIUS.xl, padding: SPACING.md, alignItems: 'center', borderTopWidth: 3, borderWidth: 1, borderColor: 'rgba(0,108,68,0.1)', ...SHADOW.xs },
-  tileVal: { fontSize: FONTS.sizes.xxl, fontWeight: '800', marginTop: 4 },
-  tileLbl: { fontSize: FONTS.sizes.xs, color: C.textMuted, textAlign: 'center', marginTop: 2 },
+    // Stats
+    statsRow: { flexDirection: 'row', gap: SPACING.md },
+    tile: { flex: 1, backgroundColor: C.surface, borderRadius: RADIUS.xl, padding: SPACING.md, alignItems: 'center', borderTopWidth: 3, borderWidth: 1, borderColor: C.border, ...SHADOW.xs },
+    tileVal: { fontSize: FONTS.sizes.xxl, fontWeight: '800', marginTop: 4 },
+    tileLbl: { fontSize: FONTS.sizes.xs, color: C.textMuted, textAlign: 'center', marginTop: 2 },
 
-  // Settings sections
-  section: { gap: SPACING.sm },
-  sectionLabel: { fontSize: 11, fontWeight: '700', color: C.textMuted, letterSpacing: 0.8, paddingLeft: 4 },
-  card: { backgroundColor: '#fff', borderRadius: RADIUS.xl, overflow: 'hidden', ...SHADOW.xs, borderWidth: 1, borderColor: 'rgba(0,108,68,0.08)' },
-  settingRow: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: SPACING.lg, paddingVertical: SPACING.md, gap: SPACING.md, borderBottomWidth: 1, borderBottomColor: 'rgba(0,108,68,0.06)' },
-  settingIcon: { width: 36, height: 36, borderRadius: RADIUS.md, alignItems: 'center', justifyContent: 'center' },
-  settingInfo: { flex: 1 },
-  settingLabel: { fontSize: FONTS.sizes.md, fontWeight: '600', color: C.text },
-  settingSub: { fontSize: FONTS.sizes.xs, color: C.textMuted, marginTop: 1 },
+    // Settings sections
+    section: { gap: SPACING.sm },
+    sectionLabel: { fontSize: 11, fontWeight: '700', color: C.textMuted, letterSpacing: 0.8, paddingLeft: 4 },
+    card: { backgroundColor: C.surface, borderRadius: RADIUS.xl, overflow: 'hidden', ...SHADOW.xs, borderWidth: 1, borderColor: C.border },
+    settingRow: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: SPACING.lg, paddingVertical: SPACING.md, gap: SPACING.md, borderBottomWidth: 1, borderBottomColor: C.borderLight },
+    settingIcon: { width: 36, height: 36, borderRadius: RADIUS.md, alignItems: 'center', justifyContent: 'center' },
+    settingInfo: { flex: 1 },
+    settingLabel: { fontSize: FONTS.sizes.md, fontWeight: '600', color: C.text },
+    settingSub: { fontSize: FONTS.sizes.xs, color: C.textMuted, marginTop: 1 },
 
-  // Leaderboard
-  sectionHeader: { flexDirection: 'row', alignItems: 'center', gap: SPACING.sm },
-  sectionTitle: { fontSize: FONTS.sizes.lg, fontWeight: '700', color: C.text },
-  leaderRow: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#fff', borderRadius: RADIUS.xl, padding: SPACING.md, marginBottom: SPACING.sm, gap: SPACING.md, ...SHADOW.xs, borderWidth: 1, borderColor: 'rgba(0,108,68,0.08)' },
-  leaderBadge: { alignItems: 'center', justifyContent: 'center', width: 48, height: 48, borderRadius: RADIUS.lg, gap: 2 },
-  leaderRank: { fontSize: FONTS.sizes.xs, fontWeight: '700' },
-  leaderName: { fontSize: FONTS.sizes.md, fontWeight: '700', color: C.text },
-  leaderMeta: { fontSize: FONTS.sizes.xs, color: C.textSecondary, marginTop: 2 },
-  leaderPill: { flexDirection: 'row', alignItems: 'center', gap: 3, backgroundColor: '#fffbeb', borderRadius: RADIUS.full, paddingHorizontal: 8, paddingVertical: 3 },
-  leaderPillText: { fontSize: FONTS.sizes.xs, color: '#FFD700', fontWeight: '700' },
+    // Leaderboard
+    sectionHeader: { flexDirection: 'row', alignItems: 'center', gap: SPACING.sm },
+    sectionTitle: { fontSize: FONTS.sizes.lg, fontWeight: '700', color: C.text },
+    leaderRow: { flexDirection: 'row', alignItems: 'center', backgroundColor: C.surface, borderRadius: RADIUS.xl, padding: SPACING.md, marginBottom: SPACING.sm, gap: SPACING.md, ...SHADOW.xs, borderWidth: 1, borderColor: C.border },
+    leaderBadge: { alignItems: 'center', justifyContent: 'center', width: 48, height: 48, borderRadius: RADIUS.lg, gap: 2 },
+    leaderRank: { fontSize: FONTS.sizes.xs, fontWeight: '700' },
+    leaderName: { fontSize: FONTS.sizes.md, fontWeight: '700', color: C.text },
+    leaderMeta: { fontSize: FONTS.sizes.xs, color: C.textSecondary, marginTop: 2 },
+    leaderPill: { flexDirection: 'row', alignItems: 'center', gap: 3, backgroundColor: C.accentSoft, borderRadius: RADIUS.full, paddingHorizontal: 8, paddingVertical: 3 },
+    leaderPillText: { fontSize: FONTS.sizes.xs, color: C.primary, fontWeight: '700' },
 
-  // Empty
-  empty: { alignItems: 'center', paddingVertical: SPACING.xl, gap: SPACING.md },
-  emptyTitle: { fontSize: FONTS.sizes.xl, fontWeight: '700', color: C.text },
-  emptyText: { fontSize: FONTS.sizes.sm, color: C.textSecondary },
-  mapBtn: { backgroundColor: '#006c44', borderRadius: RADIUS.full, paddingHorizontal: SPACING.xl, paddingVertical: SPACING.md },
-  mapBtnText: { color: '#fff', fontWeight: '700', fontSize: FONTS.sizes.sm },
+    // Empty
+    empty: { alignItems: 'center', paddingVertical: SPACING.xl, gap: SPACING.md },
+    emptyTitle: { fontSize: FONTS.sizes.xl, fontWeight: '700', color: C.text },
+    emptyText: { fontSize: FONTS.sizes.sm, color: C.textSecondary },
+    mapBtn: { backgroundColor: C.primary, borderRadius: RADIUS.full, paddingHorizontal: SPACING.xl, paddingVertical: SPACING.md },
+    mapBtnText: { color: '#fff', fontWeight: '700', fontSize: FONTS.sizes.sm },
 
-  versionText: { textAlign: 'center', fontSize: FONTS.sizes.xs, color: C.textMuted, paddingVertical: SPACING.lg },
-});
+    versionText: { textAlign: 'center', fontSize: FONTS.sizes.xs, color: C.textMuted, paddingVertical: SPACING.lg },
+  });
+}
