@@ -8,6 +8,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useColors } from '../config/ThemeContext';
 import { FONTS, RADIUS, SPACING, SHADOW } from '../config/theme';
 import { authAPI } from '../services/api';
+import useStore from '../store/useStore';
 
 // Steps: 'email' → 'code' → 'reset' → 'done'
 type Step = 'email' | 'code' | 'reset' | 'done';
@@ -15,6 +16,7 @@ type Step = 'email' | 'code' | 'reset' | 'done';
 export default function ForgotPasswordScreen({ navigation }: any) {
   const C = useColors();
   const s = makeStyles(C);
+  const { token } = useStore();
   const [step, setStep] = useState<Step>('email');
   const [email, setEmail] = useState('');
   const [code, setCode] = useState('');
@@ -228,10 +230,16 @@ export default function ForgotPasswordScreen({ navigation }: any) {
               <View style={s.successIcon}>
                 <Ionicons name="checkmark-circle" size={64} color="#006c44" />
               </View>
-              <Text style={s.successText}>You can now sign in with your new password.</Text>
-              <TouchableOpacity style={s.btn} onPress={() => navigation.navigate('Login')} activeOpacity={0.88}>
+              <Text style={s.successText}>
+                {token ? 'Your password has been updated successfully.' : 'You can now sign in with your new password.'}
+              </Text>
+              <TouchableOpacity
+                style={s.btn}
+                onPress={() => token ? navigation.navigate('Profile') : navigation.navigate('Login')}
+                activeOpacity={0.88}
+              >
                 <View style={s.btnInner}>
-                  <Text style={s.btnText}>Back to Sign In</Text>
+                  <Text style={s.btnText}>{token ? 'Back to Profile' : 'Back to Sign In'}</Text>
                   <Ionicons name="arrow-forward" size={18} color="#fff" />
                 </View>
               </TouchableOpacity>
