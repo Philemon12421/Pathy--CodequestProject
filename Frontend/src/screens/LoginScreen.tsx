@@ -208,24 +208,7 @@ export default function LoginScreen({ navigation }: any) {
               }
             </TouchableOpacity>
 
-            {/* Divider */}
-            <View style={s.divider}>
-              <View style={s.divLine} />
-              <Text style={s.divText}>OR CONTINUE WITH</Text>
-              <View style={s.divLine} />
-            </View>
 
-            {/* Social */}
-            <View style={s.socialRow}>
-              <TouchableOpacity style={s.socialBtn} activeOpacity={0.85}>
-                <Ionicons name="logo-google" size={18} color={C.text} />
-                <Text style={s.socialText}>Google</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={s.socialBtn} activeOpacity={0.85}>
-                <Ionicons name="logo-apple" size={19} color={C.text} />
-                <Text style={s.socialText}>Apple</Text>
-              </TouchableOpacity>
-            </View>
 
           </BlurView>
         </Animated.View>

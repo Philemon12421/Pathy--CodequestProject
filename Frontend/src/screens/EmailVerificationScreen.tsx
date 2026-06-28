@@ -8,12 +8,14 @@ import { Ionicons } from '@expo/vector-icons';
 import { useColors } from '../config/ThemeContext';
 import { FONTS, RADIUS, SPACING, SHADOW } from '../config/theme';
 import { authAPI } from '../services/api';
+import useStore from '../store/useStore';
 
 const CODE_LENGTH = 6;
 
 export default function EmailVerificationScreen({ navigation, route }: any) {
   const C = useColors();
   const s = makeStyles(C);
+  const { token } = useStore();
   const email = route?.params?.email || 'your email';
   const [code, setCode] = useState<string[]>(Array(CODE_LENGTH).fill(''));
   const [loading, setLoading] = useState(false);
@@ -64,7 +66,7 @@ export default function EmailVerificationScreen({ navigation, route }: any) {
       // Call the real API
       await authAPI.verifyEmail(email, full);
       Alert.alert('Verified!', 'Your email has been verified.', [
-        { text: 'Continue', onPress: () => navigation.replace('Main') },
+        { text: 'Continue', onPress: () => token ? navigation.goBack() : navigation.replace('Login') },
       ]);
     } catch {
       shake();
