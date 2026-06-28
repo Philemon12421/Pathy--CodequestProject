@@ -13,8 +13,8 @@ import useStore from '../store/useStore';
 
 const { width } = Dimensions.get('window');
 
-const SEVERITY_COLORS = { low: '#10B981', medium: '#F59E0B', high: '#EF4444', critical: '#DC2626' };
-const TYPE_ICONS = { accident: '🚗', hazard: '⚠️', crime: '🚨', weather: '🌩️', other: '📍' };
+const SEVERITY_COLORS: Record<string, string> = { low: '#10B981', medium: '#F59E0B', high: '#EF4444', critical: '#DC2626' };
+const TYPE_ICONS: Record<string, string> = { accident: '🚗', hazard: '⚠️', crime: '🚨', weather: '🌩️', other: '📍' };
 
 // Haversine formula in km
 function getDistance(lat1: number, lon1: number, lat2: number, lon2: number) {
@@ -32,12 +32,11 @@ export default function MapScreen({ navigation, route }: any) {
   const COLORS = useColors();
   const s = makeStyles(COLORS);
   const mapRef = useRef<any>(null);
-  const { user, userLocation, setUserLocation, incidents, setIncidents, myAds } = useStore();
-  const [ads, setAds] = useState([]);
+  const { user, userLocation, setUserLocation, incidents, setIncidents, myAds, ads, setAds } = useStore();
   const [search, setSearch] = useState('');
   const [directions, setDirections] = useState<any>(null);
   const [selectedMarker, setSelectedMarker] = useState<any>(null);
-  const [mapMode, setMapMode] = useState('standard'); // standard | satellite
+  const [mapMode, setMapMode] = useState<'standard' | 'satellite'>('standard'); // standard | satellite
   const [loading, setLoading] = useState(false);
   const [showAdBanner, setShowAdBanner] = useState<any>(null);
 
@@ -49,7 +48,12 @@ export default function MapScreen({ navigation, route }: any) {
   useEffect(() => {
     initLocation();
     loadData();
-  }, []);
+
+    const unsubscribe = navigation.addListener('focus', () => {
+      loadData();
+    });
+    return unsubscribe;
+  }, [navigation]);
 
   useEffect(() => {
     if (route.params?.selectedIncident) {

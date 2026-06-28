@@ -43,7 +43,7 @@ public class IncidentController extends BaseController {
         VALUES (:user_id,:type,:title,:description,:latitude,:longitude,:severity,:media_url) RETURNING *
         """)
         .param("user_id", user(request).id()).param("type", type).param("title", title).param("description", description)
-        .param("latitude", latitude).param("longitude", longitude).param("severity", severity).param("media_url", mediaUrl)
+        .param("latitude", Double.valueOf(latitude)).param("longitude", Double.valueOf(longitude)).param("severity", severity).param("media_url", mediaUrl)
         .query().singleRow();
     return ResponseEntity.status(201).body(incident);
   }

@@ -120,4 +120,17 @@ ON CONFLICT (email) DO NOTHING;
 -- Add paystack_reference column if not already present (safe migration)
 ALTER TABLE ads ADD COLUMN IF NOT EXISTS paystack_reference TEXT;
 
+-- Add email verification flag to users (safe migration)
+ALTER TABLE users ADD COLUMN IF NOT EXISTS is_verified BOOLEAN DEFAULT FALSE;
 
+-- Verification codes table (password reset & email verification)
+CREATE TABLE IF NOT EXISTS verification_codes (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  email VARCHAR(150) NOT NULL,
+  code VARCHAR(10) NOT NULL,
+  type VARCHAR(30) NOT NULL, -- 'password_reset' or 'email_verification'
+  expires_at TIMESTAMP NOT NULL,
+  created_at TIMESTAMP DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_verification_codes_email ON verification_codes(email, type);

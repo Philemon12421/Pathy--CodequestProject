@@ -130,7 +130,7 @@ function makeMyCardStyles(COLORS: any) {
 export default function AdPortalScreen() {
   const COLORS = useColors();
   const s = makeStyles(COLORS);
-  const { userLocation, myAds, setMyAds } = useStore();
+  const { userLocation, myAds, setMyAds, addAd } = useStore();
 
   // Form / flow state
   const [creating, setCreating] = useState(false);
@@ -267,7 +267,8 @@ export default function AdPortalScreen() {
     setSubmitting(true);
     try {
       await adsAPI.checkout(adId);
-      await adsAPI.activate(adId);
+      const activatedAd = await adsAPI.activate(adId);
+      addAd(activatedAd);
       setDone(true);
       loadMyAds();
     } catch (e: any) {

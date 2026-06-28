@@ -6,12 +6,10 @@ import {
 } from 'react-native';
 import { BlurView } from 'expo-blur';
 import { Ionicons } from '@expo/vector-icons';
-import { FONTS, RADIUS, SPACING, SHADOW, getColors } from '../config/theme';
+import { useColors } from '../config/ThemeContext';
+import { FONTS, RADIUS, SPACING, SHADOW } from '../config/theme';
 import { authAPI } from '../services/api';
 import useStore from '../store/useStore';
-
-// Auth screens always light
-const C = getColors('light');
 
 // ─── Sandbox bypass ───────────────────────────────────────────────────────────
 // Only visible when running in Expo Go / development (__DEV__ === true).
@@ -22,6 +20,7 @@ const SANDBOX_USER = { id: 0, name: 'Demo User', email: 'demo@pathy.app', role: 
 const SANDBOX_TOKEN = 'sandbox_dev_token';
 
 export default function LoginScreen({ navigation }: any) {
+  const C = useColors();
   const setAuth = useStore((s) => s.setAuth);
   const [isLogin, setIsLogin] = useState(true);
   const [form, setForm] = useState({ name: '', email: '', password: '', confirmPassword: '' });
@@ -65,8 +64,10 @@ export default function LoginScreen({ navigation }: any) {
     }
   };
 
+  const s = makeStyles(C);
+
   const border = (field: string) =>
-    focused === field ? C.primary : 'rgba(0,108,68,0.15)';
+    focused === field ? C.primary : C.border;
 
   return (
     <KeyboardAvoidingView
@@ -127,21 +128,21 @@ export default function LoginScreen({ navigation }: any) {
               <Field label="Full Name" icon="person-outline" focused={focused === 'name'}
                 input={
                   <TextInput style={s.input} placeholder="Your full name"
-                    placeholderTextColor="rgba(0,108,68,0.35)"
+                    placeholderTextColor={C.textMuted}
                     value={form.name} onChangeText={(v) => setForm({ ...form, name: v })}
                     onFocus={() => setFocused('name')} onBlur={() => setFocused(null)} />
-                } borderColor={border('name')} />
+                } borderColor={border('name')} colors={C} />
             )}
 
             {/* Email */}
             <Field label="Email" icon="mail-outline" focused={focused === 'email'}
               input={
                 <TextInput style={s.input} placeholder="hello@example.com"
-                  placeholderTextColor="rgba(0,108,68,0.35)"
+                  placeholderTextColor={C.textMuted}
                   keyboardType="email-address" autoCapitalize="none"
                   value={form.email} onChangeText={(v) => setForm({ ...form, email: v })}
                   onFocus={() => setFocused('email')} onBlur={() => setFocused(null)} />
-              } borderColor={border('email')} />
+              } borderColor={border('email')} colors={C} />
 
             {/* Password */}
             <View style={s.fieldGroup}>
@@ -257,12 +258,13 @@ export default function LoginScreen({ navigation }: any) {
 }
 
 // ─── Reusable Field wrapper ──────────────────────────────────────────────────
-function Field({ label, icon, input, borderColor, focused }: any) {
+function Field({ label, icon, input, borderColor, focused, colors }: any) {
+  const C = colors;
   return (
-    <View style={s.fieldGroup}>
-      <Text style={s.label}>{label}</Text>
-      <View style={[s.inputWrap, { borderColor }]}>
-        <Ionicons name={icon} size={17} color={focused ? C.primary : C.textMuted} style={s.icon} />
+    <View style={{ marginBottom: SPACING.md }}>
+      <Text style={{ fontSize: FONTS.sizes.sm, fontWeight: '600', color: C.text, marginBottom: SPACING.xs }}>{label}</Text>
+      <View style={[{ flexDirection: 'row', alignItems: 'center', backgroundColor: C.surface, borderRadius: RADIUS.md, borderWidth: 1.5 }, { borderColor }]}>
+        <Ionicons name={icon} size={17} color={focused ? C.primary : C.textMuted} style={{ marginLeft: 14 }} />
         {input}
       </View>
     </View>
@@ -270,132 +272,134 @@ function Field({ label, icon, input, borderColor, focused }: any) {
 }
 
 // ─── Styles ──────────────────────────────────────────────────────────────────
-const s = StyleSheet.create({
-  root: { flex: 1, backgroundColor: '#ffffff' },
+function makeStyles(C: any) {
+  return StyleSheet.create({
+    root: { flex: 1, backgroundColor: C.background },
 
-  blobTR: {
-    position: 'absolute', top: -80, right: -80,
-    width: 280, height: 280, borderRadius: 140,
-    backgroundColor: '#e7fff1', opacity: 0.85,
-  },
-  blobBL: {
-    position: 'absolute', bottom: -60, left: -60,
-    width: 240, height: 240, borderRadius: 120,
-    backgroundColor: '#e1f9eb', opacity: 0.7,
-  },
+    blobTR: {
+      position: 'absolute', top: -80, right: -80,
+      width: 280, height: 280, borderRadius: 140,
+      backgroundColor: C.text === '#F9FAFB' ? 'rgba(76,175,125,0.08)' : '#e7fff1', opacity: 0.85,
+    },
+    blobBL: {
+      position: 'absolute', bottom: -60, left: -60,
+      width: 240, height: 240, borderRadius: 120,
+      backgroundColor: C.text === '#F9FAFB' ? 'rgba(76,175,125,0.06)' : '#e1f9eb', opacity: 0.7,
+    },
 
-  scroll: { flexGrow: 1, paddingHorizontal: SPACING.xl, paddingTop: 64, paddingBottom: 48 },
+    scroll: { flexGrow: 1, paddingHorizontal: SPACING.xl, paddingTop: 64, paddingBottom: 48 },
 
-  // Brand
-  brand: { alignItems: 'center', marginBottom: SPACING.xl },
-  logoBadge: {
-    width: 72, height: 72, borderRadius: 20, overflow: 'hidden',
-    alignItems: 'center', justifyContent: 'center',
-    marginBottom: SPACING.sm,
-    borderWidth: 1, borderColor: 'rgba(0,108,68,0.12)', ...SHADOW.sm,
-  },
-  logoImg: { width: 44, height: 44 },
-  appName: { fontSize: 30, fontWeight: '800', color: C.primary, letterSpacing: -0.5 },
+    // Brand
+    brand: { alignItems: 'center', marginBottom: SPACING.xl },
+    logoBadge: {
+      width: 72, height: 72, borderRadius: 20, overflow: 'hidden',
+      alignItems: 'center', justifyContent: 'center',
+      marginBottom: SPACING.sm,
+      borderWidth: 1, borderColor: C.border, ...SHADOW.sm,
+    },
+    logoImg: { width: 44, height: 44 },
+    appName: { fontSize: 30, fontWeight: '800', color: C.primary, letterSpacing: -0.5 },
 
-  // Tabs
-  tabWrap: { marginBottom: SPACING.lg },
-  tabBlur: {
-    borderRadius: RADIUS.md, overflow: 'hidden',
-    borderWidth: 1, borderColor: 'rgba(0,108,68,0.1)',
-  },
-  tabRow: {
-    flexDirection: 'row', padding: 4,
-    backgroundColor: 'rgba(231,255,241,0.6)',
-  },
-  tabBtn: {
-    flex: 1, paddingVertical: 11,
-    alignItems: 'center', borderRadius: RADIUS.sm - 2,
-  },
-  tabBtnActive: {
-    backgroundColor: '#ffffff',
-    shadowColor: '#006c44', shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1, shadowRadius: 6, elevation: 3,
-  },
-  tabText: { fontSize: FONTS.sizes.sm, fontWeight: '500', color: 'rgba(0,108,68,0.45)' },
-  tabTextActive: { color: C.primary, fontWeight: '700' },
+    // Tabs
+    tabWrap: { marginBottom: SPACING.lg },
+    tabBlur: {
+      borderRadius: RADIUS.md, overflow: 'hidden',
+      borderWidth: 1, borderColor: C.border,
+    },
+    tabRow: {
+      flexDirection: 'row', padding: 4,
+      backgroundColor: C.text === '#F9FAFB' ? 'rgba(76,175,125,0.06)' : 'rgba(231,255,241,0.6)',
+    },
+    tabBtn: {
+      flex: 1, paddingVertical: 11,
+      alignItems: 'center', borderRadius: RADIUS.sm - 2,
+    },
+    tabBtnActive: {
+      backgroundColor: C.surface,
+      shadowColor: '#006c44', shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.1, shadowRadius: 6, elevation: 3,
+    },
+    tabText: { fontSize: FONTS.sizes.sm, fontWeight: '500', color: C.textMuted },
+    tabTextActive: { color: C.primary, fontWeight: '700' },
 
-  // Card
-  card: {
-    borderRadius: RADIUS.xl, overflow: 'hidden',
-    borderWidth: 1, borderColor: 'rgba(0,108,68,0.1)',
-    padding: SPACING.xl,
-    backgroundColor: 'rgba(255,255,255,0.8)',
-    ...SHADOW.sm,
-  },
-  heading: { fontSize: FONTS.sizes.xl, fontWeight: '700', color: C.text, marginBottom: 4 },
-  sub: { fontSize: FONTS.sizes.sm, color: C.textSecondary, marginBottom: SPACING.xl },
+    // Card
+    card: {
+      borderRadius: RADIUS.xl, overflow: 'hidden',
+      borderWidth: 1, borderColor: C.border,
+      padding: SPACING.xl,
+      backgroundColor: C.text === '#F9FAFB' ? 'rgba(30,40,55,0.85)' : 'rgba(255,255,255,0.8)',
+      ...SHADOW.sm,
+    },
+    heading: { fontSize: FONTS.sizes.xl, fontWeight: '700', color: C.text, marginBottom: 4 },
+    sub: { fontSize: FONTS.sizes.sm, color: C.textSecondary, marginBottom: SPACING.xl },
 
-  // Fields
-  fieldGroup: { marginBottom: SPACING.md },
-  labelRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: SPACING.xs },
-  label: { fontSize: FONTS.sizes.sm, fontWeight: '600', color: C.text, marginBottom: SPACING.xs },
-  forgotLink: { fontSize: FONTS.sizes.xs, color: C.primary, fontWeight: '600' },
-  inputWrap: {
-    flexDirection: 'row', alignItems: 'center',
-    backgroundColor: 'rgba(255,255,255,0.95)',
-    borderRadius: RADIUS.md, borderWidth: 1.5,
-  },
-  icon: { marginLeft: 14 },
-  input: {
-    flex: 1, fontSize: FONTS.sizes.md, color: '#0b1f17',
-    paddingVertical: 14, paddingHorizontal: SPACING.sm,
-  },
-  eye: { paddingHorizontal: 14, paddingVertical: 14 },
+    // Fields
+    fieldGroup: { marginBottom: SPACING.md },
+    labelRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: SPACING.xs },
+    label: { fontSize: FONTS.sizes.sm, fontWeight: '600', color: C.text, marginBottom: SPACING.xs },
+    forgotLink: { fontSize: FONTS.sizes.xs, color: C.primary, fontWeight: '600' },
+    inputWrap: {
+      flexDirection: 'row', alignItems: 'center',
+      backgroundColor: C.surface,
+      borderRadius: RADIUS.md, borderWidth: 1.5,
+    },
+    icon: { marginLeft: 14 },
+    input: {
+      flex: 1, fontSize: FONTS.sizes.md, color: C.text,
+      paddingVertical: 14, paddingHorizontal: SPACING.sm,
+    },
+    eye: { paddingHorizontal: 14, paddingVertical: 14 },
 
-  // Terms
-  termsRow: { flexDirection: 'row', alignItems: 'flex-start', gap: SPACING.sm, marginBottom: SPACING.lg, marginTop: SPACING.xs },
-  checkbox: {
-    width: 20, height: 20, borderRadius: 5,
-    borderWidth: 1.5, borderColor: 'rgba(0,108,68,0.3)',
-    alignItems: 'center', justifyContent: 'center', marginTop: 1,
-    backgroundColor: '#fff',
-  },
-  checkboxOn: { backgroundColor: C.primary, borderColor: C.primary },
-  termsText: { flex: 1, fontSize: FONTS.sizes.xs, color: C.textSecondary, lineHeight: 19 },
-  termsLink: { color: C.primary, fontWeight: '600' },
+    // Terms
+    termsRow: { flexDirection: 'row', alignItems: 'flex-start', gap: SPACING.sm, marginBottom: SPACING.lg, marginTop: SPACING.xs },
+    checkbox: {
+      width: 20, height: 20, borderRadius: 5,
+      borderWidth: 1.5, borderColor: C.border,
+      alignItems: 'center', justifyContent: 'center', marginTop: 1,
+      backgroundColor: C.surface,
+    },
+    checkboxOn: { backgroundColor: C.primary, borderColor: C.primary },
+    termsText: { flex: 1, fontSize: FONTS.sizes.xs, color: C.textSecondary, lineHeight: 19 },
+    termsLink: { color: C.primary, fontWeight: '600' },
 
-  // CTA
-  btn: {
-    backgroundColor: C.primary, borderRadius: RADIUS.full,
-    paddingVertical: 16, alignItems: 'center', marginTop: SPACING.sm,
-    shadowColor: '#006c44', shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.28, shadowRadius: 12, elevation: 6,
-  },
-  btnInner: { flexDirection: 'row', alignItems: 'center', gap: SPACING.sm },
-  btnText: { color: '#fff', fontSize: FONTS.sizes.md, fontWeight: '700' },
+    // CTA
+    btn: {
+      backgroundColor: C.primary, borderRadius: RADIUS.full,
+      paddingVertical: 16, alignItems: 'center', marginTop: SPACING.sm,
+      shadowColor: '#006c44', shadowOffset: { width: 0, height: 4 },
+      shadowOpacity: 0.28, shadowRadius: 12, elevation: 6,
+    },
+    btnInner: { flexDirection: 'row', alignItems: 'center', gap: SPACING.sm },
+    btnText: { color: '#fff', fontSize: FONTS.sizes.md, fontWeight: '700' },
 
-  // Divider
-  divider: { flexDirection: 'row', alignItems: 'center', gap: SPACING.sm, marginTop: SPACING.xl, marginBottom: SPACING.lg },
-  divLine: { flex: 1, height: 1, backgroundColor: 'rgba(0,108,68,0.12)' },
-  divText: { fontSize: 10, color: C.textMuted, fontWeight: '600', letterSpacing: 0.8 },
+    // Divider
+    divider: { flexDirection: 'row', alignItems: 'center', gap: SPACING.sm, marginTop: SPACING.xl, marginBottom: SPACING.lg },
+    divLine: { flex: 1, height: 1, backgroundColor: C.border },
+    divText: { fontSize: 10, color: C.textMuted, fontWeight: '600', letterSpacing: 0.8 },
 
-  // Social
-  socialRow: { flexDirection: 'row', gap: SPACING.md },
-  socialBtn: {
-    flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: SPACING.sm,
-    backgroundColor: 'rgba(255,255,255,0.95)', borderRadius: RADIUS.full,
-    paddingVertical: 14, borderWidth: 1.5, borderColor: 'rgba(0,108,68,0.15)',
-  },
-  socialText: { fontSize: FONTS.sizes.sm, fontWeight: '600', color: C.text },
+    // Social
+    socialRow: { flexDirection: 'row', gap: SPACING.md },
+    socialBtn: {
+      flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: SPACING.sm,
+      backgroundColor: C.surface, borderRadius: RADIUS.full,
+      paddingVertical: 14, borderWidth: 1.5, borderColor: C.border,
+    },
+    socialText: { fontSize: FONTS.sizes.sm, fontWeight: '600', color: C.text },
 
-  // Switch
-  switchRow: { alignItems: 'center', marginTop: SPACING.lg },
-  switchText: { fontSize: FONTS.sizes.sm, color: C.textSecondary },
-  switchLink: { color: C.primary, fontWeight: '700' },
+    // Switch
+    switchRow: { alignItems: 'center', marginTop: SPACING.lg },
+    switchText: { fontSize: FONTS.sizes.sm, color: C.textSecondary },
+    switchLink: { color: C.primary, fontWeight: '700' },
 
-  // Sandbox bypass button
-  sandboxBtn: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
-    gap: SPACING.sm, marginTop: SPACING.xl,
-    paddingVertical: 12, paddingHorizontal: SPACING.xl,
-    borderRadius: RADIUS.full,
-    borderWidth: 1.5, borderColor: 'rgba(124,58,237,0.3)',
-    backgroundColor: 'rgba(124,58,237,0.06)',
-  },
-  sandboxText: { fontSize: FONTS.sizes.xs, color: '#7c3aed', fontWeight: '600' },
-});
+    // Sandbox bypass button
+    sandboxBtn: {
+      flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+      gap: SPACING.sm, marginTop: SPACING.xl,
+      paddingVertical: 12, paddingHorizontal: SPACING.xl,
+      borderRadius: RADIUS.full,
+      borderWidth: 1.5, borderColor: 'rgba(124,58,237,0.3)',
+      backgroundColor: 'rgba(124,58,237,0.06)',
+    },
+    sandboxText: { fontSize: FONTS.sizes.xs, color: '#7c3aed', fontWeight: '600' },
+  });
+}

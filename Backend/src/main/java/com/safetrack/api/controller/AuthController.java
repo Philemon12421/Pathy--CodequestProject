@@ -56,5 +56,110 @@ public class AuthController {
     return ResponseEntity.ok(Map.of("token", token, "user", publicUser));
   }
 
+  // ─── Forgot Password Flow ──────────────────────────────────────────────────
+
+  @PostMapping("/forgot-password")
+  public ResponseEntity<?> forgotPassword(@RequestBody Map<String, String> body) {
+    String email = body.get("email");
+    if (blank(email)) return ResponseEntity.badRequest().body(Map.of("error", "Email required"));
+
+    Integer count = jdbc.sql("SELECT COUNT(*) FROM users WHERE email=:email").param("email", email).query(Integer.class).single();
+    if (count == 0) {
+      // Don't reveal whether the email exists — return success anyway
+      return ResponseEntity.ok(Map.of("message", "If that email is registered, a code has been sent."));
+    }
+
+    String code = generateCode();
+    // Clean up old codes for this email/type
+    jdbc.sql("DELETE FROM verification_codes WHERE email=:email AND type='password_reset'").param("email", email).update();
+    jdbc.sql("INSERT INTO verification_codes (email, code, type, expires_at) VALUES (:email, :code, 'password_reset', NOW() + INTERVAL '15 minutes')")
+        .param("email", email).param("code", code).update();
+
+    // In production, send via email. For now, log to console.
+    System.out.println("══════════════════════════════════════════════");
+    System.out.println("  PASSWORD RESET CODE for " + email + ": " + code);
+    System.out.println("══════════════════════════════════════════════");
+
+    return ResponseEntity.ok(Map.of("message", "If that email is registered, a code has been sent."));
+  }
+
+  @PostMapping("/verify-reset-code")
+  public ResponseEntity<?> verifyResetCode(@RequestBody Map<String, String> body) {
+    String email = body.get("email");
+    String code = body.get("code");
+    if (blank(email) || blank(code)) return ResponseEntity.badRequest().body(Map.of("error", "Email and code required"));
+
+    List<Map<String, Object>> rows = jdbc.sql(
+        "SELECT * FROM verification_codes WHERE email=:email AND code=:code AND type='password_reset' AND expires_at > NOW()")
+        .param("email", email).param("code", code).query().listOfRows();
+
+    if (rows.isEmpty()) return ResponseEntity.status(400).body(Map.of("error", "Invalid or expired code"));
+    return ResponseEntity.ok(Map.of("valid", true));
+  }
+
+  @PostMapping("/reset-password")
+  public ResponseEntity<?> resetPassword(@RequestBody Map<String, String> body) {
+    String email = body.get("email");
+    String code = body.get("code");
+    String password = body.get("password");
+    if (blank(email) || blank(code) || blank(password)) return ResponseEntity.badRequest().body(Map.of("error", "All fields required"));
+    if (password.length() < 6) return ResponseEntity.badRequest().body(Map.of("error", "Password must be at least 6 characters"));
+
+    List<Map<String, Object>> rows = jdbc.sql(
+        "SELECT * FROM verification_codes WHERE email=:email AND code=:code AND type='password_reset' AND expires_at > NOW()")
+        .param("email", email).param("code", code).query().listOfRows();
+
+    if (rows.isEmpty()) return ResponseEntity.status(400).body(Map.of("error", "Invalid or expired code"));
+
+    jdbc.sql("UPDATE users SET password_hash=:hash WHERE email=:email")
+        .param("hash", encoder.encode(password)).param("email", email).update();
+    jdbc.sql("DELETE FROM verification_codes WHERE email=:email AND type='password_reset'").param("email", email).update();
+
+    return ResponseEntity.ok(Map.of("message", "Password updated successfully"));
+  }
+
+  // ─── Email Verification Flow ───────────────────────────────────────────────
+
+  @PostMapping("/verify-email")
+  public ResponseEntity<?> verifyEmail(@RequestBody Map<String, String> body) {
+    String email = body.get("email");
+    String code = body.get("code");
+    if (blank(email) || blank(code)) return ResponseEntity.badRequest().body(Map.of("error", "Email and code required"));
+
+    List<Map<String, Object>> rows = jdbc.sql(
+        "SELECT * FROM verification_codes WHERE email=:email AND code=:code AND type='email_verification' AND expires_at > NOW()")
+        .param("email", email).param("code", code).query().listOfRows();
+
+    if (rows.isEmpty()) return ResponseEntity.status(400).body(Map.of("error", "Invalid or expired code"));
+
+    jdbc.sql("UPDATE users SET is_verified=TRUE WHERE email=:email").param("email", email).update();
+    jdbc.sql("DELETE FROM verification_codes WHERE email=:email AND type='email_verification'").param("email", email).update();
+
+    return ResponseEntity.ok(Map.of("verified", true));
+  }
+
+  @PostMapping("/resend-verification")
+  public ResponseEntity<?> resendVerification(@RequestBody Map<String, String> body) {
+    String email = body.get("email");
+    if (blank(email)) return ResponseEntity.badRequest().body(Map.of("error", "Email required"));
+
+    String code = generateCode();
+    jdbc.sql("DELETE FROM verification_codes WHERE email=:email AND type='email_verification'").param("email", email).update();
+    jdbc.sql("INSERT INTO verification_codes (email, code, type, expires_at) VALUES (:email, :code, 'email_verification', NOW() + INTERVAL '15 minutes')")
+        .param("email", email).param("code", code).update();
+
+    System.out.println("══════════════════════════════════════════════");
+    System.out.println("  EMAIL VERIFICATION CODE for " + email + ": " + code);
+    System.out.println("══════════════════════════════════════════════");
+
+    return ResponseEntity.ok(Map.of("message", "Verification code sent"));
+  }
+
+  // ─── Helpers ───────────────────────────────────────────────────────────────
+
   private boolean blank(String value) { return value == null || value.isBlank(); }
+
+  private String generateCode() {
+    return String.format("%06d", new java.util.Random().nextInt(999999));
+  }
 }

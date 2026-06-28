@@ -3,12 +3,16 @@ import useStore from '../store/useStore';
 
 const BASE_URL = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:4000/api';
 
-const api = axios.create({
+const _api = axios.create({
   baseURL: BASE_URL,
   headers: {
     'ngrok-skip-browser-warning': 'true',
   },
 });
+
+// Cast to any so TypeScript sees Promise<any> return types,
+// matching runtime behavior where the interceptor returns res.data.
+const api = _api as any;
 
 api.interceptors.request.use((config: InternalAxiosRequestConfig) => {
   const token = useStore.getState().token;
@@ -19,14 +23,19 @@ api.interceptors.request.use((config: InternalAxiosRequestConfig) => {
 });
 
 api.interceptors.response.use(
-  (res) => res.data,
-  (err) => Promise.reject(err.response?.data || err)
+  (res: any) => res.data,
+  (err: any) => Promise.reject(err.response?.data || err)
 );
 
 // Auth
 export const authAPI = {
   login: (data: any) => api.post('/auth/login', data),
   register: (data: any) => api.post('/auth/register', data),
+  requestPasswordReset: (email: string) => api.post('/auth/forgot-password', { email }),
+  verifyResetCode: (email: string, code: string) => api.post('/auth/verify-reset-code', { email, code }),
+  resetPassword: (email: string, code: string, password: string) => api.post('/auth/reset-password', { email, code, password }),
+  verifyEmail: (email: string, code: string) => api.post('/auth/verify-email', { email, code }),
+  resendVerification: (email: string) => api.post('/auth/resend-verification', { email }),
 };
 
 // Incidents

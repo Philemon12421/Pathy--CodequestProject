@@ -146,6 +146,8 @@ function MainApp() {
         <MainStack.Screen name="NearbyDeals" component={NearbyDealsScreen}  options={{ animation: 'slide_from_right' }} />
         <MainStack.Screen name="PostRoute"   component={PostRouteScreen}    options={{ animation: 'slide_from_bottom', presentation: 'modal' }} />
         <MainStack.Screen name="AI"          component={AIScreen}           options={{ animation: 'slide_from_right' }} />
+        <MainStack.Screen name="ForgotPassword"    component={ForgotPasswordScreen}    options={{ animation: 'slide_from_right' }} />
+        <MainStack.Screen name="EmailVerification" component={EmailVerificationScreen} options={{ animation: 'slide_from_right' }} />
       </MainStack.Navigator>
       <AdProximityManager />
     </View>
