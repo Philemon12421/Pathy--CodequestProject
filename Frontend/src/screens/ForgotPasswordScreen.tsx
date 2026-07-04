@@ -37,12 +37,15 @@ export default function ForgotPasswordScreen({ navigation }: any) {
   };
 
   const handleSendCode = async () => {
-    if (!email.trim() || !email.includes('@')) {
+    const trimmedEmail = email.trim();
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+    if (!emailRegex.test(trimmedEmail)) {
       Alert.alert('Invalid email', 'Please enter a valid email address.'); return;
     }
     setLoading(true);
     try {
-      await authAPI.requestPasswordReset(email.trim());
+      await authAPI.requestPasswordReset(trimmedEmail);
     } catch (e: any) {
       Alert.alert('Error', e?.error || 'Something went wrong.'); setLoading(false); return;
     }
