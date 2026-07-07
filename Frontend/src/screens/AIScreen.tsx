@@ -11,13 +11,15 @@ import { aiAPI, incidentsAPI } from '../services/api';
 import useStore from '../store/useStore';
 
 const QUICK_PROMPTS = [
-  { label: '🗺️ Navigate to...', text: 'Navigate me to ' },
-  { label: '⚠️ Report hazard', text: 'I want to report a hazard on the road near me' },
-  { label: '🎵 Play music',    text: 'Play some music for my drive' },
-  { label: '📣 Place an ad',   text: 'I want to advertise my business on the map' },
-  { label: '🚗 Safety tips',   text: 'Give me road safety tips for night driving' },
-  { label: '☁️ Weather alert', text: 'Is there any weather warning I should know about?' },
+  { icon: 'navigate',       label: 'Navigate',    text: 'Navigate me to ' },
+  { icon: 'warning',        label: 'Report hazard', text: 'I want to report a hazard on the road near me' },
+  { icon: 'musical-notes',  label: 'Play music',  text: 'Play some music for my drive' },
+  { icon: 'megaphone',      label: 'Place an ad', text: 'I want to advertise my business on the map' },
+  { icon: 'shield-checkmark', label: 'Safety tips', text: 'Give me road safety tips for night driving' },
+  { icon: 'rainy',          label: 'Weather alert', text: 'Is there any weather warning I should know about?' },
 ];
+
+const FALLBACK_REPLY = "I'm having trouble connecting right now. Please try again in a moment.";
 
 export default function AIScreen({ navigation }: any) {
   const COLORS = useColors();
@@ -30,81 +32,121 @@ export default function AIScreen({ navigation }: any) {
 
   useEffect(() => {
     aiAPI.getHistory()
-      .then((msgs: any) => setChatMessages(msgs.map((m: any) => ({ role: m.role, content: m.content, id: m.id || Math.random().toString() }))))
+      .then((msgs: any) => {
+        const list = Array.isArray(msgs) ? msgs : [];
+        setChatMessages(
+          list.map((m: any, i: number) => ({
+            role: m?.role === 'user' ? 'user' : 'assistant',
+            content: typeof m?.content === 'string' ? m.content : '',
+            id: m?.id ? String(m.id) : `hist-${i}-${Date.now()}`,
+          }))
+        );
+      })
       .catch(() => {})
       .finally(() => setHistLoading(false));
   }, [setChatMessages]);
 
   const send = async (text?: string) => {
-    const msg = (text || input).trim();
+    const msg = (text ?? input).trim();
     if (!msg || loading) return;
     setInput('');
 
-    const userMsg = { role: 'user', content: msg, id: Date.now().toString() };
+    const userMsg = { role: 'user', content: msg, id: `u-${Date.now()}` };
     addChatMessage(userMsg);
     setLoading(true);
 
     try {
       const history = chatMessages.slice(-10);
       const res = await aiAPI.chat(msg, history);
-      const aiMsg = { role: 'assistant', content: res.text, id: (Date.now() + 1).toString(), action: res.action };
-      addChatMessage(aiMsg);
-      if (res.action) handleAction(res.action);
+      const replyText = typeof res?.text === 'string' && res.text.trim().length > 0 ? res.text : FALLBACK_REPLY;
+      addChatMessage({ role: 'assistant', content: replyText, id: `a-${Date.now()}`, action: res?.action });
+      if (res?.action) handleAction(res.action);
     } catch {
-      addChatMessage({ role: 'assistant', content: "I'm having trouble connecting right now. Please try again.", id: Date.now().toString() });
+      addChatMessage({ role: 'assistant', content: FALLBACK_REPLY, id: `a-${Date.now()}` });
     } finally {
       setLoading(false);
     }
   };
 
   const handleAction = async (action: any) => {
+    if (!action?.type) return;
+
     switch (action.type) {
       case 'navigate':
-        Alert.alert('🗺️ Navigate', `Open map and navigate to "${action.destination}"?`, [
+        Alert.alert('Navigate', `Open the map and head to "${action.destination || 'this destination'}"?`, [
           { text: 'Cancel', style: 'cancel' },
           { text: 'Go', onPress: () => navigation.navigate('Map') },
-        ]); break;
+        ]);
+        break;
+
       case 'report_incident':
-        Alert.alert('⚠️ Report Incident', `Report a ${action.incident_type}: "${action.title}"?`, [
+        Alert.alert('Report incident', `Report a ${action.incident_type || 'road'} issue: "${action.title || 'Untitled report'}"?`, [
           { text: 'Cancel', style: 'cancel' },
-          { text: 'Report Now', onPress: async () => {
-              if (!userLocation) { Alert.alert('Error', 'Location not available'); return; }
+          {
+            text: 'Report now',
+            onPress: async () => {
+              if (!userLocation) {
+                Alert.alert("Location unavailable", "Turn on location access so Pathy can pin this report on the map.");
+                return;
+              }
               try {
                 const formData = new FormData();
                 formData.append('type', action.incident_type || 'other');
-                formData.append('title', action.title);
+                formData.append('title', action.title || 'Reported hazard');
                 formData.append('description', action.description || '');
                 formData.append('latitude', userLocation.latitude.toString());
                 formData.append('longitude', userLocation.longitude.toString());
                 formData.append('severity', action.severity || 'medium');
                 await incidentsAPI.create(formData);
-                addChatMessage({ role: 'assistant', content: '✅ Incident reported successfully on the map!', id: Date.now().toString() });
-              } catch { Alert.alert('Error', 'Could not report incident'); }
-            }
+                addChatMessage({ role: 'assistant', content: 'Done — your report is now on the map.', id: `a-${Date.now()}` });
+              } catch {
+                Alert.alert('Error', 'Could not report incident. Please try again.');
+              }
+            },
           },
-        ]); break;
+        ]);
+        break;
+
       case 'place_ad':
-        Alert.alert('📣 Place Ad', `Set up a map ad for "${action.business_name}"?`, [
+        Alert.alert('Place an ad', `Set up a map ad for "${action.business_name || 'your business'}"?`, [
           { text: 'Cancel', style: 'cancel' },
-          { text: 'Open Ads', onPress: () => navigation.navigate('Ads') },
-        ]); break;
+          { text: 'Open ads', onPress: () => navigation.navigate('Ads') },
+        ]);
+        break;
+
       case 'music':
-        navigation.navigate('Music'); break;
+        navigation.navigate('Music');
+        break;
+
+      default:
+        break;
     }
   };
 
   const clearChat = () => {
-    Alert.alert('Clear Chat', 'Delete all chat history?', [
+    if (histLoading || loading) return;
+    if (chatMessages.length === 0) return;
+
+    Alert.alert('Clear chat', 'Delete all chat history? This can\u2019t be undone.', [
       { text: 'Cancel', style: 'cancel' },
-      { text: 'Clear', style: 'destructive', onPress: async () => {
-          await aiAPI.clearHistory(); setChatMessages([]);
-        }
+      {
+        text: 'Clear',
+        style: 'destructive',
+        onPress: async () => {
+          try {
+            await aiAPI.clearHistory();
+          } catch {
+            // Clear the local view either way so the UI doesn't feel stuck
+          } finally {
+            setChatMessages([]);
+          }
+        },
       },
     ]);
   };
 
   const renderMsg = ({ item }: { item: any }) => {
-    const isUser = item.role === 'user';
+    const isUser = item?.role === 'user';
     return (
       <View style={[s.msgRow, isUser && s.msgRowUser]}>
         {!isUser && (
@@ -113,8 +155,8 @@ export default function AIScreen({ navigation }: any) {
           </View>
         )}
         <View style={[s.bubble, isUser ? s.bubbleUser : s.bubbleAI]}>
-          <Text style={[s.bubbleText, isUser && s.bubbleTextUser]}>{item.content}</Text>
-          {item.action && (
+          <Text style={[s.bubbleText, isUser && s.bubbleTextUser]}>{item?.content || ''}</Text>
+          {item?.action?.type && (
             <View style={s.actionChip}>
               <Ionicons name={getActionIcon(item.action.type) as any} size={11} color={COLORS.accent} />
               <Text style={s.actionChipText}>{getActionLabel(item.action)}</Text>
@@ -125,30 +167,43 @@ export default function AIScreen({ navigation }: any) {
     );
   };
 
+  const hasMessages = chatMessages.length > 0;
+
   return (
     <SafeAreaView style={s.container}>
-      {/* ── Header ── */}
+      {/* Header */}
       <View style={s.header}>
         <View style={s.headerLeft}>
-          <View style={s.aiStatusDot} />
+          <View style={s.aiAvatarHeader}>
+            <Ionicons name="sparkles" size={16} color={COLORS.accent} />
+          </View>
           <View>
-            <Text style={s.headerTitle}>Routh Flow AI</Text>
-            <Text style={s.headerSub}>Powered by Gemini</Text>
+            <Text style={s.headerTitle}>Pathy AI</Text>
+            <View style={s.headerSubRow}>
+              <View style={s.aiStatusDot} />
+              <Text style={s.headerSub}>Your road companion</Text>
+            </View>
           </View>
         </View>
-        <TouchableOpacity onPress={clearChat} style={s.clearBtn}>
-          <Ionicons name="trash-outline" size={18} color={COLORS.textMuted} />
+        <TouchableOpacity
+          onPress={clearChat}
+          style={[s.clearBtn, !hasMessages && s.clearBtnDisabled]}
+          disabled={!hasMessages}
+        >
+          <Ionicons name="trash-outline" size={18} color={hasMessages ? COLORS.textMuted : COLORS.border} />
         </TouchableOpacity>
       </View>
 
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined} keyboardVerticalOffset={90}>
         {histLoading ? (
-          <View style={s.center}><ActivityIndicator size="large" color={COLORS.accent} /></View>
+          <View style={s.center}>
+            <ActivityIndicator size="large" color={COLORS.accent} />
+          </View>
         ) : (
           <FlatList
             ref={flatRef}
             data={chatMessages}
-            keyExtractor={(m) => m.id || m.created_at}
+            keyExtractor={(m: any, index: number) => (m?.id ? String(m.id) : `msg-${index}`)}
             renderItem={renderMsg}
             contentContainerStyle={s.msgList}
             onContentSizeChange={() => flatRef.current?.scrollToEnd({ animated: true })}
@@ -159,27 +214,33 @@ export default function AIScreen({ navigation }: any) {
         )}
 
         {/* Quick prompts (shown only when empty) */}
-        {chatMessages.length === 0 && !histLoading && (
+        {!hasMessages && !histLoading && (
           <View style={s.quickWrap}>
-            <Text style={s.quickLabel}>Try asking...</Text>
+            <Text style={s.quickLabel}>Try asking Pathy</Text>
             <View style={s.quickGrid}>
               {QUICK_PROMPTS.map((p) => (
-                <TouchableOpacity key={p.text} style={s.quickChip} onPress={() => send(p.text)} activeOpacity={0.8}>
-                  <Text style={s.quickChipText}>{p.label}</Text>
+                <TouchableOpacity key={p.text} style={s.quickChip} onPress={() => send(p.text)} activeOpacity={0.7}>
+                  <View style={s.quickChipIcon}>
+                    <Ionicons name={p.icon as any} size={14} color={COLORS.accent} />
+                  </View>
+                  <Text style={s.quickChipText} numberOfLines={1}>{p.label}</Text>
                 </TouchableOpacity>
               ))}
             </View>
           </View>
         )}
 
-        {/* ── Input Bar ── */}
+        {/* Input bar */}
         <View style={s.inputBar}>
-          <TouchableOpacity style={s.inputAddBtn}>
+          <TouchableOpacity
+            style={s.inputAddBtn}
+            onPress={() => Alert.alert('Attachments', 'Sharing photos and files is coming soon.')}
+          >
             <Ionicons name="add" size={20} color={COLORS.textSecondary} />
           </TouchableOpacity>
           <TextInput
             style={s.textInput}
-            placeholder="Ask Anything..."
+            placeholder="Ask Pathy anything..."
             placeholderTextColor={COLORS.textMuted}
             value={input}
             onChangeText={setInput}
@@ -187,7 +248,10 @@ export default function AIScreen({ navigation }: any) {
             maxLength={500}
             onSubmitEditing={() => send()}
           />
-          <TouchableOpacity style={s.micBtn}>
+          <TouchableOpacity
+            style={s.micBtn}
+            onPress={() => Alert.alert('Voice input', 'Talking to Pathy by voice is coming soon.')}
+          >
             <Ionicons name="mic-outline" size={20} color={COLORS.textSecondary} />
           </TouchableOpacity>
           <TouchableOpacity
@@ -195,10 +259,11 @@ export default function AIScreen({ navigation }: any) {
             onPress={() => send()}
             disabled={!input.trim() || loading}
           >
-            {loading
-              ? <ActivityIndicator size="small" color="#fff" />
-              : <Ionicons name="arrow-up" size={18} color="#fff" />
-            }
+            {loading ? (
+              <ActivityIndicator size="small" color="#fff" />
+            ) : (
+              <Ionicons name="arrow-up" size={18} color="#fff" />
+            )}
           </TouchableOpacity>
         </View>
       </KeyboardAvoidingView>
@@ -213,17 +278,18 @@ function WelcomeCard() {
   const pulseAnim = useRef(new Animated.Value(1)).current;
 
   useEffect(() => {
-    Animated.loop(
+    const loop = Animated.loop(
       Animated.sequence([
         Animated.timing(pulseAnim, { toValue: 1.08, duration: 1800, useNativeDriver: true }),
-        Animated.timing(pulseAnim, { toValue: 1,    duration: 1800, useNativeDriver: true }),
+        Animated.timing(pulseAnim, { toValue: 1, duration: 1800, useNativeDriver: true }),
       ])
-    ).start();
-  }, []);
+    );
+    loop.start();
+    return () => loop.stop();
+  }, [pulseAnim]);
 
   return (
     <View style={s.welcomeWrap}>
-      {/* Iridescent orb matching the reference image */}
       <Animated.View style={[s.orbOuter, { transform: [{ scale: pulseAnim }] }]}>
         <View style={s.orbMid}>
           <View style={s.orbInner}>
@@ -232,28 +298,27 @@ function WelcomeCard() {
         </View>
       </Animated.View>
 
-      <Text style={s.welcomeTitle}>AI Finds Answers{'\n'}Faster</Text>
+      <Text style={s.welcomeTitle}>Hi, I'm Pathy AI</Text>
       <Text style={s.welcomeText}>
-        I can help you navigate, report incidents,{'\n'}control music, and place ads on the map.
+        Ask me to navigate, report a hazard,{'\n'}play music, or place an ad on the map.
       </Text>
 
-      {/* Feature chips — matching reference bottom row */}
       <View style={s.featureRow}>
         <FeatureChip icon="navigate" label="Smart Nav" sub="Turn-by-turn" />
-        <FeatureChip icon="warning" label="Incidents" sub="AI Detection" />
-        <FeatureChip icon="bar-chart" label="Reports" sub="Analytics" />
+        <FeatureChip icon="warning" label="Incidents" sub="Live reports" />
+        <FeatureChip icon="bar-chart" label="Insights" sub="Route stats" />
       </View>
     </View>
   );
 }
 
-function FeatureChip({ icon, label, sub }: any) {
+function FeatureChip({ icon, label, sub }: { icon: string; label: string; sub: string }) {
   const COLORS = useColors();
   const s = makeStyles(COLORS);
   return (
     <View style={s.featureChip}>
       <View style={[s.featureChipIcon, { backgroundColor: COLORS.accentSoft }]}>
-        <Ionicons name={icon} size={16} color={COLORS.accent} />
+        <Ionicons name={icon as any} size={16} color={COLORS.accent} />
       </View>
       <Text style={s.featureChipLabel}>{label}</Text>
       <Text style={s.featureChipSub}>{sub}</Text>
@@ -265,6 +330,23 @@ function FeatureChip({ icon, label, sub }: any) {
 function TypingIndicator() {
   const COLORS = useColors();
   const s = makeStyles(COLORS);
+  const dotAnims = useRef([0, 1, 2].map(() => new Animated.Value(0))).current;
+
+  useEffect(() => {
+    const animations = dotAnims.map((anim, i) =>
+      Animated.loop(
+        Animated.sequence([
+          Animated.delay(i * 150),
+          Animated.timing(anim, { toValue: 1, duration: 350, useNativeDriver: true }),
+          Animated.timing(anim, { toValue: 0, duration: 350, useNativeDriver: true }),
+          Animated.delay((2 - i) * 150),
+        ])
+      )
+    );
+    animations.forEach((a) => a.start());
+    return () => animations.forEach((a) => a.stop());
+  }, [dotAnims]);
+
   return (
     <View style={s.msgRow}>
       <View style={s.aiAvatar}>
@@ -272,7 +354,18 @@ function TypingIndicator() {
       </View>
       <View style={[s.bubble, s.bubbleAI, { paddingVertical: 14, paddingHorizontal: 18 }]}>
         <View style={s.typingDots}>
-          {[0, 1, 2].map((i) => <View key={i} style={[s.dot, { opacity: 0.3 + i * 0.35 }]} />)}
+          {dotAnims.map((anim, i) => (
+            <Animated.View
+              key={i}
+              style={[
+                s.dot,
+                {
+                  opacity: anim.interpolate({ inputRange: [0, 1], outputRange: [0.3, 1] }),
+                  transform: [{ translateY: anim.interpolate({ inputRange: [0, 1], outputRange: [0, -4] }) }],
+                },
+              ]}
+            />
+          ))}
         </View>
       </View>
     </View>
@@ -283,7 +376,15 @@ function getActionIcon(type: string): any {
   return { navigate: 'map', report_incident: 'warning', place_ad: 'megaphone', music: 'musical-notes' }[type] || 'flash';
 }
 function getActionLabel(action: any) {
-  return ({ navigate: `→ Navigate to ${action.destination}`, report_incident: `→ Report ${action.incident_type}`, place_ad: `→ Place Ad`, music: `→ Music` } as Record<string, string>)[action.type] || '→ Action';
+  const type = action?.type;
+  return (
+    ({
+      navigate: `\u2192 Navigate to ${action?.destination || 'destination'}`,
+      report_incident: `\u2192 Report ${action?.incident_type || 'incident'}`,
+      place_ad: `\u2192 Place ad`,
+      music: `\u2192 Music`,
+    } as Record<string, string>)[type] || '\u2192 Action'
+  );
 }
 
 // ─── Styles ───────────────────────────────────────────────────────────────────
@@ -299,13 +400,19 @@ function makeStyles(COLORS: any) {
       backgroundColor: COLORS.surface,
     },
     headerLeft: { flexDirection: 'row', alignItems: 'center', gap: SPACING.md },
-    aiStatusDot: { width: 9, height: 9, borderRadius: 5, backgroundColor: '#10B981' },
+    aiAvatarHeader: {
+      width: 36, height: 36, borderRadius: RADIUS.full,
+      backgroundColor: COLORS.accentSoft, alignItems: 'center', justifyContent: 'center',
+    },
     headerTitle: { fontSize: FONTS.sizes.lg, fontWeight: FONTS.weights.bold, color: COLORS.text },
+    headerSubRow: { flexDirection: 'row', alignItems: 'center', gap: 5, marginTop: 2 },
+    aiStatusDot: { width: 7, height: 7, borderRadius: 4, backgroundColor: '#10B981' },
     headerSub: { fontSize: FONTS.sizes.xs, color: COLORS.textMuted },
     clearBtn: {
       width: 36, height: 36, borderRadius: RADIUS.full,
       backgroundColor: COLORS.surfaceElevated, alignItems: 'center', justifyContent: 'center',
     },
+    clearBtnDisabled: { opacity: 0.5 },
 
     center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
 
@@ -340,13 +447,19 @@ function makeStyles(COLORS: any) {
     },
     quickGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: SPACING.sm },
     quickChip: {
-      backgroundColor: COLORS.surface, borderRadius: RADIUS.full,
-      paddingHorizontal: SPACING.md, paddingVertical: SPACING.sm,
+      flexDirection: 'row', alignItems: 'center', gap: 6,
+      flexBasis: '48%', flexGrow: 1,
+      backgroundColor: COLORS.surface, borderRadius: RADIUS.lg,
+      paddingHorizontal: SPACING.sm, paddingVertical: SPACING.sm,
       borderWidth: 1, borderColor: COLORS.border,
     },
-    quickChipText: { fontSize: FONTS.sizes.sm, color: COLORS.text },
+    quickChipIcon: {
+      width: 24, height: 24, borderRadius: RADIUS.full,
+      backgroundColor: COLORS.accentSoft, alignItems: 'center', justifyContent: 'center',
+    },
+    quickChipText: { flex: 1, fontSize: FONTS.sizes.sm, color: COLORS.text, fontWeight: FONTS.weights.semibold },
 
-    // Input bar — matches reference design
+    // Input bar
     inputBar: {
       flexDirection: 'row', alignItems: 'center', gap: SPACING.sm,
       paddingHorizontal: SPACING.md, paddingVertical: 8,
@@ -379,7 +492,6 @@ function makeStyles(COLORS: any) {
 
     // Welcome / Orb
     welcomeWrap: { alignItems: 'center', paddingTop: 48, paddingHorizontal: SPACING.xxl, gap: SPACING.lg },
-    // Layered orb (purple → blue → teal gradient via nested Views)
     orbOuter: {
       width: 120, height: 120, borderRadius: 60,
       backgroundColor: '#C77DFF33',
