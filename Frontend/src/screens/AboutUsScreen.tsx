@@ -10,9 +10,9 @@ import { FONTS, RADIUS, SPACING, SHADOW, getColors } from '../config/theme';
 const C = getColors('light');
 
 const TEAM = [
-  { name: 'Micheal & Robert', role: 'Lead Developer', initials: 'NK', color: '#006c44' },
-  { name: 'Philemon', role: 'UI / UX',         initials: 'DT', color: '#4caf7d' },
-  { name: 'Jones & Kelvin ', role: 'Spring Boot API', initials: 'BD', color: '#378ADD' },
+  { name: 'Micheal & Robert', role: 'Frontend Developer', initials: 'MR', color: '#006c44' },
+  { name: 'Philemon', role: 'UI / UX & Lead Developer',         initials: 'PK', color: '#4caf7d' },
+  { name: 'Jones & Kelvin ', role: 'Spring Boot API', initials: 'JK', color: '#378ADD' },
 ];
 
 const VALUES = [
