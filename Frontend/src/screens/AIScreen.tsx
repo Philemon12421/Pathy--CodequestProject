@@ -125,11 +125,7 @@ export default function AIScreen({ navigation }: any) {
 
   const clearChat = () => {
     if (histLoading || loading) return;
-<<<<<<< HEAD
-    if (chatMessages.length === 0) return;
-=======
     if ((chatMessages || []).length === 0) return;
->>>>>>> 56a8be1 (fixed aiscreen)
 
     Alert.alert('Clear chat', 'Delete all chat history? This can\u2019t be undone.', [
       { text: 'Cancel', style: 'cancel' },
@@ -171,11 +167,7 @@ export default function AIScreen({ navigation }: any) {
     );
   };
 
-<<<<<<< HEAD
-  const hasMessages = chatMessages.length > 0;
-=======
   const hasMessages = (chatMessages || []).length > 0;
->>>>>>> 56a8be1 (fixed aiscreen)
 
   return (
     <SafeAreaView style={s.container}>
@@ -210,11 +202,7 @@ export default function AIScreen({ navigation }: any) {
         ) : (
           <FlatList
             ref={flatRef}
-<<<<<<< HEAD
-            data={chatMessages}
-=======
             data={chatMessages || []}
->>>>>>> 56a8be1 (fixed aiscreen)
             keyExtractor={(m: any, index: number) => (m?.id ? String(m.id) : `msg-${index}`)}
             renderItem={renderMsg}
             contentContainerStyle={s.msgList}
