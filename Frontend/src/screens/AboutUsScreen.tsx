@@ -10,9 +10,9 @@ import { FONTS, RADIUS, SPACING, SHADOW, getColors } from '../config/theme';
 const C = getColors('light');
 
 const TEAM = [
-  { name: 'Nkjones2020', role: 'Lead Developer', initials: 'NK', color: '#006c44' },
-  { name: 'Design Team', role: 'UI / UX',         initials: 'DT', color: '#4caf7d' },
-  { name: 'Backend Dev', role: 'Spring Boot API', initials: 'BD', color: '#378ADD' },
+  { name: 'Micheal & Robert', role: 'Lead Developer', initials: 'NK', color: '#006c44' },
+  { name: 'Philemon', role: 'UI / UX',         initials: 'DT', color: '#4caf7d' },
+  { name: 'Jones & Kelvin ', role: 'Spring Boot API', initials: 'BD', color: '#378ADD' },
 ];
 
 const VALUES = [
@@ -127,7 +127,7 @@ export default function AboutUsScreen({ navigation }: any) {
           <View style={s.footerDivider} />
           <Text style={s.footerVersion}>Pathy v1.0.0</Text>
           <Text style={s.footerSub}>Built with ❤️ for university · CodeQuest Project</Text>
-          <TouchableOpacity onPress={() => Linking.openURL('https://github.com')}>
+          <TouchableOpacity onPress={() => Linking.openURL('https://github.com/Philemon12421/Pathy--CodequestProject/')}>
             <View style={s.githubRow}>
               <Ionicons name="logo-github" size={16} color={C.textMuted} />
               <Text style={s.githubText}>View on GitHub</Text>
