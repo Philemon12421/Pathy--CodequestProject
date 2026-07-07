@@ -303,11 +303,7 @@ export default function MapScreen({ navigation, route }: any) {
         showsTraffic
       >
         {/* Incident markers */}
-<<<<<<< HEAD
-        {incidents.map((inc: any) => (
-=======
         {(incidents || []).map((inc: any) => (
->>>>>>> 56a8be1 (fixed aiscreen)
           <Marker
             key={inc.id}
             coordinate={{ latitude: parseFloat(inc.latitude), longitude: parseFloat(inc.longitude) }}
@@ -527,11 +523,7 @@ export default function MapScreen({ navigation, route }: any) {
                           onPress: async () => {
                             try {
                               await incidentsAPI.delete(selectedMarker.data.id);
-<<<<<<< HEAD
-                              setIncidents(incidents.filter((i: any) => i.id !== selectedMarker.data.id));
-=======
                               setIncidents((incidents || []).filter((i: any) => i.id !== selectedMarker.data.id));
->>>>>>> 56a8be1 (fixed aiscreen)
                               setSelectedMarker(null);
                               Alert.alert('Deleted', 'Incident report has been deleted.');
                             } catch (err: any) {
