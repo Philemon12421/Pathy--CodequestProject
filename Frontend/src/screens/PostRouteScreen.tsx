@@ -5,10 +5,12 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { useColors } from '../config/ThemeContext';
-import { FONTS, RADIUS, SPACING, SHADOW } from '../config/theme';
+import { FONTS, RADIUS, SPACING, SHADOW, getColors } from '../config/theme';
 import { routesAPI } from '../services/api';
 import useStore from '../store/useStore';
+import type { FeedPost } from './HomeScreen';
+
+const C = getColors('light');
 
 const ACTIVITIES = [
   { key: 'running',  label: 'Running',  icon: 'walk-outline'    },
@@ -17,97 +19,152 @@ const ACTIVITIES = [
   { key: 'driving',  label: 'Driving',  icon: 'car-outline'     },
 ];
 
+const AVATAR_COLORS = ['#006c44','#4caf7d','#378ADD','#7F77DD','#EF9F27','#E24B4A'];
+const colorFor = (str: string) => AVATAR_COLORS[(str.charCodeAt(0) || 0) % AVATAR_COLORS.length];
+
 export default function PostRouteScreen({ navigation, route }: any) {
-  const C = useColors();
-  const s = makeStyles(C);
-  const { savedRoutes, addRoute, userLocation } = useStore();
+  const { user, addRoute, addRouteFeedPost, userLocation } = useStore();
   const routeData = route?.params?.routeData;
-  const [name, setName] = useState('');
+
+  const [name, setName]         = useState('');
+  const [caption, setCaption]   = useState('');
   const [activity, setActivity] = useState('walking');
   const [isPublic, setIsPublic] = useState(true);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading]   = useState(false);
+
+  const distKm = routeData?.distance
+    ? (routeData.distance / 1000).toFixed(1)
+    : '—';
+  const dur = routeData?.duration
+    ? `${String(Math.floor(routeData.duration / 3600)).padStart(2,'0')}:${String(Math.floor((routeData.duration % 3600)/60)).padStart(2,'0')}:${String(routeData.duration % 60).padStart(2,'0')}`
+    : '—';
 
   const submit = async () => {
-    if (!name.trim()) { Alert.alert('Required', 'Please give your route a name.'); return; }
+    if (!name.trim()) { Alert.alert('Required', 'Give your route a name.'); return; }
     setLoading(true);
     try {
+      // 1 — Save to backend
       const saved = await routesAPI.save({
         name,
         activity_type: activity,
         is_public: isPublic,
-        origin_name: routeData?.origin_name || 'My Location',
-        destination_name: routeData?.destination_name || 'Destination',
-        origin_lat: routeData?.origin_lat || userLocation?.latitude || 0,
-        origin_lng: routeData?.origin_lng || userLocation?.longitude || 0,
-        destination_lat: routeData?.destination_lat || 0,
-        destination_lng: routeData?.destination_lng || 0,
-        distance: routeData?.distance || null,
-        duration: routeData?.duration || null,
+        origin_name:       routeData?.origin_name      || 'My Location',
+        destination_name:  routeData?.destination_name || 'Destination',
+        origin_lat:        routeData?.origin_lat        || userLocation?.latitude  || 0,
+        origin_lng:        routeData?.origin_lng        || userLocation?.longitude || 0,
+        destination_lat:   routeData?.destination_lat   || 0,
+        destination_lng:   routeData?.destination_lng   || 0,
+        distance:          routeData?.distance          || null,
+        duration:          routeData?.duration          || null,
       });
-      addRoute(saved);
-      Alert.alert('Posted!', `"${name}" has been posted to ${isPublic ? 'the public feed' : 'your routes'}.`, [
-        { text: 'View Routes', onPress: () => navigation.navigate('Leaderboard') },
-        { text: 'OK', onPress: () => navigation.goBack() },
-      ]);
-    } catch (err: any) {
-      Alert.alert('Error', err.error || 'Could not save route');
-    } finally { setLoading(false); }
-  };
 
-  const distKm = routeData?.distance ? (routeData.distance / 1000).toFixed(1) : '—';
-  const dur = routeData?.duration
-    ? `${String(Math.floor(routeData.duration / 3600)).padStart(2, '0')}:${String(Math.floor((routeData.duration % 3600) / 60)).padStart(2, '0')}:${String(routeData.duration % 60).padStart(2, '0')}`
-    : '—';
+      // 2 — Add to saved routes in store
+      addRoute(saved);
+
+      // 3 — If public, publish to community feed immediately
+      if (isPublic) {
+        const authorName = user?.name || 'Pathy User';
+        const feedPost: FeedPost = {
+          id:              (saved.id || Date.now()).toString(),
+          title:           name.trim(),
+          authorName,
+          authorInitials:  authorName.split(' ').map((n: string) => n[0]).join('').toUpperCase().slice(0, 2),
+          authorColor:     colorFor(authorName),
+          distanceKm:      routeData?.distance ? routeData.distance / 1000 : 0,
+          durationMin:     routeData?.duration ? Math.round(routeData.duration / 60) : 0,
+          caption:         caption.trim(),
+          likes:           [],
+          comments:        [],
+          createdAt:       new Date().toISOString(),
+          activityType:    activity,
+        };
+        addRouteFeedPost(feedPost);
+      }
+
+      Alert.alert(
+        isPublic ? '🎉 Posted!' : '✅ Saved!',
+        isPublic
+          ? `"${name}" is now live on the community feed.`
+          : `"${name}" has been saved to your routes.`,
+        [
+          { text: isPublic ? 'View Feed' : 'View Routes', onPress: () => navigation.navigate(isPublic ? 'Home' : 'Leaderboard') },
+          { text: 'OK', onPress: () => navigation.goBack() },
+        ]
+      );
+    } catch (err: any) {
+      Alert.alert('Error', err.error || 'Could not save route. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
     <SafeAreaView style={s.root}>
       {/* Header */}
       <View style={s.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={s.closeBtn}>
+        <TouchableOpacity onPress={() => navigation.goBack()} style={s.closeBtn} activeOpacity={0.8}>
           <Ionicons name="close" size={20} color={C.text} />
         </TouchableOpacity>
         <Text style={s.headerTitle}>Post Your Route</Text>
         <View style={{ width: 36 }} />
       </View>
 
-      <ScrollView contentContainerStyle={s.scroll} keyboardShouldPersistTaps="handled">
+      <ScrollView contentContainerStyle={s.scroll} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
 
-        {/* Map preview */}
+        {/* Map preview placeholder */}
         <View style={s.mapCard}>
           <View style={s.mapPlaceholder}>
-            <Ionicons name="map-outline" size={48} color="rgba(255,255,255,0.5)" />
-            <View style={s.routeLine} />
+            <Ionicons name="map-outline" size={48} color="rgba(255,255,255,0.25)" />
+            <View style={s.demoLine1} />
+            <View style={s.demoLine2} />
           </View>
-          <View style={s.locationBadge}>
-            <Ionicons name="location" size={13} color="#006c44" />
-            <Text style={s.locationBadgeText} numberOfLines={1}>
-              {routeData?.destination_name?.split(',')[0] || 'Recorded Route'}
-            </Text>
-          </View>
+          {routeData?.destination_name && (
+            <View style={s.locationBadge}>
+              <Ionicons name="location" size={12} color="#006c44" />
+              <Text style={s.locationBadgeText} numberOfLines={1}>
+                {routeData.destination_name.split(',')[0]}
+              </Text>
+            </View>
+          )}
         </View>
 
         {/* Stats */}
         <View style={s.statsCard}>
           <View style={s.statCol}>
             <Text style={s.statLabel}>DISTANCE</Text>
-            <Text style={s.statValue}>{distKm}<Text style={s.statUnit}> km</Text></Text>
+            <Text style={s.statVal}>{distKm}<Text style={s.statUnit}> km</Text></Text>
           </View>
           <View style={s.statDivider} />
           <View style={s.statCol}>
             <Text style={s.statLabel}>DURATION</Text>
-            <Text style={s.statValue}>{dur}</Text>
+            <Text style={s.statVal}>{dur}</Text>
           </View>
         </View>
 
         {/* Route name */}
-        <Text style={s.label}>Give your route a name</Text>
+        <Text style={s.label}>Route name <Text style={s.required}>*</Text></Text>
         <TextInput
           style={s.nameInput}
-          placeholder="Morning Trail Run"
+          placeholder="e.g. Morning Trail Run"
           placeholderTextColor="rgba(0,108,68,0.35)"
           value={name}
           onChangeText={setName}
+          maxLength={60}
         />
+
+        {/* Caption */}
+        <Text style={s.label}>Caption <Text style={s.optional}>(optional)</Text></Text>
+        <TextInput
+          style={[s.nameInput, s.captionInput]}
+          placeholder="Tell the community about this route…"
+          placeholderTextColor="rgba(0,108,68,0.35)"
+          value={caption}
+          onChangeText={setCaption}
+          multiline
+          maxLength={280}
+          textAlignVertical="top"
+        />
+        <Text style={s.charCount}>{caption.length}/280</Text>
 
         {/* Activity type */}
         <Text style={s.label}>Activity Type</Text>
@@ -129,11 +186,15 @@ export default function PostRouteScreen({ navigation, route }: any) {
         <View style={s.toggleCard}>
           <View style={s.toggleLeft}>
             <View style={s.toggleIcon}>
-              <Ionicons name="globe-outline" size={22} color="#006c44" />
+              <Ionicons name={isPublic ? 'globe-outline' : 'lock-closed-outline'} size={22} color="#006c44" />
             </View>
-            <View>
-              <Text style={s.toggleTitle}>Public Feed</Text>
-              <Text style={s.toggleSub}>Visible to followers and community</Text>
+            <View style={{ flex: 1 }}>
+              <Text style={s.toggleTitle}>{isPublic ? 'Public Feed' : 'Private'}</Text>
+              <Text style={s.toggleSub}>
+                {isPublic
+                  ? 'Visible to the community — appears in the Home feed'
+                  : 'Only you can see this route'}
+              </Text>
             </View>
           </View>
           <Switch
@@ -145,58 +206,74 @@ export default function PostRouteScreen({ navigation, route }: any) {
         </View>
 
         {/* Post button */}
-        <TouchableOpacity style={[s.postBtn, loading && { opacity: 0.7 }]} onPress={submit} disabled={loading} activeOpacity={0.88}>
-          {loading
-            ? <ActivityIndicator color="#fff" />
-            : <>
-                <Text style={s.postBtnText}>Post to Feed</Text>
-                <Ionicons name="send" size={18} color="#fff" />
-              </>
-          }
+        <TouchableOpacity
+          style={[s.postBtn, loading && { opacity: 0.7 }]}
+          onPress={submit}
+          disabled={loading}
+          activeOpacity={0.88}
+        >
+          {loading ? (
+            <ActivityIndicator color="#fff" />
+          ) : (
+            <>
+              <Ionicons name={isPublic ? 'send' : 'bookmark'} size={18} color="#fff" />
+              <Text style={s.postBtnText}>{isPublic ? 'Post to Feed' : 'Save Privately'}</Text>
+            </>
+          )}
         </TouchableOpacity>
+
+        <Text style={s.hint}>
+          {isPublic
+            ? 'Your route will appear on the Home feed for all Pathy users.'
+            : 'Your route is saved but won\'t appear in the community feed.'}
+        </Text>
       </ScrollView>
     </SafeAreaView>
   );
 }
 
-function makeStyles(C: any) {
-  return StyleSheet.create({
-    root: { flex: 1, backgroundColor: C.background },
-    header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: SPACING.xl, paddingVertical: SPACING.md, backgroundColor: C.background },
-    closeBtn: { width: 36, height: 36, borderRadius: RADIUS.full, backgroundColor: C.text === '#F9FAFB' ? 'rgba(255,255,255,0.08)' : 'rgba(255,255,255,0.7)', alignItems: 'center', justifyContent: 'center' },
-    headerTitle: { fontSize: FONTS.sizes.lg, fontWeight: '700', color: C.text },
+const s = StyleSheet.create({
+  root:   { flex: 1, backgroundColor: '#e7fff1' },
+  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: SPACING.xl, paddingVertical: SPACING.md },
+  closeBtn:    { width: 36, height: 36, borderRadius: RADIUS.full, backgroundColor: 'rgba(255,255,255,0.7)', alignItems: 'center', justifyContent: 'center' },
+  headerTitle: { fontSize: FONTS.sizes.lg, fontWeight: '700', color: C.text },
 
-    scroll: { padding: SPACING.xl, paddingBottom: 48 },
+  scroll: { padding: SPACING.xl, paddingBottom: 48, gap: SPACING.md },
 
-    mapCard: { borderRadius: RADIUS.xl, overflow: 'hidden', marginBottom: SPACING.lg },
-    mapPlaceholder: { height: 180, backgroundColor: C.text === '#F9FAFB' ? '#1c2638' : '#2d5a45', alignItems: 'center', justifyContent: 'center' },
-    routeLine: { position: 'absolute', width: '60%', height: 3, backgroundColor: C.primaryContainer, borderRadius: 2, transform: [{ rotate: '-20deg' }] },
-    locationBadge: { flexDirection: 'row', alignItems: 'center', gap: 5, backgroundColor: C.surface, paddingHorizontal: SPACING.md, paddingVertical: SPACING.sm, borderRadius: RADIUS.full, alignSelf: 'flex-start', margin: SPACING.sm, position: 'absolute', bottom: SPACING.sm, left: SPACING.sm, ...SHADOW.xs },
-    locationBadgeText: { fontSize: FONTS.sizes.sm, color: C.primary, fontWeight: '600' },
+  mapCard:         { borderRadius: RADIUS.xl, overflow: 'hidden', marginBottom: SPACING.xs },
+  mapPlaceholder:  { height: 180, backgroundColor: '#2d5a45', alignItems: 'center', justifyContent: 'center', position: 'relative' },
+  demoLine1:       { position: 'absolute', width: '60%', height: 3, backgroundColor: '#4caf7d', borderRadius: 2, transform: [{ rotate: '-18deg' }] },
+  demoLine2:       { position: 'absolute', width: '30%', height: 2, backgroundColor: 'rgba(76,175,125,0.5)', borderRadius: 2, top: '60%', left: '55%' },
+  locationBadge:   { flexDirection: 'row', alignItems: 'center', gap: 5, backgroundColor: '#fff', borderRadius: RADIUS.full, paddingHorizontal: SPACING.md, paddingVertical: SPACING.sm, position: 'absolute', bottom: SPACING.sm, left: SPACING.sm, ...SHADOW.xs },
+  locationBadgeText:{ fontSize: FONTS.sizes.xs, color: '#006c44', fontWeight: '600' },
 
-    statsCard: { flexDirection: 'row', backgroundColor: C.surface, borderRadius: RADIUS.xl, padding: SPACING.xl, marginBottom: SPACING.xl, ...SHADOW.xs, borderWidth: 1, borderColor: C.border },
-    statCol: { flex: 1, alignItems: 'center' },
-    statLabel: { fontSize: 10, fontWeight: '700', color: C.textMuted, letterSpacing: 0.8, marginBottom: SPACING.xs },
-    statValue: { fontSize: FONTS.sizes.xxxl, fontWeight: '800', color: C.primary },
-    statUnit: { fontSize: FONTS.sizes.md, color: C.textSecondary },
-    statDivider: { width: 1, backgroundColor: C.border, marginHorizontal: SPACING.lg },
+  statsCard:   { flexDirection: 'row', backgroundColor: '#fff', borderRadius: RADIUS.xl, padding: SPACING.xl, ...SHADOW.xs },
+  statCol:     { flex: 1, alignItems: 'center' },
+  statLabel:   { fontSize: 10, fontWeight: '700', color: C.textMuted, letterSpacing: 0.8, marginBottom: SPACING.xs },
+  statVal:     { fontSize: FONTS.sizes.xxxl, fontWeight: '800', color: '#006c44' },
+  statUnit:    { fontSize: FONTS.sizes.md, color: C.textSecondary, fontWeight: '400' },
+  statDivider: { width: 1, backgroundColor: 'rgba(0,108,68,0.1)', marginHorizontal: SPACING.lg },
 
-    label: { fontSize: FONTS.sizes.sm, fontWeight: '600', color: C.text, marginBottom: SPACING.sm },
-    nameInput: { backgroundColor: C.surface, borderRadius: RADIUS.lg, padding: SPACING.md, fontSize: FONTS.sizes.md, color: C.text, borderWidth: 1.5, borderColor: C.border, marginBottom: SPACING.xl },
+  label:       { fontSize: FONTS.sizes.sm, fontWeight: '600', color: C.text },
+  required:    { color: '#E24B4A' },
+  optional:    { color: C.textMuted, fontWeight: '400' },
+  nameInput:   { backgroundColor: '#fff', borderRadius: RADIUS.lg, padding: SPACING.md, fontSize: FONTS.sizes.md, color: '#0b1f17', borderWidth: 1.5, borderColor: 'rgba(0,108,68,0.15)' },
+  captionInput:{ height: 100, paddingTop: SPACING.sm },
+  charCount:   { fontSize: FONTS.sizes.xs, color: C.textMuted, textAlign: 'right' },
 
-    activityRow: { gap: SPACING.sm, paddingBottom: SPACING.md, paddingRight: SPACING.sm },
-    actBtn: { flexDirection: 'row', alignItems: 'center', gap: SPACING.sm, paddingHorizontal: SPACING.lg, paddingVertical: SPACING.md, borderRadius: RADIUS.full, borderWidth: 1.5, borderColor: C.border, backgroundColor: C.surface, marginBottom: SPACING.lg },
-    actBtnActive: { backgroundColor: C.text === '#F9FAFB' ? 'rgba(76,175,125,0.15)' : '#e1f9eb', borderColor: C.primary },
-    actText: { fontSize: FONTS.sizes.sm, fontWeight: '600', color: C.textSecondary },
-    actTextActive: { color: C.primary },
+  activityRow: { gap: SPACING.sm, paddingRight: SPACING.sm },
+  actBtn:      { flexDirection: 'row', alignItems: 'center', gap: SPACING.sm, paddingHorizontal: SPACING.lg, paddingVertical: SPACING.md, borderRadius: RADIUS.full, borderWidth: 1.5, borderColor: 'rgba(0,108,68,0.2)', backgroundColor: '#fff' },
+  actBtnActive:{ backgroundColor: '#e1f9eb', borderColor: '#006c44' },
+  actText:     { fontSize: FONTS.sizes.sm, fontWeight: '600', color: C.textSecondary },
+  actTextActive:{ color: '#006c44' },
 
-    toggleCard: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: C.surface, borderRadius: RADIUS.xl, padding: SPACING.lg, marginBottom: SPACING.xl, ...SHADOW.xs, borderWidth: 1, borderColor: C.border },
-    toggleLeft: { flexDirection: 'row', alignItems: 'center', gap: SPACING.md },
-    toggleIcon: { width: 44, height: 44, borderRadius: RADIUS.full, backgroundColor: C.text === '#F9FAFB' ? 'rgba(76,175,125,0.12)' : '#e1f9eb', alignItems: 'center', justifyContent: 'center' },
-    toggleTitle: { fontSize: FONTS.sizes.md, fontWeight: '700', color: C.text },
-    toggleSub: { fontSize: FONTS.sizes.xs, color: C.textSecondary, marginTop: 2 },
+  toggleCard:  { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: '#fff', borderRadius: RADIUS.xl, padding: SPACING.lg, ...SHADOW.xs },
+  toggleLeft:  { flexDirection: 'row', alignItems: 'center', gap: SPACING.md, flex: 1 },
+  toggleIcon:  { width: 44, height: 44, borderRadius: RADIUS.full, backgroundColor: '#e1f9eb', alignItems: 'center', justifyContent: 'center' },
+  toggleTitle: { fontSize: FONTS.sizes.md, fontWeight: '700', color: C.text },
+  toggleSub:   { fontSize: FONTS.sizes.xs, color: C.textSecondary, marginTop: 2, lineHeight: 16 },
 
-    postBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: SPACING.sm, backgroundColor: C.primary, borderRadius: RADIUS.full, paddingVertical: 18, shadowColor: C.primary, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 12, elevation: 6 },
-    postBtnText: { color: '#fff', fontSize: FONTS.sizes.lg, fontWeight: '700' },
-  });
-}
+  postBtn:     { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: SPACING.sm, backgroundColor: '#4caf7d', borderRadius: RADIUS.full, paddingVertical: 18, shadowColor: '#006c44', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 12, elevation: 6 },
+  postBtnText: { color: '#fff', fontSize: FONTS.sizes.lg, fontWeight: '700' },
+  hint:        { fontSize: FONTS.sizes.xs, color: C.textMuted, textAlign: 'center', lineHeight: 16 },
+});
