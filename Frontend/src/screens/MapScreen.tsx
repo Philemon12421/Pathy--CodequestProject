@@ -44,6 +44,11 @@ export default function MapScreen({ navigation, route }: any) {
   const [isNavigating, setIsNavigating] = useState(false);
   const [navSteps, setNavSteps] = useState<any[]>([]);
   const [currentStepIndex, setCurrentStepIndex] = useState(0);
+  const navStepsRef = useRef<any[]>([]);
+  const currentStepIndexRef = useRef(0);
+
+  useEffect(() => { navStepsRef.current = navSteps; }, [navSteps]);
+  useEffect(() => { currentStepIndexRef.current = currentStepIndex; }, [currentStepIndex]);
 
   useEffect(() => {
     initLocation();
@@ -80,7 +85,7 @@ export default function MapScreen({ navigation, route }: any) {
     setUserLocation(coords);
 
     // Watch location
-    Location.watchPositionAsync({ accuracy: Location.Accuracy.Balanced, timeInterval: 3000, distanceInterval: 5 }, (l) => {
+    Location.watchPositionAsync({ accuracy: Location.Accuracy.Balanced, timeInterval: 3000, distanceInterval: 5 }, (l: any) => {
       const newLoc = { latitude: l.coords.latitude, longitude: l.coords.longitude };
       setUserLocation(newLoc);
 
@@ -92,23 +97,20 @@ export default function MapScreen({ navigation, route }: any) {
           zoom: 18,
         });
 
-        setNavSteps((steps) => {
-          if (!steps || steps.length === 0) return steps;
-          setCurrentStepIndex((idx) => {
-            if (idx >= steps.length) return idx;
-            const step = steps[idx];
-            if (!step.maneuver || !step.maneuver.location) return idx;
+        const steps = navStepsRef.current;
+        const idx = currentStepIndexRef.current;
+        if (steps && steps.length > 0 && idx < steps.length) {
+          const step = steps[idx];
+          if (step?.maneuver?.location) {
             const maneuverCoords = step.maneuver.location; // [lon, lat]
             const dist = getDistance(newLoc.latitude, newLoc.longitude, maneuverCoords[1], maneuverCoords[0]);
-            
+
             // If within 30 meters of maneuver, progress to next step
             if (dist < 0.03 && idx < steps.length - 1) {
-              return idx + 1;
+              setCurrentStepIndex(idx + 1);
             }
-            return idx;
-          });
-          return steps;
-        });
+          }
+        }
       }
     });
   };
@@ -301,7 +303,7 @@ export default function MapScreen({ navigation, route }: any) {
         showsTraffic
       >
         {/* Incident markers */}
-        {incidents.map((inc) => (
+        {incidents.map((inc: any) => (
           <Marker
             key={inc.id}
             coordinate={{ latitude: parseFloat(inc.latitude), longitude: parseFloat(inc.longitude) }}
@@ -521,7 +523,7 @@ export default function MapScreen({ navigation, route }: any) {
                           onPress: async () => {
                             try {
                               await incidentsAPI.delete(selectedMarker.data.id);
-                              setIncidents(incidents.filter((i) => i.id !== selectedMarker.data.id));
+                              setIncidents(incidents.filter((i: any) => i.id !== selectedMarker.data.id));
                               setSelectedMarker(null);
                               Alert.alert('Deleted', 'Incident report has been deleted.');
                             } catch (err: any) {
@@ -649,7 +651,7 @@ function makeStyles(COLORS: any) {
     badgeRow: { flexDirection: 'row', gap: SPACING.sm, marginBottom: SPACING.md, alignItems: 'center' },
     sevBadge: { paddingHorizontal: 12, paddingVertical: 5, borderRadius: RADIUS.full },
     sevBadgeText: { color: '#fff', fontSize: FONTS.sizes.xs, fontWeight: FONTS.weights.bold, textTransform: 'capitalize' },
-    typeBadge: { paddingHorizontal: 12, paddingVertical: 5, borderRadius: RADIUS.full, backgroundColor: COLORS.surfaceElevated },
+    typeBadge: { paddingHorizontal: 12, paddingVertical: 5, borderRadius: RADIUS.full, backgroundColor: COLORS.border },
     typeBadgeText: { color: COLORS.textSecondary, fontSize: FONTS.sizes.xs, fontWeight: FONTS.weights.semibold, textTransform: 'capitalize' },
     detailDesc: { color: COLORS.textSecondary, fontSize: FONTS.sizes.md, lineHeight: 22, marginBottom: SPACING.md },
     detailImage: { width: '100%', height: 150, borderRadius: RADIUS.lg, marginTop: 4 },
