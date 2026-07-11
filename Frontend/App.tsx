@@ -52,11 +52,14 @@ const TABS = [
 function CustomTabBar({ state, descriptors, navigation }: any) {
   const insets = useSafeAreaInsets();
   const pb = Math.max(insets.bottom, 8);
+  const theme = useStore((s) => s.theme);
+  const C = useColors();
+  const s = makeStyles(C);
 
   return (
-    <View style={[nb.wrapper, { paddingBottom: pb }]}>
-      <BlurView intensity={85} tint="light" style={nb.blur}>
-        <View style={nb.inner}>
+    <View style={[s.wrapper, { paddingBottom: pb }]}>
+      <BlurView intensity={85} tint={theme === 'dark' ? 'dark' : 'light'} style={s.blur}>
+        <View style={s.inner}>
           {state.routes.map((route: any, index: number) => {
             const focused = state.index === index;
             const tab = TABS.find(t => t.name === route.name)
@@ -65,20 +68,20 @@ function CustomTabBar({ state, descriptors, navigation }: any) {
             return (
               <TouchableOpacity
                 key={route.key}
-                style={nb.tab}
+                style={s.tab}
                 onPress={() => {
                   const event = navigation.emit({ type: 'tabPress', target: route.key, canPreventDefault: true });
                   if (!focused && !event.defaultPrevented) navigation.navigate(route.name);
                 }}
                 activeOpacity={0.7}
               >
-                {focused && <View style={nb.activePill} />}
+                {focused && <View style={s.activePill} />}
                 <Ionicons
                   name={(focused ? tab.iconActive : tab.icon) as any}
                   size={22}
-                  color={focused ? '#006c44' : '#9aa8a0'}
+                  color={focused ? C.primary : C.textMuted}
                 />
-                <Text style={[nb.label, focused && nb.labelActive]}>{tab.label}</Text>
+                <Text style={[s.label, focused && s.labelActive]}>{tab.label}</Text>
               </TouchableOpacity>
             );
           })}
@@ -88,11 +91,11 @@ function CustomTabBar({ state, descriptors, navigation }: any) {
   );
 }
 
-const nb = StyleSheet.create({
+function makeStyles(C: any) {
+  return StyleSheet.create({
   wrapper: {
     position: 'absolute', bottom: 0, left: 0, right: 0,
-    // Subtle shadow above the bar
-    shadowColor: '#006c44',
+    shadowColor: C.primary,
     shadowOffset: { width: 0, height: -4 },
     shadowOpacity: 0.06,
     shadowRadius: 16,
@@ -103,13 +106,13 @@ const nb = StyleSheet.create({
     borderTopRightRadius: 24,
     overflow: 'hidden',
     borderTopWidth: 1,
-    borderTopColor: 'rgba(0,108,68,0.1)',
+    borderTopColor: C.border,
   },
   inner: {
     flexDirection: 'row',
     paddingTop: 10,
     paddingHorizontal: 8,
-    backgroundColor: 'rgba(255,255,255,0.88)',
+    backgroundColor: C.surfaceGlass,
   },
   tab: {
     flex: 1, alignItems: 'center', gap: 3,
@@ -120,11 +123,12 @@ const nb = StyleSheet.create({
     position: 'absolute',
     top: 0, left: 8, right: 8, bottom: 0,
     borderRadius: 14,
-    backgroundColor: '#e1f9eb',
+    backgroundColor: C.accentSoft,
   },
-  label: { fontSize: 10, color: '#9aa8a0', fontWeight: '500', letterSpacing: 0.2 },
-  labelActive: { color: '#006c44', fontWeight: '700' },
+  label: { fontSize: 10, color: C.textMuted, fontWeight: '500', letterSpacing: 0.2 },
+  labelActive: { color: C.primary, fontWeight: '700' },
 });
+}
 
 function MainTabs() {
   return (
@@ -138,8 +142,9 @@ function MainTabs() {
 }
 
 function MainApp() {
+  const C = useColors();
   return (
-    <View style={{ flex: 1 }}>
+    <View style={{ flex: 1, backgroundColor: C.background }}>
       <MainStack.Navigator screenOptions={{ headerShown: false }}>
         <MainStack.Screen name="Tabs"              component={MainTabs} />
         <MainStack.Screen name="Profile"           component={ProfileScreen}           options={{ animation: 'slide_from_right' }} />
@@ -206,13 +211,13 @@ function RootFlow({ token }: { token: string | null }) {
 }
 
 export default function App() {
-  const { token } = useStore();
+  const { token, theme } = useStore();
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <SafeAreaProvider>
         <NavigationContainer>
           <ThemeProvider>
-            <StatusBar style="dark" backgroundColor="#e7fff1" />
+            <StatusBar style={theme === 'dark' ? 'light' : 'dark'} backgroundColor={theme === 'dark' ? '#0A0E1A' : '#e7fff1'} />
             <RootFlow token={token} />
           </ThemeProvider>
         </NavigationContainer>
