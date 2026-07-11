@@ -30,7 +30,8 @@ const TECH = [
   { label: 'WebSockets',    icon: 'wifi-outline' },
 ];
 
-import { useColors } from '../config/ThemeContext';
+
+
 
 export default function AboutUsScreen({ navigation }: any) {
   const C = useColors();
