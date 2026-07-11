@@ -61,6 +61,9 @@ export interface StoreState {
   setNearbyAdPopup: (ad: any) => void;
   myAds: any[];
   setMyAds: (ads: any[]) => void;
+  addAd: (ad: any) => void;
+  ads: any[];
+  setAds: (ads: any[]) => void;
 
   // ── Theme ─────────────────────────────────────────────────────────────────
   theme: 'light' | 'dark';
@@ -157,6 +160,12 @@ const useStore = create<StoreState>((set, get) => ({
   setNearbyAdPopup: (ad) => set({ nearbyAdPopup: ad }),
   myAds: [],
   setMyAds: (ads) => set({ myAds: ads }),
+  addAd: (ad) => set((s) => ({
+    myAds: [ad, ...s.myAds.filter((a: any) => a.id !== ad.id)],
+    ads: [ad, ...s.ads.filter((a: any) => a.id !== ad.id)]
+  })),
+  ads: [],
+  setAds: (ads) => set({ ads }),
 
   // ── Theme ─────────────────────────────────────────────────────────────────
   theme: 'light',   // light-first, matches the whole UI system

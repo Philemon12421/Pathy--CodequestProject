@@ -141,19 +141,21 @@ function MainApp() {
   return (
     <View style={{ flex: 1 }}>
       <MainStack.Navigator screenOptions={{ headerShown: false }}>
-        <MainStack.Screen name="Tabs"        component={MainTabs} />
-        <MainStack.Screen name="Profile"     component={ProfileScreen}      options={{ animation: 'slide_from_right' }} />
-        <MainStack.Screen name="Routes"      component={RoutesScreen}       options={{ animation: 'slide_from_right' }} />
-        <MainStack.Screen name="Report"      component={ReportScreen}       options={{ animation: 'slide_from_bottom', presentation: 'modal' }} />
-        <MainStack.Screen name="Music"       component={MusicScreen}        options={{ animation: 'slide_from_bottom', presentation: 'modal' }} />
-        <MainStack.Screen name="Ads"         component={AdPortalScreen}     options={{ animation: 'slide_from_right' }} />
-        <MainStack.Screen name="NearbyDeals" component={NearbyDealsScreen}  options={{ animation: 'slide_from_right' }} />
-        <MainStack.Screen name="PostRoute"   component={PostRouteScreen}    options={{ animation: 'slide_from_bottom', presentation: 'modal' }} />
-        <MainStack.Screen name="AI"          component={AIScreen}           options={{ animation: 'slide_from_right' }} />
-        <MainStack.Screen name="ContactUs"    component={ContactUsScreen}    options={{ animation: 'slide_from_right' }} />
-        <MainStack.Screen name="AboutUs"      component={AboutUsScreen}      options={{ animation: 'slide_from_right' }} />
-        <MainStack.Screen name="Privacy"      component={PrivacyPolicyScreen} options={{ animation: 'slide_from_right' }} />
-        <MainStack.Screen name="Terms"        component={TermsScreen}        options={{ animation: 'slide_from_right' }} />
+        <MainStack.Screen name="Tabs"              component={MainTabs} />
+        <MainStack.Screen name="Profile"           component={ProfileScreen}           options={{ animation: 'slide_from_right' }} />
+        <MainStack.Screen name="Routes"            component={RoutesScreen}            options={{ animation: 'slide_from_right' }} />
+        <MainStack.Screen name="Report"            component={ReportScreen}            options={{ animation: 'slide_from_bottom', presentation: 'modal' }} />
+        <MainStack.Screen name="Music"             component={MusicScreen}             options={{ animation: 'slide_from_bottom', presentation: 'modal' }} />
+        <MainStack.Screen name="Ads"               component={AdPortalScreen}          options={{ animation: 'slide_from_right' }} />
+        <MainStack.Screen name="NearbyDeals"       component={NearbyDealsScreen}       options={{ animation: 'slide_from_right' }} />
+        <MainStack.Screen name="PostRoute"         component={PostRouteScreen}         options={{ animation: 'slide_from_bottom', presentation: 'modal' }} />
+        <MainStack.Screen name="AI"                component={AIScreen}                options={{ animation: 'slide_from_right' }} />
+        <MainStack.Screen name="ContactUs"         component={ContactUsScreen}         options={{ animation: 'slide_from_right' }} />
+        <MainStack.Screen name="AboutUs"           component={AboutUsScreen}           options={{ animation: 'slide_from_right' }} />
+        <MainStack.Screen name="Privacy"           component={PrivacyPolicyScreen}     options={{ animation: 'slide_from_right' }} />
+        <MainStack.Screen name="Terms"             component={TermsScreen}             options={{ animation: 'slide_from_right' }} />
+        <MainStack.Screen name="ForgotPassword"    component={ForgotPasswordScreen}    options={{ animation: 'slide_from_right' }} />
+        <MainStack.Screen name="EmailVerification" component={EmailVerificationScreen} options={{ animation: 'slide_from_right' }} />
       </MainStack.Navigator>
       <AdProximityManager />
     </View>

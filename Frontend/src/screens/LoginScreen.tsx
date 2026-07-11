@@ -5,17 +5,17 @@ import {
   Alert, Animated, Easing,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { FONTS, RADIUS, SPACING, SHADOW, getColors } from '../config/theme';
+import { useColors } from '../config/ThemeContext';
+import { FONTS, RADIUS, SPACING, SHADOW } from '../config/theme';
 import { authAPI } from '../services/api';
 import useStore from '../store/useStore';
 
-const C = getColors('light');
-
-// Sandbox bypass — DEV only, stripped from prod builds automatically
 const SANDBOX_USER  = { id: 0, name: 'Demo User', email: 'demo@pathy.app', role: 'user' };
 const SANDBOX_TOKEN = 'sandbox_dev_token';
 
 export default function LoginScreen({ navigation }: any) {
+  const C = useColors();
+  const s = makeStyles(C);
   const setAuth = useStore((s) => s.setAuth);
   const [isLogin, setIsLogin]   = useState(true);
   const [form, setForm]         = useState({ name: '', email: '', password: '', confirmPassword: '' });
@@ -212,8 +212,9 @@ export default function LoginScreen({ navigation }: any) {
   );
 }
 
-const s = StyleSheet.create({
-  root: { flex: 1, backgroundColor: '#fff' },
+function makeStyles(C: any) {
+  return StyleSheet.create({
+  root: { flex: 1, backgroundColor: C.background },
   blobTR: { position: 'absolute', top: -40, right: -60, width: 200, height: 200, borderRadius: 100, backgroundColor: '#e1f9eb', opacity: 0.55 },
   blobBL: { position: 'absolute', bottom: 80,  left: -80,  width: 220, height: 220, borderRadius: 110, backgroundColor: '#e7fff1', opacity: 0.55 },
   scroll: { flexGrow: 1, paddingHorizontal: SPACING.xl, paddingTop: 64, paddingBottom: 48 },
@@ -222,19 +223,19 @@ const s = StyleSheet.create({
   logo:    { width: 64, height: 64, marginBottom: SPACING.sm },          // no container, no border
   appName: { fontSize: FONTS.sizes.xxxl, fontWeight: '800', color: '#006c44', letterSpacing: -1 },
 
-  tabWrap: { flexDirection: 'row', backgroundColor: '#f0fbf5', borderRadius: RADIUS.md, padding: 4, marginBottom: SPACING.xl, position: 'relative' },
-  tabIndicator: { position: 'absolute', top: 4, bottom: 4, width: 148, backgroundColor: '#fff', borderRadius: RADIUS.sm, ...SHADOW.xs },
+  tabWrap: { flexDirection: 'row', backgroundColor: C.border, borderRadius: RADIUS.md, padding: 4, marginBottom: SPACING.xl, position: 'relative' },
+  tabIndicator: { position: 'absolute', top: 4, bottom: 4, width: 148, backgroundColor: C.surface, borderRadius: RADIUS.sm, ...SHADOW.xs },
   tabBtn:  { flex: 1, paddingVertical: 11, alignItems: 'center', borderRadius: RADIUS.sm, zIndex: 1 },
-  tabText: { fontSize: FONTS.sizes.sm, color: 'rgba(0,108,68,0.4)', fontWeight: '500' },
+  tabText: { fontSize: FONTS.sizes.sm, color: C.textMuted, fontWeight: '500' },
   tabTextActive: { color: '#006c44', fontWeight: '700' },
 
   field:    { marginBottom: SPACING.md },
   labelRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   label:    { fontSize: FONTS.sizes.sm, fontWeight: '600', color: C.text, marginBottom: SPACING.xs },
   forgot:   { fontSize: FONTS.sizes.xs, color: '#006c44', fontWeight: '600' },
-  row:      { flexDirection: 'row', alignItems: 'center', backgroundColor: '#fff', borderRadius: RADIUS.md, borderWidth: 1.5 },
+  row:      { flexDirection: 'row', alignItems: 'center', backgroundColor: C.surface, borderRadius: RADIUS.md, borderWidth: 1.5 },
   ico:      { marginLeft: 13 },
-  inp:      { flex: 1, color: '#0b1f17', fontSize: FONTS.sizes.md, paddingVertical: 14, paddingHorizontal: SPACING.sm },
+  inp:      { flex: 1, color: C.text, fontSize: FONTS.sizes.md, paddingVertical: 14, paddingHorizontal: SPACING.sm },
   eye:      { paddingHorizontal: 13, paddingVertical: 14 },
 
   termsRow: { flexDirection: 'row', alignItems: 'flex-start', gap: SPACING.sm, marginBottom: SPACING.lg, marginTop: SPACING.xs },
@@ -254,3 +255,4 @@ const s = StyleSheet.create({
   sandboxBtn:  { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: SPACING.sm, marginTop: SPACING.xl, paddingVertical: 12, paddingHorizontal: SPACING.xl, borderRadius: RADIUS.full, borderWidth: 1.5, borderColor: 'rgba(124,58,237,0.3)', backgroundColor: 'rgba(124,58,237,0.06)' },
   sandboxText: { fontSize: FONTS.sizes.xs, color: '#7c3aed', fontWeight: '600' },
 });
+}

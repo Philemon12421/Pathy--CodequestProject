@@ -5,9 +5,8 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { BlurView } from 'expo-blur';
 import { Ionicons } from '@expo/vector-icons';
-import { FONTS, RADIUS, SPACING, SHADOW, getColors } from '../config/theme';
-
-const C = getColors('light');
+import { useColors } from '../config/ThemeContext';
+import { FONTS, RADIUS, SPACING, SHADOW } from '../config/theme';
 
 const SECTIONS = [
   {
@@ -94,6 +93,8 @@ For account deletion requests, you can also go directly to Profile â†’ Log Out â
 ];
 
 function AccordionItem({ section }: { section: typeof SECTIONS[0] }) {
+  const C = useColors();
+  const a = makeAccordionStyles(C);
   const [open, setOpen] = useState(false);
   const rotate = useRef(new Animated.Value(0)).current;
 
@@ -125,8 +126,9 @@ function AccordionItem({ section }: { section: typeof SECTIONS[0] }) {
   );
 }
 
-const a = StyleSheet.create({
-  item: { backgroundColor: '#fff', borderRadius: RADIUS.xl, overflow: 'hidden', borderWidth: 1, borderColor: 'rgba(0,108,68,0.08)', ...SHADOW.xs },
+function makeAccordionStyles(C: any) {
+  return StyleSheet.create({
+  item: { backgroundColor: C.surface, borderRadius: RADIUS.xl, overflow: 'hidden', borderWidth: 1, borderColor: C.border, ...SHADOW.xs },
   itemOpen: { borderColor: 'rgba(0,108,68,0.25)', borderLeftWidth: 4, borderLeftColor: '#006c44' },
   row: { flexDirection: 'row', alignItems: 'center', padding: SPACING.lg, gap: SPACING.md },
   iconWrap: { width: 32, height: 32, borderRadius: RADIUS.md, backgroundColor: '#e1f9eb', alignItems: 'center', justifyContent: 'center' },
@@ -134,8 +136,11 @@ const a = StyleSheet.create({
   body: { paddingHorizontal: SPACING.lg, paddingBottom: SPACING.lg, paddingTop: 0 },
   bodyText: { fontSize: FONTS.sizes.sm, color: C.textSecondary, lineHeight: 22 },
 });
+}
 
 export default function PrivacyPolicyScreen({ navigation }: any) {
+  const C = useColors();
+  const s = makeStyles(C);
   return (
     <SafeAreaView style={s.root}>
       <View style={s.header}>
@@ -168,15 +173,16 @@ export default function PrivacyPolicyScreen({ navigation }: any) {
   );
 }
 
-const s = StyleSheet.create({
-  root: { flex: 1, backgroundColor: '#ffffff' },
-  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: SPACING.xl, paddingVertical: SPACING.md, borderBottomWidth: 1, borderBottomColor: 'rgba(0,108,68,0.08)' },
-  backBtn: { width: 36, height: 36, borderRadius: RADIUS.full, backgroundColor: '#f5f5f5', alignItems: 'center', justifyContent: 'center' },
+function makeStyles(C: any) {
+  return StyleSheet.create({
+  root: { flex: 1, backgroundColor: C.background },
+  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: SPACING.xl, paddingVertical: SPACING.md, borderBottomWidth: 1, borderBottomColor: C.border },
+  backBtn: { width: 36, height: 36, borderRadius: RADIUS.full, backgroundColor: C.surfaceGlass, alignItems: 'center', justifyContent: 'center' },
   headerTitle: { fontSize: FONTS.sizes.lg, fontWeight: '700', color: C.text },
 
   scroll: { padding: SPACING.xl, paddingBottom: 60, gap: SPACING.md },
 
-  hero: { borderRadius: RADIUS.xl, overflow: 'hidden', padding: SPACING.xl, alignItems: 'center', gap: SPACING.sm, borderWidth: 1, borderColor: 'rgba(0,108,68,0.1)', backgroundColor: 'rgba(231,255,241,0.6)', marginBottom: SPACING.sm },
+  hero: { borderRadius: RADIUS.xl, overflow: 'hidden', padding: SPACING.xl, alignItems: 'center', gap: SPACING.sm, borderWidth: 1, borderColor: C.border, backgroundColor: C.surfaceGlass, marginBottom: SPACING.sm },
   heroIcon: { width: 64, height: 64, borderRadius: RADIUS.full, backgroundColor: '#e1f9eb', alignItems: 'center', justifyContent: 'center' },
   heroTitle: { fontSize: FONTS.sizes.xl, fontWeight: '800', color: C.text },
   heroSub: { fontSize: FONTS.sizes.sm, color: C.textSecondary, textAlign: 'center', lineHeight: 20 },
@@ -187,3 +193,4 @@ const s = StyleSheet.create({
   footer: { flexDirection: 'row', alignItems: 'flex-start', gap: SPACING.sm, marginTop: SPACING.md },
   footerText: { fontSize: FONTS.sizes.xs, color: C.textMuted, flex: 1, lineHeight: 16 },
 });
+}

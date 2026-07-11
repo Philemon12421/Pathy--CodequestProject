@@ -5,12 +5,15 @@ import {
   Animated, Easing, Image,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { FONTS, RADIUS, SPACING, getColors } from '../config/theme';
+import { useColors } from '../config/ThemeContext';
+import { FONTS, RADIUS, SPACING, SHADOW } from '../config/theme';
+import { authAPI } from '../services/api';
 
-const C = getColors('light');
 type Step = 'email' | 'code' | 'reset' | 'done';
 
 export default function ForgotPasswordScreen({ navigation }: any) {
+  const C = useColors();
+  const s = makeStyles(C);
   const [step, setStep]       = useState<Step>('email');
   const [email, setEmail]     = useState('');
   const [code, setCode]       = useState('');
@@ -43,26 +46,44 @@ export default function ForgotPasswordScreen({ navigation }: any) {
   const sendCode = async () => {
     if (!email.trim() || !email.includes('@')) { Alert.alert('Invalid email', 'Enter a valid email address.'); return; }
     setLoading(true);
-    await new Promise(r => setTimeout(r, 900));
-    setLoading(false);
-    goTo('code');
+    try {
+      const res = await authAPI.requestPasswordReset(email);
+      setLoading(false);
+      const devTip = res.code ? `\n\n(Developer Tip: Verification Code is ${res.code})` : '';
+      Alert.alert('Code Sent', 'A verification code has been sent to your email.' + devTip, [
+        { text: 'OK', onPress: () => goTo('code') }
+      ]);
+    } catch (e: any) {
+      setLoading(false);
+      Alert.alert('Error', e.error || 'Failed to send reset code. Please try again.');
+    }
   };
 
   const verifyCode = async () => {
-    if (code.length < 4) { Alert.alert('Incomplete', 'Enter the full code.'); return; }
+    if (code.trim().length < 6) { Alert.alert('Incomplete', 'Enter the full 6-digit code.'); return; }
     setLoading(true);
-    await new Promise(r => setTimeout(r, 700));
-    setLoading(false);
-    goTo('reset');
+    try {
+      await authAPI.verifyResetCode(email, code.trim());
+      setLoading(false);
+      goTo('reset');
+    } catch (e: any) {
+      setLoading(false);
+      Alert.alert('Invalid Code', e.error || 'Verification failed. Please try again.');
+    }
   };
 
   const resetPw = async () => {
     if (pw.length < 6)  { Alert.alert('Too short', 'Password must be at least 6 characters.'); return; }
     if (pw !== cpw)     { Alert.alert("Doesn't match", 'Both password fields must be identical.'); return; }
     setLoading(true);
-    await new Promise(r => setTimeout(r, 900));
-    setLoading(false);
-    goTo('done');
+    try {
+      await authAPI.resetPassword(email, code.trim(), pw);
+      setLoading(false);
+      goTo('done');
+    } catch (e: any) {
+      setLoading(false);
+      Alert.alert('Error', e.error || 'Failed to reset password. Please try again.');
+    }
   };
 
   const bdr  = (f: string) => focused === f ? '#006c44' : 'rgba(0,108,68,0.15)';
@@ -177,11 +198,12 @@ export default function ForgotPasswordScreen({ navigation }: any) {
   );
 }
 
-const s = StyleSheet.create({
-  root:    { flex: 1, backgroundColor: '#fff' },
-  backBtn: { position: 'absolute', top: 56, left: SPACING.xl, zIndex: 10, width: 38, height: 38, borderRadius: RADIUS.full, backgroundColor: '#f5f5f5', alignItems: 'center', justifyContent: 'center' },
+function makeStyles(C: any) {
+  return StyleSheet.create({
+  root:    { flex: 1, backgroundColor: C.background },
+  backBtn: { position: 'absolute', top: 56, left: SPACING.xl, zIndex: 10, width: 38, height: 38, borderRadius: RADIUS.full, backgroundColor: C.surfaceGlass, alignItems: 'center', justifyContent: 'center' },
 
-  progressTrack: { position: 'absolute', top: 0, left: 0, right: 0, height: 3, backgroundColor: 'rgba(0,108,68,0.1)' },
+  progressTrack: { position: 'absolute', top: 0, left: 0, right: 0, height: 3, backgroundColor: C.border },
   progressFill:  { height: 3, backgroundColor: '#006c44', borderRadius: 2 },
 
   content: { flex: 1, paddingHorizontal: SPACING.xl, paddingTop: 120, alignItems: 'center' },
@@ -192,9 +214,9 @@ const s = StyleSheet.create({
   title:  { fontSize: FONTS.sizes.xxl, fontWeight: '800', color: C.text, textAlign: 'center', marginBottom: 6 },
   sub:    { fontSize: FONTS.sizes.sm, color: C.textSecondary, textAlign: 'center', lineHeight: 20, marginBottom: SPACING.xl },
 
-  row:    { flexDirection: 'row', alignItems: 'center', width: '100%', backgroundColor: '#fff', borderRadius: RADIUS.md, borderWidth: 1.5, marginBottom: SPACING.lg },
+  row:    { flexDirection: 'row', alignItems: 'center', width: '100%', backgroundColor: C.surface, borderRadius: RADIUS.md, borderWidth: 1.5, marginBottom: SPACING.lg },
   ico:    { marginLeft: 13 },
-  inp:    { flex: 1, color: '#0b1f17', fontSize: FONTS.sizes.md, paddingVertical: 14, paddingHorizontal: SPACING.sm },
+  inp:    { flex: 1, color: C.text, fontSize: FONTS.sizes.md, paddingVertical: 14, paddingHorizontal: SPACING.sm },
   eye:    { paddingHorizontal: 13, paddingVertical: 14 },
 
   btn:     { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: SPACING.sm, width: '100%', backgroundColor: '#006c44', borderRadius: RADIUS.full, paddingVertical: 16, shadowColor: '#006c44', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.25, shadowRadius: 12, elevation: 5 },
@@ -206,3 +228,4 @@ const s = StyleSheet.create({
 
   successCircle: { marginBottom: SPACING.xl },
 });
+}

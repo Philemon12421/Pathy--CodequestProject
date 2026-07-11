@@ -6,9 +6,8 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { BlurView } from 'expo-blur';
 import { Ionicons } from '@expo/vector-icons';
-import { FONTS, RADIUS, SPACING, SHADOW, getColors } from '../config/theme';
-
-const C = getColors('light');
+import { useColors } from '../config/ThemeContext';
+import { FONTS, RADIUS, SPACING, SHADOW } from '../config/theme';
 
 const CONTACT_METHODS = [
   { icon: 'mail-outline',      label: 'Email Us',   sub: 'support@pathy.app',         color: '#006c44', bg: '#e1f9eb', action: () => Linking.openURL('mailto:support@pathy.app') },
@@ -17,6 +16,8 @@ const CONTACT_METHODS = [
 ];
 
 export default function ContactUsScreen({ navigation }: any) {
+  const C = useColors();
+  const s = makeStyles(C);
   const [form, setForm] = useState({ name: '', email: '', subject: '', message: '' });
   const [loading, setLoading] = useState(false);
   const [focused, setFocused] = useState<string | null>(null);
@@ -156,15 +157,16 @@ export default function ContactUsScreen({ navigation }: any) {
   );
 }
 
-const s = StyleSheet.create({
-  root: { flex: 1, backgroundColor: '#ffffff' },
-  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: SPACING.xl, paddingVertical: SPACING.md, borderBottomWidth: 1, borderBottomColor: 'rgba(0,108,68,0.08)' },
-  backBtn: { width: 36, height: 36, borderRadius: RADIUS.full, backgroundColor: '#f5f5f5', alignItems: 'center', justifyContent: 'center' },
+function makeStyles(C: any) {
+  return StyleSheet.create({
+  root: { flex: 1, backgroundColor: C.background },
+  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: SPACING.xl, paddingVertical: SPACING.md, borderBottomWidth: 1, borderBottomColor: C.border },
+  backBtn: { width: 36, height: 36, borderRadius: RADIUS.full, backgroundColor: C.surfaceGlass, alignItems: 'center', justifyContent: 'center' },
   headerTitle: { fontSize: FONTS.sizes.lg, fontWeight: '700', color: C.text },
 
   scroll: { padding: SPACING.xl, paddingBottom: 60, gap: SPACING.xl },
 
-  hero: { borderRadius: RADIUS.xl, overflow: 'hidden', padding: SPACING.xl, alignItems: 'center', gap: SPACING.sm, borderWidth: 1, borderColor: 'rgba(0,108,68,0.1)', backgroundColor: 'rgba(231,255,241,0.6)' },
+  hero: { borderRadius: RADIUS.xl, overflow: 'hidden', padding: SPACING.xl, alignItems: 'center', gap: SPACING.sm, borderWidth: 1, borderColor: C.border, backgroundColor: C.surfaceGlass },
   heroIcon: { width: 72, height: 72, borderRadius: RADIUS.full, backgroundColor: '#e1f9eb', alignItems: 'center', justifyContent: 'center' },
   heroTitle: { fontSize: FONTS.sizes.xl, fontWeight: '800', color: C.text, textAlign: 'center' },
   heroSub: { fontSize: FONTS.sizes.sm, color: C.textSecondary, textAlign: 'center', lineHeight: 20 },
@@ -176,21 +178,21 @@ const s = StyleSheet.create({
   methodSub: { fontSize: 9, color: C.textMuted, textAlign: 'center' },
 
   dividerRow: { flexDirection: 'row', alignItems: 'center', gap: SPACING.sm },
-  dividerLine: { flex: 1, height: 1, backgroundColor: 'rgba(0,108,68,0.1)' },
+  dividerLine: { flex: 1, height: 1, backgroundColor: C.border },
   dividerText: { fontSize: 10, color: C.textMuted, fontWeight: '600', letterSpacing: 0.8 },
 
-  formCard: { borderRadius: RADIUS.xl, overflow: 'hidden', padding: SPACING.xl, gap: SPACING.md, borderWidth: 1, borderColor: 'rgba(0,108,68,0.1)', backgroundColor: 'rgba(255,255,255,0.85)', ...SHADOW.xs },
+  formCard: { borderRadius: RADIUS.xl, overflow: 'hidden', padding: SPACING.xl, gap: SPACING.md, borderWidth: 1, borderColor: C.border, backgroundColor: C.surfaceGlass, ...SHADOW.xs },
   field: { gap: SPACING.xs },
   label: { fontSize: FONTS.sizes.sm, fontWeight: '600', color: C.text },
-  inputWrap: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#fff', borderRadius: RADIUS.md, borderWidth: 1.5 },
+  inputWrap: { flexDirection: 'row', alignItems: 'center', backgroundColor: C.surface, borderRadius: RADIUS.md, borderWidth: 1.5 },
   textareaWrap: { alignItems: 'flex-start', paddingTop: SPACING.sm },
   icon: { marginLeft: 12 },
-  input: { flex: 1, fontSize: FONTS.sizes.md, color: '#0b1f17', paddingVertical: 13, paddingHorizontal: SPACING.sm },
+  input: { flex: 1, fontSize: FONTS.sizes.md, color: C.text, paddingVertical: 13, paddingHorizontal: SPACING.sm },
   textarea: { height: 120, paddingTop: 0 },
   submitBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: SPACING.sm, backgroundColor: '#006c44', borderRadius: RADIUS.full, paddingVertical: 16, marginTop: SPACING.xs, shadowColor: '#006c44', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 12, elevation: 6 },
   submitText: { color: '#fff', fontSize: FONTS.sizes.md, fontWeight: '700' },
 
-  successCard: { borderRadius: RADIUS.xl, overflow: 'hidden', padding: SPACING.xxl, alignItems: 'center', gap: SPACING.md, borderWidth: 1, borderColor: 'rgba(0,108,68,0.1)', backgroundColor: 'rgba(231,255,241,0.7)' },
+  successCard: { borderRadius: RADIUS.xl, overflow: 'hidden', padding: SPACING.xxl, alignItems: 'center', gap: SPACING.md, borderWidth: 1, borderColor: C.border, backgroundColor: C.surfaceGlass },
   successIcon: { width: 80, height: 80, borderRadius: RADIUS.full, backgroundColor: '#e1f9eb', alignItems: 'center', justifyContent: 'center' },
   successTitle: { fontSize: FONTS.sizes.xxl, fontWeight: '800', color: C.text },
   successText: { fontSize: FONTS.sizes.sm, color: C.textSecondary, textAlign: 'center', lineHeight: 20 },
@@ -200,3 +202,4 @@ const s = StyleSheet.create({
   footerNote: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: SPACING.sm },
   footerText: { fontSize: FONTS.sizes.xs, color: C.textMuted, flex: 1, lineHeight: 16 },
 });
+}

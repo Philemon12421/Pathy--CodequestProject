@@ -321,25 +321,30 @@ export default function MapScreen({ navigation, route }: any) {
           </Marker>
         ))}
 
-        {/* Ad markers */}
-        {(ads || []).map((ad: any) => (
-          <React.Fragment key={ad.id}>
-            <Circle
-              center={{ latitude: parseFloat(ad.latitude), longitude: parseFloat(ad.longitude) }}
-              radius={(ad.radius_km || 5) * 1000}
-              strokeColor={COLORS.accent + '44'}
-              fillColor={COLORS.accent + '11'}
-            />
-            <Marker
-              coordinate={{ latitude: parseFloat(ad.latitude), longitude: parseFloat(ad.longitude) }}
-              onPress={() => setShowAdBanner(ad)}
-            >
-              <View style={s.adMarker}>
-                <Ionicons name="storefront" size={16} color={COLORS.accent} />
-              </View>
-            </Marker>
-          </React.Fragment>
-        ))}
+        {(ads || []).map((ad: any) => {
+          const lat = typeof ad.latitude === 'number' ? ad.latitude : parseFloat(ad.latitude);
+          const lng = typeof ad.longitude === 'number' ? ad.longitude : parseFloat(ad.longitude);
+          const radius = typeof ad.radius_km === 'number' ? ad.radius_km : parseFloat(ad.radius_km);
+          if (isNaN(lat) || isNaN(lng)) return null;
+          return (
+            <React.Fragment key={ad.id}>
+              <Circle
+                center={{ latitude: lat, longitude: lng }}
+                radius={(radius || 5) * 1000}
+                strokeColor={COLORS.accent + '44'}
+                fillColor={COLORS.accent + '11'}
+              />
+              <Marker
+                coordinate={{ latitude: lat, longitude: lng }}
+                onPress={() => setShowAdBanner(ad)}
+              >
+                <View style={s.adMarker}>
+                  <Ionicons name="storefront" size={16} color={COLORS.accent} />
+                </View>
+              </Marker>
+            </React.Fragment>
+          );
+        })}
 
         {/* Route polyline */}
         {directions && (

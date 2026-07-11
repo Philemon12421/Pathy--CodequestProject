@@ -8,28 +8,28 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import * as ImagePicker from 'expo-image-picker';
 import { Ionicons } from '@expo/vector-icons';
 import { BlurView } from 'expo-blur';
-import { FONTS, RADIUS, SPACING, SHADOW, getColors } from '../config/theme';
+import { FONTS, RADIUS, SPACING, SHADOW } from '../config/theme';
+import { useColors } from '../config/ThemeContext';
 import { routesAPI } from '../services/api';
 import useStore from '../store/useStore';
-
-const C = getColors('light');
 
 const MEDAL: Record<number, string> = { 1: '#FFD700', 2: '#C0C0C0', 3: '#CD7F32' };
 
 // ─── Setting row ─────────────────────────────────────────────────────────────
 function SettingRow({ icon, label, sub, onPress, color, trailing, last }: any) {
+  const C = useColors();
   return (
     <TouchableOpacity
-      style={[s.settingRow, last && { borderBottomWidth: 0 }]}
+      style={[{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 12, gap: 16, borderBottomWidth: 1, borderBottomColor: 'rgba(0,108,68,0.06)' }, last && { borderBottomWidth: 0 }]}
       onPress={onPress}
       activeOpacity={onPress ? 0.7 : 1}
     >
-      <View style={[s.settingIcon, { backgroundColor: (color || '#006c44') + '18' }]}>
+      <View style={[{ width: 36, height: 36, borderRadius: 10, alignItems: 'center', justifyContent: 'center' }, { backgroundColor: (color || '#006c44') + '18' }]}>
         <Ionicons name={icon} size={18} color={color || '#006c44'} />
       </View>
-      <View style={s.settingInfo}>
-        <Text style={s.settingLabel}>{label}</Text>
-        {sub && <Text style={s.settingSub}>{sub}</Text>}
+      <View style={{ flex: 1 }}>
+        <Text style={{ fontSize: 15, fontWeight: '600', color: C.text }}>{label}</Text>
+        {sub && <Text style={{ fontSize: 11, color: C.textMuted, marginTop: 1 }}>{sub}</Text>}
       </View>
       {trailing || (
         onPress && <Ionicons name="chevron-forward" size={16} color={C.textMuted} />
@@ -40,16 +40,18 @@ function SettingRow({ icon, label, sub, onPress, color, trailing, last }: any) {
 
 // ─── Stat tile ────────────────────────────────────────────────────────────────
 function StatTile({ icon, label, value, color }: any) {
+  const C = useColors();
   return (
-    <View style={[s.tile, { borderTopColor: color }]}>
+    <View style={[{ flex: 1, alignItems: 'center', justifyContent: 'center', padding: 12, borderRadius: 14, backgroundColor: 'rgba(255,255,255,0.6)', borderTopWidth: 3 }, { borderTopColor: color }]}>
       <Ionicons name={icon} size={20} color={color} />
-      <Text style={[s.tileVal, { color }]}>{value}</Text>
-      <Text style={s.tileLbl}>{label}</Text>
+      <Text style={{ fontSize: 20, fontWeight: '800', color, marginTop: 4 }}>{value}</Text>
+      <Text style={{ fontSize: 11, color: C.textMuted, fontWeight: '500', marginTop: 2 }}>{label}</Text>
     </View>
   );
 }
 
 export default function ProfileScreen({ navigation }: any) {
+  const C = useColors();
   const { user, logout, savedRoutes, setSavedRoutes, theme, toggleTheme, myAds, setAuth } = useStore();
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
@@ -103,6 +105,8 @@ export default function ProfileScreen({ navigation }: any) {
   });
 
   const initials = user?.name?.split(' ').map((n: string) => n[0]).join('').toUpperCase().slice(0, 2) || 'U';
+
+  const s = makeStyles(C);
 
   return (
     <SafeAreaView style={s.root}>
@@ -273,7 +277,7 @@ export default function ProfileScreen({ navigation }: any) {
   );
 }
 
-const s = StyleSheet.create({
+function makeStyles(C: ReturnType<typeof useColors>) { return StyleSheet.create({
   root: { flex: 1, backgroundColor: '#e7fff1' },
 
   header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: SPACING.xl, paddingVertical: SPACING.md },
@@ -342,4 +346,4 @@ const s = StyleSheet.create({
   mapBtnText: { color: '#fff', fontWeight: '700', fontSize: FONTS.sizes.sm },
 
   versionText: { textAlign: 'center', fontSize: FONTS.sizes.xs, color: C.textMuted, paddingVertical: SPACING.lg },
-});
+}); }
