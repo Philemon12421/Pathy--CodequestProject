@@ -262,6 +262,69 @@ export default function MapScreen({ navigation, route }: any) {
     }
   };
 
+  const isPickerMode = route.params?.mode === 'routePicker';
+
+  const handleLongPress = async (e: any) => {
+    const coords = e.nativeEvent.coordinate;
+    setLoading(true);
+    try {
+      const res = await fetch(
+        `https://nominatim.openstreetmap.org/reverse?lat=${coords.latitude}&lon=${coords.longitude}&format=json`,
+        { headers: { 'User-Agent': 'RouthFlowPathy/1.0' } }
+      );
+      const data = await res.json();
+      const destName = data.display_name || `${coords.latitude.toFixed(4)}, ${coords.longitude.toFixed(4)}`;
+      
+      if (userLocation) {
+        const osrmUrl = `http://router.project-osrm.org/route/v1/driving/${userLocation.longitude},${userLocation.latitude};${coords.longitude},${coords.latitude}?overview=full&geometries=geojson&steps=true`;
+        const routeRes = await fetch(osrmUrl);
+        const routeData = await routeRes.json();
+
+        if (routeData.code === 'Ok' && routeData.routes.length > 0) {
+          const r = routeData.routes[0];
+          const routeCoords = r.geometry.coordinates.map((c: any) => ({
+            latitude: c[1],
+            longitude: c[0]
+          }));
+
+          setDirections({
+            origin: userLocation,
+            destination: coords,
+            destName: destName,
+            coords: routeCoords,
+            distance: r.distance,
+            duration: r.duration
+          });
+
+          setNavSteps(r.legs[0].steps);
+          setCurrentStepIndex(0);
+        } else {
+          setDirections({
+            origin: userLocation,
+            destination: coords,
+            destName: destName,
+            coords: [userLocation, coords],
+            distance: 0,
+            duration: 0
+          });
+          setNavSteps([]);
+        }
+      }
+    } catch (err) {
+      setDirections({
+        origin: userLocation,
+        destination: coords,
+        destName: `${coords.latitude.toFixed(4)}, ${coords.longitude.toFixed(4)}`,
+        coords: [userLocation, coords],
+        distance: 0,
+        duration: 0
+      });
+      setNavSteps([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const defaultRegion = userLocation
     ? { ...userLocation, latitudeDelta: 0.05, longitudeDelta: 0.05 }
     : { latitude: 6.6885, longitude: -1.6244, latitudeDelta: 0.1, longitudeDelta: 0.1 }; // Default: Kumasi
@@ -301,6 +364,7 @@ export default function MapScreen({ navigation, route }: any) {
         showsCompass
         showsScale
         showsTraffic
+        onLongPress={handleLongPress}
       >
         {/* Incident markers */}
         {(incidents || []).map((inc: any) => (
@@ -387,6 +451,14 @@ export default function MapScreen({ navigation, route }: any) {
         </View>
       )}
 
+      {/* Route picker instructions banner */}
+      {isPickerMode && !directions && (
+        <View style={s.pickerBanner}>
+          <Ionicons name="information-circle" size={18} color="#fff" />
+          <Text style={s.pickerBannerText}>Long-press on map or search to select a destination</Text>
+        </View>
+      )}
+
       {/* Map controls */}
       {!isNavigating && (
         <View style={s.controls}>
@@ -396,13 +468,17 @@ export default function MapScreen({ navigation, route }: any) {
           <TouchableOpacity style={s.ctrl} onPress={() => setMapMode(mapMode === 'standard' ? 'satellite' : 'standard')}>
             <Ionicons name={mapMode === 'standard' ? 'globe' : 'map'} size={22} color={COLORS.text} />
           </TouchableOpacity>
-          <TouchableOpacity style={s.ctrl} onPress={() => navigation.navigate('Report')}>
-            <Ionicons name="warning" size={22} color={COLORS.danger} />
-          </TouchableOpacity>
-          <TouchableOpacity style={[s.ctrl, { backgroundColor: COLORS.accent + '22' }]}
-            onPress={() => navigation.navigate('Ads')}>
-            <Ionicons name="megaphone" size={22} color={COLORS.accent} />
-          </TouchableOpacity>
+          {!isPickerMode && (
+            <>
+              <TouchableOpacity style={s.ctrl} onPress={() => navigation.navigate('Report')}>
+                <Ionicons name="warning" size={22} color={COLORS.danger} />
+              </TouchableOpacity>
+              <TouchableOpacity style={[s.ctrl, { backgroundColor: COLORS.accent + '22' }]}
+                onPress={() => navigation.navigate('Ads')}>
+                <Ionicons name="megaphone" size={22} color={COLORS.accent} />
+              </TouchableOpacity>
+            </>
+          )}
         </View>
       )}
 
@@ -429,17 +505,42 @@ export default function MapScreen({ navigation, route }: any) {
         <View style={s.routeBar}>
           <View style={{ flex: 1 }}>
             <Text style={s.routeTitle} numberOfLines={1}>{directions.destName?.split(',')[0]}</Text>
-            <Text style={s.routeSub}>Route ready</Text>
+            <Text style={s.routeSub}>{isPickerMode ? 'Selected destination' : 'Route ready'}</Text>
           </View>
-          {navSteps.length > 0 && (
-            <TouchableOpacity style={s.routeStartBtn} onPress={startNavigation}>
-              <Ionicons name="play" size={16} color="#fff" />
-              <Text style={s.routeStartText}>Start</Text>
+          {isPickerMode ? (
+            <TouchableOpacity
+              style={[s.routeStartBtn, { backgroundColor: '#006c44' }]}
+              onPress={() => {
+                navigation.navigate('PostRoute', {
+                  routeData: {
+                    distance: directions.distance || 0,
+                    duration: directions.duration || 0,
+                    origin_name: 'My Location',
+                    destination_name: directions.destName?.split(',')[0] || 'Destination',
+                    origin_lat: directions.origin.latitude,
+                    origin_lng: directions.origin.longitude,
+                    destination_lat: directions.destination.latitude,
+                    destination_lng: directions.destination.longitude
+                  }
+                });
+              }}
+            >
+              <Ionicons name="checkmark-circle" size={16} color="#fff" />
+              <Text style={s.routeStartText}>Use Route</Text>
             </TouchableOpacity>
+          ) : (
+            <>
+              {navSteps.length > 0 && (
+                <TouchableOpacity style={s.routeStartBtn} onPress={startNavigation}>
+                  <Ionicons name="play" size={16} color="#fff" />
+                  <Text style={s.routeStartText}>Start</Text>
+                </TouchableOpacity>
+              )}
+              <TouchableOpacity style={s.routeSaveBtn} onPress={saveCurrentRoute}>
+                <Ionicons name="bookmark" size={16} color={COLORS.primary} />
+              </TouchableOpacity>
+            </>
           )}
-          <TouchableOpacity style={s.routeSaveBtn} onPress={saveCurrentRoute}>
-            <Ionicons name="bookmark" size={16} color={COLORS.primary} />
-          </TouchableOpacity>
           <TouchableOpacity style={s.routeCloseBtn} onPress={() => { setDirections(null); setNavSteps([]); }}>
             <Ionicons name="close" size={16} color={COLORS.textMuted} />
           </TouchableOpacity>
@@ -555,6 +656,13 @@ export default function MapScreen({ navigation, route }: any) {
 function makeStyles(COLORS: any) {
   return StyleSheet.create({
     container: { flex: 1 },
+    pickerBanner: {
+      position: 'absolute', top: 120, left: SPACING.lg, right: SPACING.lg,
+      flexDirection: 'row', alignItems: 'center', backgroundColor: '#006c44',
+      borderRadius: RADIUS.lg, padding: SPACING.md, gap: SPACING.sm,
+      ...SHADOW.md, zIndex: 10,
+    },
+    pickerBannerText: { color: '#fff', fontSize: FONTS.sizes.sm, fontWeight: '600', flex: 1 },
     map: { flex: 1 },
     searchBar: {
       position: 'absolute', top: 55, left: SPACING.lg, right: SPACING.lg,

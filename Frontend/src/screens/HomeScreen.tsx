@@ -9,7 +9,7 @@ import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import { Ionicons } from '@expo/vector-icons';
 import { FONTS, RADIUS, SPACING, SHADOW } from '../config/theme';
 import { useColors } from '../config/ThemeContext';
-import { incidentsAPI } from '../services/api';
+import { incidentsAPI, routesAPI } from '../services/api';
 import useStore from '../store/useStore';
 const { width, height } = Dimensions.get('window');
 
@@ -384,10 +384,112 @@ const ef = StyleSheet.create({
   btnText: { color: '#fff', fontWeight: '700', fontSize: FONTS.sizes.sm },
 });
 
+const rh = {
+  card: (C: any) => ({
+    width: 140,
+    backgroundColor: C.surface,
+    borderRadius: RADIUS.lg,
+    padding: SPACING.md,
+    marginRight: SPACING.md,
+    borderWidth: 1,
+    borderColor: C.border,
+    justifyContent: 'space-between',
+    minHeight: 135,
+    ...SHADOW.xs,
+  }),
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.xs,
+    marginBottom: SPACING.xs,
+  },
+  iconBg: (C: any) => ({
+    width: 26,
+    height: 26,
+    borderRadius: RADIUS.md,
+    backgroundColor: '#e1f9eb',
+    alignItems: 'center',
+    justifyContent: 'center',
+  }),
+  activityLabel: {
+    fontSize: 9,
+    fontWeight: '700',
+    color: '#006c44',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    flex: 1,
+  },
+  routeName: (C: any) => ({
+    fontSize: FONTS.sizes.sm,
+    fontWeight: '700',
+    color: C.text,
+    marginVertical: SPACING.xs,
+  }),
+  metaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginBottom: SPACING.sm,
+  },
+  metaText: (C: any) => ({
+    fontSize: 10,
+    color: C.textSecondary,
+    fontWeight: '600',
+  }),
+  dot: (C: any) => ({
+    width: 3,
+    height: 3,
+    borderRadius: 1.5,
+    backgroundColor: C.textMuted,
+  }),
+  postBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 4,
+    backgroundColor: '#006c44',
+    borderRadius: RADIUS.full,
+    paddingVertical: 6,
+    width: '100%',
+  },
+  postBtnText: {
+    color: '#fff',
+    fontSize: 10,
+    fontWeight: '700',
+  },
+} as any;
+
+function SavedRouteCard({ route, onPost, C }: any) {
+  const distance = route.distance ? (route.distance / 1000).toFixed(1) : '—';
+  const durationMin = route.duration ? Math.round(route.duration / 60) : 0;
+  const activityIcon = ACTIVITY_ICON[route.activity_type] || 'navigate-outline';
+
+  return (
+    <View style={rh.card(C)}>
+      <View style={rh.header}>
+        <View style={rh.iconBg(C)}>
+          <Ionicons name={activityIcon} size={18} color="#006c44" />
+        </View>
+        <Text style={rh.activityLabel} numberOfLines={1}>{route.activity_type || 'route'}</Text>
+      </View>
+      <Text style={rh.routeName(C)} numberOfLines={1}>{route.name}</Text>
+      <View style={rh.metaRow}>
+        <Text style={rh.metaText(C)}>{distance} km</Text>
+        <View style={rh.dot(C)} />
+        <Text style={rh.metaText(C)}>{durationMin} min</Text>
+      </View>
+      <TouchableOpacity style={rh.postBtn} onPress={onPost} activeOpacity={0.8}>
+        <Ionicons name="share-outline" size={13} color="#fff" />
+        <Text style={rh.postBtnText}>Post</Text>
+      </TouchableOpacity>
+    </View>
+  );
+}
+
 // ─── HomeScreen ────────────────────────────────────────────────────────────
 export default function HomeScreen({ navigation }: any) {
   const C = useColors();
-  const { user, incidents, setIncidents, userLocation, savedRoutes,
+  const { user, incidents, setIncidents, userLocation, savedRoutes, setSavedRoutes,
           routePosts, addRouteFeedPost, likeRouteFeedPost,
           addCommentToFeedPost } = useStore();
   const [refreshing, setRefreshing]     = useState(false);
@@ -410,7 +512,16 @@ export default function HomeScreen({ navigation }: any) {
     }
   };
 
-  const load = async () => { try { const d = await incidentsAPI.getAll(); setIncidents(d); } catch {} };
+  const load = async () => {
+    try {
+      const [inc, rts] = await Promise.all([
+        incidentsAPI.getAll(),
+        routesAPI.getAll(),
+      ]);
+      setIncidents(inc);
+      setSavedRoutes(rts as any);
+    } catch {}
+  };
   useEffect(() => { load(); }, []);
   const onRefresh = async () => { setRefreshing(true); await load(); setRefreshing(false); };
 
@@ -493,6 +604,46 @@ export default function HomeScreen({ navigation }: any) {
                 </TouchableOpacity>
               );
             })}
+          </>
+        )}
+
+        {/* Saved Routes horizontal strip */}
+        {savedRoutes.length > 0 && (
+          <>
+            <View style={s.sectionRow}>
+              <Text style={s.sectionTitle}>Your Routes</Text>
+              <TouchableOpacity onPress={() => navigation.navigate('Leaderboard')}>
+                <Text style={s.seeAll}>See all</Text>
+              </TouchableOpacity>
+            </View>
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={{ paddingHorizontal: SPACING.xl, paddingBottom: SPACING.md }}
+            >
+              {savedRoutes.map((route: any) => (
+                <SavedRouteCard
+                  key={route.id}
+                  route={route}
+                  C={C}
+                  onPost={() => {
+                    // Navigate to PostRoute screen with this route's data
+                    navigation.navigate('PostRoute', {
+                      routeData: {
+                        distance: route.distance,
+                        duration: route.duration,
+                        origin_name: route.origin_name,
+                        destination_name: route.destination_name,
+                        origin_lat: route.origin_lat,
+                        origin_lng: route.origin_lng,
+                        destination_lat: route.destination_lat,
+                        destination_lng: route.destination_lng,
+                      }
+                    });
+                  }}
+                />
+              ))}
+            </ScrollView>
           </>
         )}
 
