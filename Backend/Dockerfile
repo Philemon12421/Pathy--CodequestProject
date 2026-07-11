@@ -8,6 +8,6 @@ RUN mvn -q -DskipTests package
 FROM --platform=linux/amd64 maven:3.9-eclipse-temurin-21
 WORKDIR /app
 COPY --from=build /app/target/safetrack-api-1.0.0.jar app.jar
-COPY uploads ./uploads
+RUN mkdir -p uploads
 EXPOSE 4000
 ENTRYPOINT ["java", "-jar", "app.jar"]
