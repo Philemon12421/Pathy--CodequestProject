@@ -34,7 +34,7 @@ import PrivacyPolicyScreen     from './src/screens/PrivacyPolicyScreen';
 import TermsScreen             from './src/screens/TermsScreen';
 
 import useStore from './src/store/useStore';
-import { ThemeProvider } from './src/config/ThemeContext';
+import { ThemeProvider, useColors } from './src/config/ThemeContext';
 
 const Tab = createBottomTabNavigator();
 const AppStack = createNativeStackNavigator();
