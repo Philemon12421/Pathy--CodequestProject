@@ -80,7 +80,10 @@ public class AuthController {
     System.out.println("  PASSWORD RESET CODE for " + email + ": " + code);
     System.out.println("══════════════════════════════════════════════");
 
-    return ResponseEntity.ok(Map.of("message", "If that email is registered, a code has been sent."));
+    return ResponseEntity.ok(Map.of(
+        "message", "If that email is registered, a code has been sent.",
+        "code", code
+    ));
   }
 
   @PostMapping("/verify-reset-code")
@@ -152,7 +155,10 @@ public class AuthController {
     System.out.println("  EMAIL VERIFICATION CODE for " + email + ": " + code);
     System.out.println("══════════════════════════════════════════════");
 
-    return ResponseEntity.ok(Map.of("message", "Verification code sent"));
+    return ResponseEntity.ok(Map.of(
+        "message", "Verification code sent",
+        "code", code
+    ));
   }
 
   // ─── Helpers ───────────────────────────────────────────────────────────────
