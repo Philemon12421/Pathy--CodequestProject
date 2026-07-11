@@ -33,6 +33,14 @@ export default function PostRouteScreen({ navigation, route }: any) {
   const [isPublic, setIsPublic] = useState(true);
   const [loading, setLoading]   = useState(false);
 
+  React.useEffect(() => {
+    if (routeData?.destination_name) {
+      if (!name) {
+        setName(`Route to ${routeData.destination_name.split(',')[0]}`);
+      }
+    }
+  }, [routeData]);
+
   const distKm = routeData?.distance
     ? (routeData.distance / 1000).toFixed(1)
     : '—';
@@ -42,6 +50,7 @@ export default function PostRouteScreen({ navigation, route }: any) {
 
   const submit = async () => {
     if (!name.trim()) { Alert.alert('Required', 'Give your route a name.'); return; }
+    if (!routeData) { Alert.alert('Select Route', 'Please select a route on the map first.'); return; }
     setLoading(true);
     try {
       // 1 — Save to backend
@@ -112,22 +121,29 @@ export default function PostRouteScreen({ navigation, route }: any) {
 
       <ScrollView contentContainerStyle={s.scroll} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
 
-        {/* Map preview placeholder */}
-        <View style={s.mapCard}>
-          <View style={s.mapPlaceholder}>
-            <Ionicons name="map-outline" size={48} color="rgba(255,255,255,0.25)" />
-            <View style={s.demoLine1} />
-            <View style={s.demoLine2} />
-          </View>
-          {routeData?.destination_name && (
-            <View style={s.locationBadge}>
-              <Ionicons name="location" size={12} color="#006c44" />
-              <Text style={s.locationBadgeText} numberOfLines={1}>
-                {routeData.destination_name.split(',')[0]}
+        {/* Map preview / selection card */}
+        <TouchableOpacity
+          style={s.mapCard}
+          onPress={() => navigation.navigate('Map', { mode: 'routePicker' })}
+          activeOpacity={0.85}
+        >
+          {routeData ? (
+            <View style={[s.mapPlaceholder, { backgroundColor: '#1a3a2a', justifyContent: 'center', alignItems: 'center', gap: 6, position: 'relative' }]}>
+              <Ionicons name="checkmark-circle" size={40} color="#4caf7d" />
+              <Text style={{ color: '#fff', fontSize: FONTS.sizes.md, fontWeight: '700' }}>Route Selected</Text>
+              <Text style={{ color: '#869a8d', fontSize: FONTS.sizes.xs, textAlign: 'center', paddingHorizontal: SPACING.md }} numberOfLines={1}>
+                {routeData.destination_name}
               </Text>
+              <Text style={{ color: '#4caf7d', fontSize: FONTS.sizes.xs, fontWeight: '600', marginTop: 4 }}>Tap to change route</Text>
+            </View>
+          ) : (
+            <View style={[s.mapPlaceholder, { backgroundColor: C.surface, borderWidth: 1.5, borderColor: C.border, justifyContent: 'center', alignItems: 'center', gap: 6, position: 'relative' }]}>
+              <Ionicons name="map-outline" size={36} color={C.textMuted} />
+              <Text style={{ color: C.textSecondary, fontSize: FONTS.sizes.sm, fontWeight: '700' }}>Select Route on Map</Text>
+              <Text style={{ color: C.textMuted, fontSize: FONTS.sizes.xs }}>Tap to choose destination & path</Text>
             </View>
           )}
-        </View>
+        </TouchableOpacity>
 
         {/* Stats */}
         <View style={s.statsCard}>
