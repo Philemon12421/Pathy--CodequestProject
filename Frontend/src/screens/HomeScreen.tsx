@@ -559,28 +559,28 @@ export default function HomeScreen({ navigation }: any) {
 }
 
 function makeStyles(C: ReturnType<typeof useColors>) { return StyleSheet.create({
-  root:       { flex: 1, backgroundColor: '#e7fff1' },
+  root:       { flex: 1, backgroundColor: C.background },
   backdrop:   { position:'absolute', top:0, left:0, right:0, bottom:0, backgroundColor:'rgba(11,31,23,0.4)', zIndex:40 },
   header:     { flexDirection:'row', alignItems:'center', paddingHorizontal:SPACING.xl, paddingTop:SPACING.md, paddingBottom:SPACING.lg, gap:SPACING.sm },
-  avatar:     { width:42, height:42, borderRadius:RADIUS.full, backgroundColor:'#006c44', alignItems:'center', justifyContent:'center' },
+  avatar:     { width:42, height:42, borderRadius:RADIUS.full, backgroundColor:C.primary, alignItems: 'center', justifyContent:'center' },
   avatarText: { fontSize:FONTS.sizes.sm, fontWeight:'700', color:'#fff' },
   greeting:   { fontSize:FONTS.sizes.xs, color:C.textSecondary },
   heroName:   { fontSize:FONTS.sizes.lg, fontWeight:'800', color:C.text },
-  settingsBtn:{ width:40, height:40, borderRadius:RADIUS.full, backgroundColor:'rgba(255,255,255,0.6)', alignItems:'center', justifyContent:'center' },
+  settingsBtn:{ width:40, height:40, borderRadius:RADIUS.full, backgroundColor:C.surfaceGlass, alignItems:'center', justifyContent:'center' },
 
-  statsCard:   { backgroundColor:'#fff', borderRadius:RADIUS.xl, marginHorizontal:SPACING.xl, padding:SPACING.xl, marginBottom:SPACING.xl, ...SHADOW.xs },
+  statsCard:   { backgroundColor:C.surface, borderRadius:RADIUS.xl, marginHorizontal:SPACING.xl, padding:SPACING.xl, marginBottom:SPACING.xl, ...SHADOW.xs },
   statsLabel:  { fontSize:10, fontWeight:'700', color:C.textMuted, letterSpacing:0.8, marginBottom:SPACING.md },
   statsRow:    { flexDirection:'row', alignItems:'center' },
   statCol:     { flex:1 },
-  statBig:     { fontSize:FONTS.sizes.xxxl, fontWeight:'800', color:'#006c44', letterSpacing:-1 },
+  statBig:     { fontSize:FONTS.sizes.xxxl, fontWeight:'800', color:C.primary, letterSpacing:-1 },
   statSub:     { fontSize:FONTS.sizes.sm, color:C.textMuted, marginTop:2 },
-  statDivider: { width:1, height:48, backgroundColor:'rgba(0,108,68,0.12)', marginHorizontal:SPACING.xl },
+  statDivider: { width:1, height:48, backgroundColor:C.border, marginHorizontal:SPACING.xl },
 
   sectionRow:  { flexDirection:'row', justifyContent:'space-between', alignItems:'center', paddingHorizontal:SPACING.xl, marginBottom:SPACING.md },
   sectionTitle:{ fontSize:FONTS.sizes.xl, fontWeight:'800', color:C.text },
-  seeAll:      { fontSize:FONTS.sizes.sm, color:'#006c44', fontWeight:'600' },
+  seeAll:      { fontSize:FONTS.sizes.sm, color:C.primary, fontWeight:'600' },
 
-  incRow:      { flexDirection:'row', alignItems:'center', backgroundColor:'#fff', marginHorizontal:SPACING.xl, marginBottom:SPACING.sm, borderRadius:RADIUS.xl, padding:SPACING.md, gap:SPACING.md, ...SHADOW.xs },
+  incRow:      { flexDirection:'row', alignItems:'center', backgroundColor:C.surface, marginHorizontal:SPACING.xl, marginBottom:SPACING.sm, borderRadius:RADIUS.xl, padding:SPACING.md, gap:SPACING.md, ...SHADOW.xs },
   incIcon:     { width:42, height:42, borderRadius:RADIUS.full, alignItems:'center', justifyContent:'center' },
   incTitle:    { fontSize:FONTS.sizes.md, fontWeight:'600', color:C.text },
   incMeta:     { fontSize:FONTS.sizes.xs, color:C.textMuted, marginTop:2 },
@@ -588,9 +588,9 @@ function makeStyles(C: ReturnType<typeof useColors>) { return StyleSheet.create(
   incBadgeText:{ fontSize:9, fontWeight:'800', color:'#fff', letterSpacing:0.5 },
 
   fabWrap:     { position:'absolute', right:SPACING.xl, bottom:96, alignItems:'flex-end', zIndex:50 },
-  fab:         { width:58, height:58, borderRadius:RADIUS.full, backgroundColor:'#006c44', alignItems:'center', justifyContent:'center', shadowColor:'#006c44', shadowOffset:{width:0,height:4}, shadowOpacity:0.4, shadowRadius:12, elevation:8 },
+  fab:         { width:58, height:58, borderRadius:RADIUS.full, backgroundColor:C.primary, alignItems:'center', justifyContent:'center', shadowColor:C.primary, shadowOffset:{width:0,height:4}, shadowOpacity:0.4, shadowRadius:12, elevation:8 },
   fabItem:     { position:'absolute', right:4, bottom:4, flexDirection:'row', alignItems:'center', gap:SPACING.sm },
-  fabLabel:    { backgroundColor:'#0b1f17', paddingHorizontal:12, paddingVertical:6, borderRadius:RADIUS.full, ...SHADOW.xs },
-  fabLabelText:{ color:'#fff', fontSize:FONTS.sizes.xs, fontWeight:'600' },
+  fabLabel:    { backgroundColor:C.surface, paddingHorizontal:12, paddingVertical:6, borderRadius:RADIUS.full, ...SHADOW.xs },
+  fabLabelText:{ color:C.text, fontSize:FONTS.sizes.xs, fontWeight:'600' },
   fabItemBtn:  { width:50, height:50, borderRadius:RADIUS.full, alignItems:'center', justifyContent:'center', ...SHADOW.sm },
 }); }
