@@ -154,6 +154,7 @@ function MainApp() {
         <MainStack.Screen name="Ads"               component={AdPortalScreen}          options={{ animation: 'slide_from_right' }} />
         <MainStack.Screen name="NearbyDeals"       component={NearbyDealsScreen}       options={{ animation: 'slide_from_right' }} />
         <MainStack.Screen name="PostRoute"         component={PostRouteScreen}         options={{ animation: 'slide_from_bottom', presentation: 'modal' }} />
+        <MainStack.Screen name="MapPicker"         component={MapScreen}               options={{ animation: 'slide_from_right' }} />
         <MainStack.Screen name="AI"                component={AIScreen}                options={{ animation: 'slide_from_right' }} />
         <MainStack.Screen name="ContactUs"         component={ContactUsScreen}         options={{ animation: 'slide_from_right' }} />
         <MainStack.Screen name="AboutUs"           component={AboutUsScreen}           options={{ animation: 'slide_from_right' }} />
