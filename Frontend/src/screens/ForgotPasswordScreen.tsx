@@ -187,7 +187,7 @@ export default function ForgotPasswordScreen({ navigation }: any) {
             <View style={s.successCircle}>
               <Ionicons name="checkmark-circle" size={56} color="#006c44" />
             </View>
-            <TouchableOpacity style={s.btn} onPress={() => navigation.navigate('Login')} activeOpacity={0.88}>
+            <TouchableOpacity style={s.btn} onPress={() => navigation.goBack()} activeOpacity={0.88}>
               <Text style={s.btnText}>Back to Sign In</Text>
               <Ionicons name="arrow-forward" size={17} color="#fff" />
             </TouchableOpacity>
