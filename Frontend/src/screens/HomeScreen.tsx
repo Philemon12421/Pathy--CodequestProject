@@ -7,11 +7,10 @@ import {
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { FONTS, RADIUS, SPACING, SHADOW, getColors } from '../config/theme';
+import { FONTS, RADIUS, SPACING, SHADOW } from '../config/theme';
+import { useColors } from '../config/ThemeContext';
 import { incidentsAPI } from '../services/api';
 import useStore from '../store/useStore';
-
-const C = getColors('light');
 const { width, height } = Dimensions.get('window');
 
 // ─── Types ────────────────────────────────────────────────────────────────
@@ -95,7 +94,7 @@ function CommentSheet({ visible, post, onClose, onAddComment, currentUser }: any
           <View style={cs.handle} />
           <Text style={cs.title}>Comments</Text>
           <TouchableOpacity onPress={onClose} style={cs.closeBtn}>
-            <Ionicons name="close" size={20} color={C.text} />
+            <Ionicons name="close" size={20} color="#0b1f17" />
           </TouchableOpacity>
         </View>
 
@@ -174,24 +173,24 @@ const cs = StyleSheet.create({
   root:         { flex: 1, backgroundColor: '#fff' },
   header:       { alignItems: 'center', paddingTop: SPACING.md, paddingHorizontal: SPACING.xl, paddingBottom: SPACING.md, borderBottomWidth: 1, borderBottomColor: 'rgba(0,108,68,0.08)' },
   handle:       { width: 36, height: 4, borderRadius: 2, backgroundColor: 'rgba(0,108,68,0.2)', marginBottom: SPACING.md },
-  title:        { fontSize: FONTS.sizes.lg, fontWeight: '700', color: C.text },
+  title:        { fontSize: FONTS.sizes.lg, fontWeight: '700', color: '#0b1f17' },
   closeBtn:     { position: 'absolute', right: SPACING.xl, top: SPACING.md + 4, width: 32, height: 32, borderRadius: RADIUS.full, backgroundColor: '#f5f5f5', alignItems: 'center', justifyContent: 'center' },
   postContext:  { flexDirection: 'row', alignItems: 'center', gap: SPACING.md, padding: SPACING.md, backgroundColor: '#f8faf9', borderBottomWidth: 1, borderBottomColor: 'rgba(0,108,68,0.06)' },
   postAvatar:   { width: 34, height: 34, borderRadius: RADIUS.full, alignItems: 'center', justifyContent: 'center' },
   postAvatarText:{ fontSize: FONTS.sizes.xs, fontWeight: '700', color: '#fff' },
-  postAuthor:   { fontSize: FONTS.sizes.xs, fontWeight: '700', color: C.text },
-  postTitle:    { fontSize: FONTS.sizes.xs, color: C.textMuted },
+  postAuthor:   { fontSize: FONTS.sizes.xs, fontWeight: '700', color: '#0b1f17' },
+  postTitle:    { fontSize: FONTS.sizes.xs, color: '#6b7e75' },
   list:         { padding: SPACING.md, gap: SPACING.md, flexGrow: 1 },
   empty:        { alignItems: 'center', paddingTop: 48, gap: SPACING.md },
-  emptyText:    { fontSize: FONTS.sizes.sm, color: C.textMuted },
+  emptyText:    { fontSize: FONTS.sizes.sm, color: '#6b7e75' },
   commentRow:   { flexDirection: 'row', gap: SPACING.sm, alignItems: 'flex-start' },
   avatar:       { width: 32, height: 32, borderRadius: RADIUS.full, alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
   avatarText:   { fontSize: 11, fontWeight: '700', color: '#fff' },
   commentBubble:{ flex: 1, backgroundColor: '#f8faf9', borderRadius: RADIUS.lg, padding: SPACING.sm, gap: 3 },
   commentMeta:  { flexDirection: 'row', alignItems: 'center', gap: SPACING.sm },
-  commentAuthor:{ fontSize: FONTS.sizes.xs, fontWeight: '700', color: C.text },
-  commentTime:  { fontSize: 10, color: C.textMuted },
-  commentText:  { fontSize: FONTS.sizes.sm, color: C.text, lineHeight: 19 },
+  commentAuthor:{ fontSize: FONTS.sizes.xs, fontWeight: '700', color: '#0b1f17' },
+  commentTime:  { fontSize: 10, color: '#6b7e75' },
+  commentText:  { fontSize: FONTS.sizes.sm, color: '#0b1f17', lineHeight: 19 },
   inputBar:     { flexDirection: 'row', alignItems: 'flex-end', gap: SPACING.sm, paddingHorizontal: SPACING.md, paddingTop: SPACING.sm, borderTopWidth: 1, borderTopColor: 'rgba(0,108,68,0.08)', backgroundColor: '#fff' },
   input:        { flex: 1, backgroundColor: '#f8faf9', borderRadius: RADIUS.xl, borderWidth: 1.5, borderColor: 'rgba(0,108,68,0.15)', paddingHorizontal: SPACING.md, paddingVertical: 10, fontSize: FONTS.sizes.md, color: '#0b1f17', maxHeight: 100 },
   sendBtn:      { width: 38, height: 38, borderRadius: RADIUS.full, backgroundColor: '#006c44', alignItems: 'center', justifyContent: 'center' },
@@ -234,7 +233,7 @@ function FeedCard({ post, currentUserId, onLike, onOpenComments }: {
         <View style={fc.headerMid}>
           <Text style={fc.authorName}>{post.authorName}</Text>
           <View style={fc.headerMetaRow}>
-            <Ionicons name={ACTIVITY_ICON[post.activityType] || 'navigate-outline'} size={11} color={C.textMuted} />
+            <Ionicons name={ACTIVITY_ICON[post.activityType] || 'navigate-outline'} size={11} color="#6b7e75" />
             <Text style={fc.time}>{post.activityType || 'Route'} · {timeAgo(post.createdAt)}</Text>
           </View>
         </View>
@@ -330,8 +329,8 @@ const fc = StyleSheet.create({
   avatarText:  { fontWeight: '700', fontSize: FONTS.sizes.sm, color: '#fff' },
   headerMid:   { flex: 1 },
   headerMetaRow:{ flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 2 },
-  authorName:  { fontSize: FONTS.sizes.sm, fontWeight: '700', color: C.text },
-  time:        { fontSize: FONTS.sizes.xs, color: C.textMuted },
+  authorName:  { fontSize: FONTS.sizes.sm, fontWeight: '700', color: '#0b1f17' },
+  time:        { fontSize: FONTS.sizes.xs, color: '#6b7e75' },
   moreBtn:     { padding: 6 },
 
   thumb:        { width: '100%', height: 220, backgroundColor: '#2d5a45', overflow: 'hidden', position: 'relative' },
@@ -345,14 +344,14 @@ const fc = StyleSheet.create({
   thumbBadge:   { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: 'rgba(0,108,68,0.75)', borderRadius: RADIUS.full, paddingHorizontal: 10, paddingVertical: 4 },
   thumbBadgeText:{ fontSize: 10, color: '#fff', fontWeight: '700' },
 
-  caption:      { fontSize: FONTS.sizes.sm, color: C.textSecondary, lineHeight: 20, paddingHorizontal: SPACING.md, paddingTop: SPACING.sm },
-  likeCount:    { fontSize: FONTS.sizes.xs, fontWeight: '700', color: C.text, paddingHorizontal: SPACING.md, paddingTop: SPACING.xs },
+  caption:      { fontSize: FONTS.sizes.sm, color: '#3d5247', lineHeight: 20, paddingHorizontal: SPACING.md, paddingTop: SPACING.sm },
+  likeCount:    { fontSize: FONTS.sizes.xs, fontWeight: '700', color: '#0b1f17', paddingHorizontal: SPACING.md, paddingTop: SPACING.xs },
 
   engRow:       { flexDirection: 'row', alignItems: 'center', paddingHorizontal: SPACING.xs, paddingVertical: SPACING.xs, borderTopWidth: 1, borderTopColor: 'rgba(0,108,68,0.06)' },
   engBtn:       { flexDirection: 'row', alignItems: 'center', paddingVertical: 8, paddingHorizontal: SPACING.sm, position: 'relative' },
   commentBadge: { position: 'absolute', top: 4, right: 4, minWidth: 16, height: 16, borderRadius: 8, backgroundColor: '#006c44', alignItems: 'center', justifyContent: 'center', paddingHorizontal: 3 },
   commentBadgeText: { fontSize: 9, color: '#fff', fontWeight: '800' },
-  viewComments: { fontSize: FONTS.sizes.xs, color: C.textMuted, paddingRight: SPACING.sm },
+  viewComments: { fontSize: FONTS.sizes.xs, color: '#6b7e75', paddingRight: SPACING.sm },
 });
 
 // ─── Empty feed state ──────────────────────────────────────────────────────
@@ -379,14 +378,15 @@ function EmptyFeed({ navigation }: any) {
 const ef = StyleSheet.create({
   wrap:    { alignItems: 'center', paddingHorizontal: SPACING.xl, paddingVertical: SPACING.xxl, gap: SPACING.md },
   iconWrap:{ width: 88, height: 88, borderRadius: RADIUS.full, backgroundColor: 'rgba(255,255,255,0.7)', alignItems: 'center', justifyContent: 'center' },
-  title:   { fontSize: FONTS.sizes.xl, fontWeight: '800', color: C.text, textAlign: 'center' },
-  sub:     { fontSize: FONTS.sizes.sm, color: C.textSecondary, textAlign: 'center', lineHeight: 21 },
+  title:   { fontSize: FONTS.sizes.xl, fontWeight: '800', color: '#0b1f17', textAlign: 'center' },
+  sub:     { fontSize: FONTS.sizes.sm, color: '#3d5247', textAlign: 'center', lineHeight: 21 },
   btn:     { flexDirection: 'row', alignItems: 'center', gap: SPACING.sm, backgroundColor: '#006c44', borderRadius: RADIUS.full, paddingHorizontal: SPACING.xl, paddingVertical: 14, shadowColor: '#006c44', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.25, shadowRadius: 10, elevation: 5 },
   btnText: { color: '#fff', fontWeight: '700', fontSize: FONTS.sizes.sm },
 });
 
 // ─── HomeScreen ────────────────────────────────────────────────────────────
 export default function HomeScreen({ navigation }: any) {
+  const C = useColors();
   const { user, incidents, setIncidents, userLocation, savedRoutes,
           routePosts, addRouteFeedPost, likeRouteFeedPost,
           addCommentToFeedPost } = useStore();
@@ -424,6 +424,8 @@ export default function HomeScreen({ navigation }: any) {
 
   const initials = user?.name?.split(' ').map((n:string)=>n[0]).join('').toUpperCase().slice(0,2) || 'U';
   const feed: FeedPost[] = routePosts || [];
+
+  const s = makeStyles(C);
 
   return (
     <SafeAreaView style={s.root}>
@@ -556,7 +558,7 @@ export default function HomeScreen({ navigation }: any) {
   );
 }
 
-const s = StyleSheet.create({
+function makeStyles(C: ReturnType<typeof useColors>) { return StyleSheet.create({
   root:       { flex: 1, backgroundColor: '#e7fff1' },
   backdrop:   { position:'absolute', top:0, left:0, right:0, bottom:0, backgroundColor:'rgba(11,31,23,0.4)', zIndex:40 },
   header:     { flexDirection:'row', alignItems:'center', paddingHorizontal:SPACING.xl, paddingTop:SPACING.md, paddingBottom:SPACING.lg, gap:SPACING.sm },
@@ -591,4 +593,4 @@ const s = StyleSheet.create({
   fabLabel:    { backgroundColor:'#0b1f17', paddingHorizontal:12, paddingVertical:6, borderRadius:RADIUS.full, ...SHADOW.xs },
   fabLabelText:{ color:'#fff', fontSize:FONTS.sizes.xs, fontWeight:'600' },
   fabItemBtn:  { width:50, height:50, borderRadius:RADIUS.full, alignItems:'center', justifyContent:'center', ...SHADOW.sm },
-});
+}); }

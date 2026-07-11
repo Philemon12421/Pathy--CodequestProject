@@ -5,12 +5,11 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { FONTS, RADIUS, SPACING, SHADOW, getColors } from '../config/theme';
+import { useColors } from '../config/ThemeContext';
+import { FONTS, RADIUS, SPACING, SHADOW } from '../config/theme';
 import { routesAPI } from '../services/api';
 import useStore from '../store/useStore';
 import type { FeedPost } from './HomeScreen';
-
-const C = getColors('light');
 
 const ACTIVITIES = [
   { key: 'running',  label: 'Running',  icon: 'walk-outline'    },
@@ -23,6 +22,8 @@ const AVATAR_COLORS = ['#006c44','#4caf7d','#378ADD','#7F77DD','#EF9F27','#E24B4
 const colorFor = (str: string) => AVATAR_COLORS[(str.charCodeAt(0) || 0) % AVATAR_COLORS.length];
 
 export default function PostRouteScreen({ navigation, route }: any) {
+  const C = useColors();
+  const s = makeStyles(C);
   const { user, addRoute, addRouteFeedPost, userLocation } = useStore();
   const routeData = route?.params?.routeData;
 
@@ -232,10 +233,11 @@ export default function PostRouteScreen({ navigation, route }: any) {
   );
 }
 
-const s = StyleSheet.create({
-  root:   { flex: 1, backgroundColor: '#e7fff1' },
+function makeStyles(C: any) {
+  return StyleSheet.create({
+  root:   { flex: 1, backgroundColor: C.background },
   header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: SPACING.xl, paddingVertical: SPACING.md },
-  closeBtn:    { width: 36, height: 36, borderRadius: RADIUS.full, backgroundColor: 'rgba(255,255,255,0.7)', alignItems: 'center', justifyContent: 'center' },
+  closeBtn:    { width: 36, height: 36, borderRadius: RADIUS.full, backgroundColor: C.surfaceGlass, alignItems: 'center', justifyContent: 'center' },
   headerTitle: { fontSize: FONTS.sizes.lg, fontWeight: '700', color: C.text },
 
   scroll: { padding: SPACING.xl, paddingBottom: 48, gap: SPACING.md },
@@ -244,30 +246,30 @@ const s = StyleSheet.create({
   mapPlaceholder:  { height: 180, backgroundColor: '#2d5a45', alignItems: 'center', justifyContent: 'center', position: 'relative' },
   demoLine1:       { position: 'absolute', width: '60%', height: 3, backgroundColor: '#4caf7d', borderRadius: 2, transform: [{ rotate: '-18deg' }] },
   demoLine2:       { position: 'absolute', width: '30%', height: 2, backgroundColor: 'rgba(76,175,125,0.5)', borderRadius: 2, top: '60%', left: '55%' },
-  locationBadge:   { flexDirection: 'row', alignItems: 'center', gap: 5, backgroundColor: '#fff', borderRadius: RADIUS.full, paddingHorizontal: SPACING.md, paddingVertical: SPACING.sm, position: 'absolute', bottom: SPACING.sm, left: SPACING.sm, ...SHADOW.xs },
+  locationBadge:   { flexDirection: 'row', alignItems: 'center', gap: 5, backgroundColor: C.surface, borderRadius: RADIUS.full, paddingHorizontal: SPACING.md, paddingVertical: SPACING.sm, position: 'absolute', bottom: SPACING.sm, left: SPACING.sm, ...SHADOW.xs },
   locationBadgeText:{ fontSize: FONTS.sizes.xs, color: '#006c44', fontWeight: '600' },
 
-  statsCard:   { flexDirection: 'row', backgroundColor: '#fff', borderRadius: RADIUS.xl, padding: SPACING.xl, ...SHADOW.xs },
+  statsCard:   { flexDirection: 'row', backgroundColor: C.surface, borderRadius: RADIUS.xl, padding: SPACING.xl, ...SHADOW.xs },
   statCol:     { flex: 1, alignItems: 'center' },
   statLabel:   { fontSize: 10, fontWeight: '700', color: C.textMuted, letterSpacing: 0.8, marginBottom: SPACING.xs },
   statVal:     { fontSize: FONTS.sizes.xxxl, fontWeight: '800', color: '#006c44' },
   statUnit:    { fontSize: FONTS.sizes.md, color: C.textSecondary, fontWeight: '400' },
-  statDivider: { width: 1, backgroundColor: 'rgba(0,108,68,0.1)', marginHorizontal: SPACING.lg },
+  statDivider: { width: 1, backgroundColor: C.border, marginHorizontal: SPACING.lg },
 
   label:       { fontSize: FONTS.sizes.sm, fontWeight: '600', color: C.text },
   required:    { color: '#E24B4A' },
   optional:    { color: C.textMuted, fontWeight: '400' },
-  nameInput:   { backgroundColor: '#fff', borderRadius: RADIUS.lg, padding: SPACING.md, fontSize: FONTS.sizes.md, color: '#0b1f17', borderWidth: 1.5, borderColor: 'rgba(0,108,68,0.15)' },
+  nameInput:   { backgroundColor: C.surface, borderRadius: RADIUS.lg, padding: SPACING.md, fontSize: FONTS.sizes.md, color: C.text, borderWidth: 1.5, borderColor: C.border },
   captionInput:{ height: 100, paddingTop: SPACING.sm },
   charCount:   { fontSize: FONTS.sizes.xs, color: C.textMuted, textAlign: 'right' },
 
   activityRow: { gap: SPACING.sm, paddingRight: SPACING.sm },
-  actBtn:      { flexDirection: 'row', alignItems: 'center', gap: SPACING.sm, paddingHorizontal: SPACING.lg, paddingVertical: SPACING.md, borderRadius: RADIUS.full, borderWidth: 1.5, borderColor: 'rgba(0,108,68,0.2)', backgroundColor: '#fff' },
+  actBtn:      { flexDirection: 'row', alignItems: 'center', gap: SPACING.sm, paddingHorizontal: SPACING.lg, paddingVertical: SPACING.md, borderRadius: RADIUS.full, borderWidth: 1.5, borderColor: C.border, backgroundColor: C.surface },
   actBtnActive:{ backgroundColor: '#e1f9eb', borderColor: '#006c44' },
   actText:     { fontSize: FONTS.sizes.sm, fontWeight: '600', color: C.textSecondary },
   actTextActive:{ color: '#006c44' },
 
-  toggleCard:  { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: '#fff', borderRadius: RADIUS.xl, padding: SPACING.lg, ...SHADOW.xs },
+  toggleCard:  { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: C.surface, borderRadius: RADIUS.xl, padding: SPACING.lg, ...SHADOW.xs },
   toggleLeft:  { flexDirection: 'row', alignItems: 'center', gap: SPACING.md, flex: 1 },
   toggleIcon:  { width: 44, height: 44, borderRadius: RADIUS.full, backgroundColor: '#e1f9eb', alignItems: 'center', justifyContent: 'center' },
   toggleTitle: { fontSize: FONTS.sizes.md, fontWeight: '700', color: C.text },
@@ -277,3 +279,4 @@ const s = StyleSheet.create({
   postBtnText: { color: '#fff', fontSize: FONTS.sizes.lg, fontWeight: '700' },
   hint:        { fontSize: FONTS.sizes.xs, color: C.textMuted, textAlign: 'center', lineHeight: 16 },
 });
+}

@@ -5,9 +5,8 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { BlurView } from 'expo-blur';
 import { Ionicons } from '@expo/vector-icons';
-import { FONTS, RADIUS, SPACING, SHADOW, getColors } from '../config/theme';
-
-const C = getColors('light');
+import { useColors } from '../config/ThemeContext';
+import { FONTS, RADIUS, SPACING, SHADOW } from '../config/theme';
 
 const TEAM = [
   { name: 'Micheal & Robert', role: 'Frontend Developer', initials: 'MR', color: '#006c44' },
@@ -31,7 +30,11 @@ const TECH = [
   { label: 'WebSockets',    icon: 'wifi-outline' },
 ];
 
+import { useColors } from '../config/ThemeContext';
+
 export default function AboutUsScreen({ navigation }: any) {
+  const C = useColors();
+  const s = makeStyles(C);
   return (
     <SafeAreaView style={s.root}>
       {/* Header */}
@@ -139,26 +142,27 @@ export default function AboutUsScreen({ navigation }: any) {
   );
 }
 
-const s = StyleSheet.create({
-  root: { flex: 1, backgroundColor: '#ffffff' },
-  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: SPACING.xl, paddingVertical: SPACING.md, borderBottomWidth: 1, borderBottomColor: 'rgba(0,108,68,0.08)' },
-  backBtn: { width: 36, height: 36, borderRadius: RADIUS.full, backgroundColor: '#f5f5f5', alignItems: 'center', justifyContent: 'center' },
+function makeStyles(C: any) {
+  return StyleSheet.create({
+  root: { flex: 1, backgroundColor: C.background },
+  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: SPACING.xl, paddingVertical: SPACING.md, borderBottomWidth: 1, borderBottomColor: C.border },
+  backBtn: { width: 36, height: 36, borderRadius: RADIUS.full, backgroundColor: C.surfaceGlass, alignItems: 'center', justifyContent: 'center' },
   headerTitle: { fontSize: FONTS.sizes.lg, fontWeight: '700', color: C.text },
 
   scroll: { padding: SPACING.xl, paddingBottom: 60, gap: SPACING.xl },
 
-  hero: { borderRadius: RADIUS.xl, overflow: 'hidden', padding: SPACING.xl, alignItems: 'center', gap: SPACING.sm, borderWidth: 1, borderColor: 'rgba(0,108,68,0.1)', backgroundColor: 'rgba(231,255,241,0.6)' },
+  hero: { borderRadius: RADIUS.xl, overflow: 'hidden', padding: SPACING.xl, alignItems: 'center', gap: SPACING.sm, borderWidth: 1, borderColor: C.border, backgroundColor: C.surfaceGlass },
   logoWrap: { marginBottom: SPACING.xs },
-  logoOuter: { width: 80, height: 80, borderRadius: 24, backgroundColor: '#e1f9eb', alignItems: 'center', justifyContent: 'center', ...SHADOW.sm },
+  logoOuter: { width: 80, height: 80, borderRadius: 24, backgroundColor: C.border, alignItems: 'center', justifyContent: 'center', ...SHADOW.sm },
   logoInner: { width: 58, height: 58, borderRadius: 16, backgroundColor: '#006c44', alignItems: 'center', justifyContent: 'center' },
   appName: { fontSize: 32, fontWeight: '800', color: '#006c44', letterSpacing: -0.5 },
   tagline: { fontSize: FONTS.sizes.md, fontStyle: 'italic', color: '#4caf7d', fontWeight: '600' },
   desc: { fontSize: FONTS.sizes.sm, color: C.textSecondary, textAlign: 'center', lineHeight: 22 },
   badgeRow: { flexDirection: 'row', gap: SPACING.md, marginTop: SPACING.xs },
-  badge: { flexDirection: 'row', alignItems: 'center', gap: 5, backgroundColor: '#fff', borderRadius: RADIUS.full, paddingHorizontal: SPACING.md, paddingVertical: 6, ...SHADOW.xs },
+  badge: { flexDirection: 'row', alignItems: 'center', gap: 5, backgroundColor: C.surface, borderRadius: RADIUS.full, paddingHorizontal: SPACING.md, paddingVertical: 6, ...SHADOW.xs },
   badgeText: { fontSize: FONTS.sizes.xs, fontWeight: '600', color: C.text },
 
-  missionCard: { flexDirection: 'row', backgroundColor: '#fff', borderRadius: RADIUS.xl, overflow: 'hidden', ...SHADOW.xs, borderWidth: 1, borderColor: 'rgba(0,108,68,0.1)' },
+  missionCard: { flexDirection: 'row', backgroundColor: C.surface, borderRadius: RADIUS.xl, overflow: 'hidden', ...SHADOW.xs, borderWidth: 1, borderColor: C.border },
   missionLeft: { width: 5, backgroundColor: '#006c44' },
   missionContent: { flex: 1, padding: SPACING.lg, gap: SPACING.sm },
   missionIconRow: { flexDirection: 'row', alignItems: 'center', gap: SPACING.sm },
@@ -168,27 +172,28 @@ const s = StyleSheet.create({
   sectionLabel: { fontSize: 11, fontWeight: '700', color: C.textMuted, letterSpacing: 0.8 },
 
   grid: { flexDirection: 'row', flexWrap: 'wrap', gap: SPACING.md },
-  valueCard: { width: '47%', backgroundColor: '#fff', borderRadius: RADIUS.xl, padding: SPACING.lg, gap: SPACING.sm, borderTopWidth: 3, borderWidth: 1, borderColor: 'rgba(0,108,68,0.08)', ...SHADOW.xs },
+  valueCard: { width: '47%', backgroundColor: C.surface, borderRadius: RADIUS.xl, padding: SPACING.lg, gap: SPACING.sm, borderTopWidth: 3, borderWidth: 1, borderColor: C.border, ...SHADOW.xs },
   valueIcon: { width: 44, height: 44, borderRadius: RADIUS.lg, alignItems: 'center', justifyContent: 'center' },
   valueTitle: { fontSize: FONTS.sizes.md, fontWeight: '700', color: C.text },
   valueDesc: { fontSize: FONTS.sizes.xs, color: C.textSecondary, lineHeight: 16 },
 
   techGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: SPACING.sm },
-  techChip: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: '#e1f9eb', borderRadius: RADIUS.full, paddingHorizontal: SPACING.md, paddingVertical: 8 },
+  techChip: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: C.border, borderRadius: RADIUS.full, paddingHorizontal: SPACING.md, paddingVertical: 8 },
   techText: { fontSize: FONTS.sizes.xs, color: '#006c44', fontWeight: '600' },
 
   teamRow: { gap: SPACING.md, paddingRight: SPACING.md },
-  teamCard: { width: 130, borderRadius: RADIUS.xl, overflow: 'hidden', padding: SPACING.lg, alignItems: 'center', gap: SPACING.sm, borderWidth: 1, borderColor: 'rgba(0,108,68,0.1)', backgroundColor: 'rgba(255,255,255,0.8)' },
+  teamCard: { width: 130, borderRadius: RADIUS.xl, overflow: 'hidden', padding: SPACING.lg, alignItems: 'center', gap: SPACING.sm, borderWidth: 1, borderColor: C.border, backgroundColor: C.surfaceGlass },
   teamAvatar: { width: 56, height: 56, borderRadius: RADIUS.full, alignItems: 'center', justifyContent: 'center' },
   teamInitials: { fontSize: FONTS.sizes.lg, fontWeight: '800', color: '#fff' },
   teamName: { fontSize: FONTS.sizes.xs, fontWeight: '700', color: C.text, textAlign: 'center' },
-  teamRolePill: { backgroundColor: '#e1f9eb', borderRadius: RADIUS.full, paddingHorizontal: SPACING.sm, paddingVertical: 3 },
+  teamRolePill: { backgroundColor: C.border, borderRadius: RADIUS.full, paddingHorizontal: SPACING.sm, paddingVertical: 3 },
   teamRole: { fontSize: 10, color: '#006c44', fontWeight: '600' },
 
   footer: { alignItems: 'center', gap: SPACING.sm },
-  footerDivider: { width: '40%', height: 1, backgroundColor: 'rgba(0,108,68,0.1)' },
+  footerDivider: { width: '40%', height: 1, backgroundColor: C.border },
   footerVersion: { fontSize: FONTS.sizes.sm, fontWeight: '700', color: C.text },
   footerSub: { fontSize: FONTS.sizes.xs, color: C.textMuted },
   githubRow: { flexDirection: 'row', alignItems: 'center', gap: SPACING.sm, marginTop: SPACING.xs },
   githubText: { fontSize: FONTS.sizes.xs, color: C.textMuted, textDecorationLine: 'underline' },
 });
+}
