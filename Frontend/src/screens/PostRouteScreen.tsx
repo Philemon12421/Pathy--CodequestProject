@@ -124,7 +124,7 @@ export default function PostRouteScreen({ navigation, route }: any) {
         {/* Map preview / selection card */}
         <TouchableOpacity
           style={s.mapCard}
-          onPress={() => navigation.navigate('Map', { mode: 'routePicker' })}
+          onPress={() => navigation.navigate('MapPicker', { mode: 'routePicker' })}
           activeOpacity={0.85}
         >
           {routeData ? (
