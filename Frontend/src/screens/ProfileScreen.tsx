@@ -381,12 +381,15 @@ export default function ProfileScreen({ navigation }: any) {
               label="App Theme"
               sub={theme === 'dark' ? 'Dark mode' : 'Light mode'}
               trailing={
-                <Switch
-                  value={theme === 'dark'}
-                  onValueChange={toggleTheme}
-                  trackColor={{ false: 'rgba(0,108,68,0.15)', true: '#006c44' }}
-                  thumbColor="#fff"
-                />
+                <View style={s.themeSwitchWrap}>
+                  <Switch
+                    value={theme === 'dark'}
+                    onValueChange={toggleTheme}
+                    trackColor={{ false: '#dcefe7', true: '#006c44' }}
+                    thumbColor={theme === 'dark' ? '#ffffff' : '#f8fff9'}
+                    ios_backgroundColor="#dcefe7"
+                  />
+                </View>
               }
             />
             <SettingRow icon="notifications-outline" label="Notifications" sub="Incidents & leaderboard alerts" onPress={() => navigation.navigate('Notifications')} last />
@@ -515,6 +518,14 @@ function makeStyles(C: ReturnType<typeof useColors>) { return StyleSheet.create(
   settingInfo: { flex: 1 },
   settingLabel: { fontSize: FONTS.sizes.md, fontWeight: '600', color: C.text },
   settingSub: { fontSize: FONTS.sizes.xs, color: C.textMuted, marginTop: 1 },
+  themeSwitchWrap: {
+    paddingHorizontal: 6,
+    paddingVertical: 4,
+    borderRadius: RADIUS.full,
+    borderWidth: 1.5,
+    borderColor: '#006c44',
+    backgroundColor: '#eaf7f0',
+  },
 
   // Leaderboard
   sectionHeader: { flexDirection: 'row', alignItems: 'center', gap: SPACING.sm },
