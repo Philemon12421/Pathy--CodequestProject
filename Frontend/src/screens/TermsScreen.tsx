@@ -56,24 +56,33 @@ const SECTIONS = [
   },
 ];
 
-function SectionCard({ section }: { section: typeof SECTIONS[0] }) {
+function TermsContentBlock() {
   const C = useColors();
-  const s = makeSectionStyles(C);
+  const s = makeContentStyles(C);
 
   return (
     <View style={s.card}>
-      <View style={s.headerRow}>
-        <View style={s.iconWrap}>
-          <Ionicons name={section.icon as any} size={16} color="#006c44" />
+      <Text style={s.summaryTitle}>Summary</Text>
+      <Text style={s.summaryText}>
+        Pathy is a community safety app for recording routes, sharing incidents, and helping other users stay informed. By using the app, you agree to use it responsibly, keep your information accurate, and respect the rights of other users.
+      </Text>
+
+      {SECTIONS.map(section => (
+        <View key={section.title} style={s.sectionBlock}>
+          <View style={s.sectionHeader}>
+            <View style={s.iconWrap}>
+              <Ionicons name={section.icon as any} size={16} color="#006c44" />
+            </View>
+            <Text style={s.sectionTitle}>{section.title}</Text>
+          </View>
+          <Text style={s.sectionBody}>{section.body}</Text>
         </View>
-        <Text style={s.title}>{section.title}</Text>
-      </View>
-      <Text style={s.bodyText}>{section.body}</Text>
+      ))}
     </View>
   );
 }
 
-function makeSectionStyles(C: any) {
+function makeContentStyles(C: any) {
   return StyleSheet.create({
     card: {
       backgroundColor: C.surface,
@@ -83,7 +92,25 @@ function makeSectionStyles(C: any) {
       padding: SPACING.lg,
       ...SHADOW.xs,
     },
-    headerRow: {
+    summaryTitle: {
+      fontSize: FONTS.sizes.md,
+      fontWeight: '700',
+      color: C.text,
+      marginBottom: SPACING.xs,
+    },
+    summaryText: {
+      fontSize: FONTS.sizes.sm,
+      color: C.textSecondary,
+      lineHeight: 22,
+      marginBottom: SPACING.lg,
+    },
+    sectionBlock: {
+      paddingTop: SPACING.md,
+      borderTopWidth: 1,
+      borderTopColor: C.border,
+      marginBottom: SPACING.md,
+    },
+    sectionHeader: {
       flexDirection: 'row',
       alignItems: 'flex-start',
       gap: SPACING.md,
@@ -97,14 +124,14 @@ function makeSectionStyles(C: any) {
       alignItems: 'center',
       justifyContent: 'center',
     },
-    title: {
+    sectionTitle: {
       flex: 1,
       fontSize: FONTS.sizes.md,
       fontWeight: '700',
       color: C.text,
       lineHeight: 22,
     },
-    bodyText: {
+    sectionBody: {
       fontSize: FONTS.sizes.sm,
       color: C.textSecondary,
       lineHeight: 22,
@@ -139,8 +166,8 @@ export default function TermsScreen({ navigation, route }: any) {
           <Text style={s.updated}>Last updated: June 2025</Text>
         </BlurView>
 
-        <Text style={s.sectionLabel}>READ THE TERMS BELOW</Text>
-        {SECTIONS.map(sec => <SectionCard key={sec.title} section={sec} />)}
+        <Text style={s.sectionLabel}>SUMMARY & DETAILS</Text>
+        <TermsContentBlock />
 
         {/* Accept / Decline — only shown from Sign Up flow */}
         {showActions && (
