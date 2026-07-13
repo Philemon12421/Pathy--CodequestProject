@@ -74,6 +74,56 @@ export default function MapScreen({ navigation, route }: any) {
     }
   }, [route.params?.selectedIncident]);
 
+  // Load a community route posted on the feed
+  useEffect(() => {
+    const cr = route.params?.communityRoute;
+    if (!cr) return;
+    navigation.setParams({ communityRoute: null });
+    const load = async () => {
+      setLoading(true);
+      try {
+        const origin = { latitude: cr.originLat, longitude: cr.originLng };
+        const dest   = { latitude: cr.destinationLat, longitude: cr.destinationLng };
+        const osrmUrl = `http://router.project-osrm.org/route/v1/driving/${origin.longitude},${origin.latitude};${dest.longitude},${dest.latitude}?overview=full&geometries=geojson&steps=true`;
+        const routeRes = await fetch(osrmUrl);
+        const routeData = await routeRes.json();
+        if (routeData.code === 'Ok' && routeData.routes.length > 0) {
+          const r = routeData.routes[0];
+          const coords = r.geometry.coordinates.map((c: any) => ({ latitude: c[1], longitude: c[0] }));
+          setDirections({
+            origin,
+            destination: dest,
+            destName: cr.destinationName || cr.title,
+            coords,
+            distance: r.distance,
+            duration: r.duration,
+          });
+          setNavSteps(r.legs[0].steps);
+          setCurrentStepIndex(0);
+          mapRef.current?.animateToRegion({
+            latitude: (origin.latitude + dest.latitude) / 2,
+            longitude: (origin.longitude + dest.longitude) / 2,
+            latitudeDelta: Math.abs(origin.latitude - dest.latitude) * 2 + 0.05,
+            longitudeDelta: Math.abs(origin.longitude - dest.longitude) * 2 + 0.05,
+          }, 1000);
+        } else {
+          // Fallback: straight line
+          setDirections({ origin, destination: dest, destName: cr.destinationName || cr.title, coords: [origin, dest], distance: 0, duration: 0 });
+          mapRef.current?.animateToRegion({
+            latitude: (origin.latitude + dest.latitude) / 2,
+            longitude: (origin.longitude + dest.longitude) / 2,
+            latitudeDelta: 0.1, longitudeDelta: 0.1,
+          }, 800);
+        }
+      } catch {
+        Alert.alert('Route error', 'Could not load the community route. Try again.');
+      } finally {
+        setLoading(false);
+      }
+    };
+    load();
+  }, [route.params?.communityRoute]);
+
   const initLocation = async () => {
     const { status } = await Location.requestForegroundPermissionsAsync();
     if (status !== 'granted') {
@@ -431,6 +481,15 @@ export default function MapScreen({ navigation, route }: any) {
       {/* Search bar */}
       {!isNavigating && (
         <View style={s.searchBar}>
+          {isPickerMode && (
+            <TouchableOpacity 
+              onPress={() => navigation.goBack()} 
+              style={{ marginRight: 6, padding: 4 }}
+              activeOpacity={0.7}
+            >
+              <Ionicons name="arrow-back" size={22} color={COLORS.text} />
+            </TouchableOpacity>
+          )}
           <Ionicons name="search" size={18} color={COLORS.textMuted} />
           <TextInput
             style={s.searchInput}

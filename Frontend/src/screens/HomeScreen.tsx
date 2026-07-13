@@ -3,7 +3,7 @@ import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
   RefreshControl, Animated, Dimensions, Pressable,
   Modal, TextInput, KeyboardAvoidingView, Platform,
-  Share, Alert, FlatList,
+  Share, Alert, FlatList, ActivityIndicator, Image,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -27,6 +27,15 @@ export interface FeedPost {
   comments: Comment[];
   createdAt: string;
   activityType: string;
+  // Route geo data (populated by PostRouteScreen)
+  originName?: string;
+  destinationName?: string;
+  originLat?: number;
+  originLng?: number;
+  destinationLat?: number;
+  destinationLng?: number;
+  distanceMeters?: number;
+  durationSeconds?: number;
 }
 
 export interface Comment {
@@ -196,15 +205,261 @@ const cs = StyleSheet.create({
   sendBtn:      { width: 38, height: 38, borderRadius: RADIUS.full, backgroundColor: '#006c44', alignItems: 'center', justifyContent: 'center' },
 });
 
+// ─── Route Detail Modal ────────────────────────────────────────────────────
+function RouteDetailModal({ visible, post, onClose, navigation }: {
+  visible: boolean;
+  post: FeedPost | null;
+  onClose: () => void;
+  navigation: any;
+}) {
+  const COLORS = useColors();
+  const { addRoute, savedRoutes } = useStore();
+  const [saving, setSaving] = useState(false);
+  const insets = useSafeAreaInsets();
+
+  if (!post) return null;
+
+  const hasGeo = !!(post.destinationLat && post.destinationLng);
+
+  const alreadySaved = savedRoutes.some(
+    (r: any) => r.name === post.title ||
+      (r.destination_lat === post.destinationLat && r.destination_lng === post.destinationLng)
+  );
+
+  const handleViewOnMap = () => {
+    onClose();
+    // Pass the community route's geo data so MapScreen can draw it
+    navigation.navigate('Tabs', {
+      screen: 'Map',
+      params: hasGeo ? {
+        communityRoute: {
+          originLat: post.originLat,
+          originLng: post.originLng,
+          destinationLat: post.destinationLat,
+          destinationLng: post.destinationLng,
+          title: post.title,
+          originName: post.originName,
+          destinationName: post.destinationName,
+        }
+      } : undefined,
+    });
+  };
+
+  const handleSave = async () => {
+    if (alreadySaved) { Alert.alert('Already saved', 'This route is already in your saved routes.'); return; }
+    setSaving(true);
+    try {
+      const saved = await routesAPI.save({
+        name: post.title,
+        activity_type: post.activityType || 'walking',
+        is_public: false,
+        origin_name: post.originName || 'Community route',
+        destination_name: post.destinationName || post.title,
+        origin_lat: post.originLat || 0,
+        origin_lng: post.originLng || 0,
+        destination_lat: post.destinationLat || 0,
+        destination_lng: post.destinationLng || 0,
+        distance: post.distanceMeters || (post.distanceKm * 1000),
+        duration: post.durationSeconds || (post.durationMin * 60),
+      });
+      addRoute(saved);
+      Alert.alert('✅ Saved!', `"${post.title}" has been added to your routes.`);
+      onClose();
+    } catch (err: any) {
+      const msg = err?.error || err?.message || 'Could not save route. Check your connection and try again.';
+      Alert.alert('Save failed', msg);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <Modal visible={visible} animationType="slide" presentationStyle="pageSheet" onRequestClose={onClose}>
+      <View style={[rd.root, { backgroundColor: '#fff' }]}>
+        {/* Handle */}
+        <View style={rd.handleRow}>
+          <View style={rd.handle} />
+        </View>
+
+        {/* Thumbnail */}
+        <View style={rd.thumb}>
+          <View style={rd.thumbBg} />
+          <View style={rd.routeLine1} />
+          <View style={rd.routeLine2} />
+          <View style={rd.routeLine3} />
+          <View style={rd.thumbOverlay}>
+            <Text style={rd.thumbTitle} numberOfLines={2}>{post.title}</Text>
+            <View style={rd.badgeRow}>
+              <View style={rd.badge}>
+                <Ionicons name="navigate" size={11} color="#fff" />
+                <Text style={rd.badgeText}>{post.distanceKm.toFixed(1)} km</Text>
+              </View>
+              <View style={[rd.badge, { backgroundColor: 'rgba(255,255,255,0.18)' }]}>
+                <Ionicons name="time-outline" size={11} color="#fff" />
+                <Text style={rd.badgeText}>{post.durationMin} min</Text>
+              </View>
+              <View style={[rd.badge, { backgroundColor: 'rgba(76,175,125,0.6)' }]}>
+                <Ionicons name={ACTIVITY_ICON[post.activityType] || 'navigate-outline'} size={11} color="#fff" />
+                <Text style={rd.badgeText}>{post.activityType || 'route'}</Text>
+              </View>
+            </View>
+          </View>
+          {/* Close button */}
+          <TouchableOpacity style={rd.closeBtn} onPress={onClose}>
+            <Ionicons name="close" size={18} color="#fff" />
+          </TouchableOpacity>
+        </View>
+
+        <ScrollView contentContainerStyle={[rd.body, { paddingBottom: Math.max(insets.bottom, 24) }]} showsVerticalScrollIndicator={false}>
+          {/* Author row */}
+          <View style={rd.authorRow}>
+            <View style={[rd.avatar, { backgroundColor: post.authorColor }]}>
+              <Text style={rd.avatarText}>{post.authorInitials}</Text>
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={rd.authorName}>{post.authorName}</Text>
+              <Text style={rd.postedTime}>Posted {timeAgo(post.createdAt)}</Text>
+            </View>
+            <View style={rd.likePill}>
+              <Ionicons name="heart" size={13} color="#E24B4A" />
+              <Text style={rd.likePillText}>{post.likes.length}</Text>
+            </View>
+          </View>
+
+          {/* Route details */}
+          <View style={rd.detailCard}>
+            <View style={rd.detailRow}>
+              <View style={rd.detailItem}>
+                <Ionicons name="map-outline" size={20} color="#006c44" />
+                <Text style={rd.detailLabel}>FROM</Text>
+                <Text style={rd.detailValue} numberOfLines={1}>{post.originName || 'Start point'}</Text>
+              </View>
+              <View style={rd.detailArrow}>
+                <Ionicons name="arrow-forward" size={16} color="#b0bbb6" />
+              </View>
+              <View style={rd.detailItem}>
+                <Ionicons name="flag-outline" size={20} color="#E24B4A" />
+                <Text style={rd.detailLabel}>TO</Text>
+                <Text style={rd.detailValue} numberOfLines={1}>{post.destinationName || 'Destination'}</Text>
+              </View>
+            </View>
+            <View style={rd.detailDivider} />
+            <View style={rd.statsRow}>
+              <View style={rd.statItem}>
+                <Text style={rd.statVal}>{post.distanceKm.toFixed(1)}</Text>
+                <Text style={rd.statUnit}>km</Text>
+              </View>
+              <View style={rd.statDivider} />
+              <View style={rd.statItem}>
+                <Text style={rd.statVal}>{post.durationMin}</Text>
+                <Text style={rd.statUnit}>min</Text>
+              </View>
+              <View style={rd.statDivider} />
+              <View style={rd.statItem}>
+                <Text style={rd.statVal}>{post.activityType || '—'}</Text>
+                <Text style={rd.statUnit}>activity</Text>
+              </View>
+            </View>
+          </View>
+
+          {/* Caption */}
+          {!!post.caption && (
+            <View style={rd.captionBox}>
+              <Ionicons name="chatbubble-ellipses-outline" size={14} color="#006c44" />
+              <Text style={rd.captionText}>{post.caption}</Text>
+            </View>
+          )}
+
+          {/* Action buttons */}
+          <View style={rd.actions}>
+            <TouchableOpacity style={rd.mapBtn} onPress={handleViewOnMap} activeOpacity={0.88}>
+              <Ionicons name="map" size={18} color="#fff" />
+              <Text style={rd.mapBtnText}>View on Map</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[rd.saveBtn, alreadySaved && rd.saveBtnSaved]}
+              onPress={handleSave}
+              disabled={saving || alreadySaved}
+              activeOpacity={0.88}
+            >
+              {saving ? (
+                <ActivityIndicator size="small" color="#006c44" />
+              ) : (
+                <>
+                  <Ionicons name={alreadySaved ? 'bookmark' : 'bookmark-outline'} size={18} color="#006c44" />
+                  <Text style={rd.saveBtnText}>{alreadySaved ? 'Saved' : 'Save Route'}</Text>
+                </>
+              )}
+            </TouchableOpacity>
+          </View>
+        </ScrollView>
+      </View>
+    </Modal>
+  );
+}
+
+const rd = StyleSheet.create({
+  root:          { flex: 1 },
+  handleRow:     { alignItems: 'center', paddingTop: SPACING.md, paddingBottom: SPACING.sm },
+  handle:        { width: 36, height: 4, borderRadius: 2, backgroundColor: 'rgba(0,108,68,0.2)' },
+  thumb:         { width: '100%', height: 200, backgroundColor: '#2d5a45', position: 'relative' },
+  thumbBg:       { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,20,10,0.35)' },
+  routeLine1:    { position: 'absolute', width: '65%', height: 3,   backgroundColor: 'rgba(76,175,125,0.7)', borderRadius: 2, top: '38%', left: '12%', transform: [{ rotate: '-10deg' }] },
+  routeLine2:    { position: 'absolute', width: '35%', height: 2.5, backgroundColor: 'rgba(76,175,125,0.5)', borderRadius: 2, top: '52%', left: '35%', transform: [{ rotate:  '6deg' }] },
+  routeLine3:    { position: 'absolute', width: '20%', height: 2,   backgroundColor: 'rgba(76,175,125,0.35)',borderRadius: 2, top: '62%', left: '55%', transform: [{ rotate:  '-4deg'}] },
+  thumbOverlay:  { position: 'absolute', bottom: 0, left: 0, right: 0, padding: SPACING.md, backgroundColor: 'rgba(0,20,10,0.55)' },
+  thumbTitle:    { fontSize: FONTS.sizes.xl, fontWeight: '800', color: '#fff', marginBottom: 8 },
+  badgeRow:      { flexDirection: 'row', gap: SPACING.sm, flexWrap: 'wrap' },
+  badge:         { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: 'rgba(0,108,68,0.75)', borderRadius: RADIUS.full, paddingHorizontal: 10, paddingVertical: 4 },
+  badgeText:     { fontSize: 10, color: '#fff', fontWeight: '700', textTransform: 'capitalize' },
+  closeBtn:      { position: 'absolute', top: 12, right: 12, width: 32, height: 32, borderRadius: RADIUS.full, backgroundColor: 'rgba(0,0,0,0.4)', alignItems: 'center', justifyContent: 'center' },
+  body:          { padding: SPACING.xl, gap: SPACING.lg },
+  authorRow:     { flexDirection: 'row', alignItems: 'center', gap: SPACING.md },
+  avatar:        { width: 42, height: 42, borderRadius: RADIUS.full, alignItems: 'center', justifyContent: 'center' },
+  avatarText:    { fontSize: FONTS.sizes.sm, fontWeight: '700', color: '#fff' },
+  authorName:    { fontSize: FONTS.sizes.md, fontWeight: '700', color: '#0b1f17' },
+  postedTime:    { fontSize: FONTS.sizes.xs, color: '#6b7e75', marginTop: 2 },
+  likePill:      { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: '#fdecea', paddingHorizontal: 10, paddingVertical: 5, borderRadius: RADIUS.full },
+  likePillText:  { fontSize: FONTS.sizes.xs, fontWeight: '700', color: '#E24B4A' },
+  detailCard:    { backgroundColor: '#f8faf9', borderRadius: RADIUS.xl, padding: SPACING.lg, borderWidth: 1, borderColor: 'rgba(0,108,68,0.08)' },
+  detailRow:     { flexDirection: 'row', alignItems: 'center', gap: SPACING.sm },
+  detailItem:    { flex: 1, alignItems: 'center', gap: 4 },
+  detailArrow:   { paddingHorizontal: 4 },
+  detailLabel:   { fontSize: 9, fontWeight: '700', color: '#6b7e75', letterSpacing: 0.8 },
+  detailValue:   { fontSize: FONTS.sizes.xs, fontWeight: '600', color: '#0b1f17', textAlign: 'center' },
+  detailDivider: { height: 1, backgroundColor: 'rgba(0,108,68,0.08)', marginVertical: SPACING.md },
+  statsRow:      { flexDirection: 'row', alignItems: 'center' },
+  statItem:      { flex: 1, alignItems: 'center' },
+  statVal:       { fontSize: FONTS.sizes.xxl, fontWeight: '800', color: '#006c44', textTransform: 'capitalize' },
+  statUnit:      { fontSize: FONTS.sizes.xs, color: '#6b7e75', marginTop: 2 },
+  statDivider:   { width: 1, height: 36, backgroundColor: 'rgba(0,108,68,0.1)' },
+  captionBox:    { flexDirection: 'row', gap: SPACING.sm, backgroundColor: '#f0fef6', borderRadius: RADIUS.lg, padding: SPACING.md, borderLeftWidth: 3, borderLeftColor: '#4caf7d' },
+  captionText:   { flex: 1, fontSize: FONTS.sizes.sm, color: '#3d5247', lineHeight: 20 },
+  actions:       { flexDirection: 'row', gap: SPACING.md },
+  mapBtn:        { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: SPACING.sm, backgroundColor: '#006c44', borderRadius: RADIUS.full, paddingVertical: 16, shadowColor: '#006c44', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.25, shadowRadius: 10, elevation: 5 },
+  mapBtnText:    { color: '#fff', fontSize: FONTS.sizes.md, fontWeight: '700' },
+  saveBtn:       { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: SPACING.sm, backgroundColor: '#e1f9eb', borderRadius: RADIUS.full, paddingVertical: 16, borderWidth: 1.5, borderColor: '#006c44' },
+  saveBtnSaved:  { backgroundColor: '#f8faf9', borderColor: '#b0bbb6' },
+  saveBtnText:   { color: '#006c44', fontSize: FONTS.sizes.md, fontWeight: '700' },
+});
+
 // ─── Feed Post Card ────────────────────────────────────────────────────────
-function FeedCard({ post, currentUserId, onLike, onOpenComments }: {
+function FeedCard({ post, currentUserId, onLike, onOpenComments, onOpenDetail, onSave }: {
   post: FeedPost;
   currentUserId: string;
   onLike: (id: string) => void;
   onOpenComments: (post: FeedPost) => void;
+  onOpenDetail: (post: FeedPost) => void;
+  onSave: (post: FeedPost) => void;
 }) {
+  const { savedRoutes } = useStore();
   const isLiked = post.likes.includes(currentUserId);
   const heartScale = useRef(new Animated.Value(1)).current;
+
+  const alreadySaved = savedRoutes.some(
+    (r: any) => r.name === post.title ||
+      (r.destination_lat === post.destinationLat && r.destination_lng === post.destinationLng)
+  );
 
   const handleLike = () => {
     Animated.sequence([
@@ -245,14 +500,17 @@ function FeedCard({ post, currentUserId, onLike, onOpenComments }: {
         </TouchableOpacity>
       </View>
 
-      {/* Route thumbnail */}
-      <View style={fc.thumb}>
+      {/* Route thumbnail — tappable to open detail */}
+      <TouchableOpacity style={fc.thumb} onPress={() => onOpenDetail(post)} activeOpacity={0.9}>
         <View style={fc.thumbBg} />
-        {/* Decorative route lines */}
         <View style={fc.routeLine1} />
         <View style={fc.routeLine2} />
         <View style={fc.routeLine3} />
-        {/* Stats overlay at bottom */}
+        {/* Tap hint */}
+        <View style={fc.tapHint}>
+          <Ionicons name="eye-outline" size={13} color="rgba(255,255,255,0.85)" />
+          <Text style={fc.tapHintText}>View route</Text>
+        </View>
         <View style={fc.thumbOverlay}>
           <Text style={fc.thumbTitle}>{post.title}</Text>
           <View style={fc.thumbBadges}>
@@ -266,7 +524,7 @@ function FeedCard({ post, currentUserId, onLike, onOpenComments }: {
             </View>
           </View>
         </View>
-      </View>
+      </TouchableOpacity>
 
       {/* Caption */}
       {post.caption ? <Text style={fc.caption}>{post.caption}</Text> : null}
@@ -302,9 +560,13 @@ function FeedCard({ post, currentUserId, onLike, onOpenComments }: {
           <Ionicons name="share-social-outline" size={22} color="#b0bbb6" />
         </TouchableOpacity>
 
-        {/* Bookmark */}
-        <TouchableOpacity style={fc.engBtn} onPress={() => Alert.alert('Saved!', 'Route saved to your bookmarks.')} activeOpacity={0.7}>
-          <Ionicons name="bookmark-outline" size={22} color="#b0bbb6" />
+        {/* Bookmark / Save */}
+        <TouchableOpacity style={fc.engBtn} onPress={() => onSave(post)} activeOpacity={0.7}>
+          <Ionicons
+            name={alreadySaved ? 'bookmark' : 'bookmark-outline'}
+            size={22}
+            color={alreadySaved ? '#006c44' : '#b0bbb6'}
+          />
         </TouchableOpacity>
 
         {/* Spacer + comment count text */}
@@ -338,6 +600,8 @@ const fc = StyleSheet.create({
   routeLine1:   { position: 'absolute', width: '65%', height: 3,  backgroundColor: 'rgba(76,175,125,0.7)', borderRadius: 2, top: '38%', left: '12%', transform: [{ rotate: '-10deg' }] },
   routeLine2:   { position: 'absolute', width: '35%', height: 2.5,backgroundColor: 'rgba(76,175,125,0.5)', borderRadius: 2, top: '52%', left: '35%', transform: [{ rotate:  '6deg' }] },
   routeLine3:   { position: 'absolute', width: '20%', height: 2,  backgroundColor: 'rgba(76,175,125,0.35)',borderRadius: 2, top: '62%', left: '55%', transform: [{ rotate:  '-4deg'}] },
+  tapHint:      { position: 'absolute', top: 10, right: 12, flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: 'rgba(0,0,0,0.35)', borderRadius: RADIUS.full, paddingHorizontal: 9, paddingVertical: 4 },
+  tapHintText:  { fontSize: 10, color: 'rgba(255,255,255,0.9)', fontWeight: '600' },
   thumbOverlay: { position: 'absolute', bottom: 0, left: 0, right: 0, padding: SPACING.md, paddingBottom: SPACING.md, backgroundColor: 'rgba(0,20,10,0.55)' },
   thumbTitle:   { fontSize: FONTS.sizes.lg, fontWeight: '800', color: '#fff', marginBottom: 6 },
   thumbBadges:  { flexDirection: 'row', gap: SPACING.sm },
@@ -491,11 +755,13 @@ export default function HomeScreen({ navigation }: any) {
   const C = useColors();
   const { user, incidents, setIncidents, userLocation, savedRoutes, setSavedRoutes,
           routePosts, addRouteFeedPost, likeRouteFeedPost,
-          addCommentToFeedPost } = useStore();
-  const [refreshing, setRefreshing]     = useState(false);
-  const [fabOpen, setFabOpen]           = useState(false);
-  const [commentPost, setCommentPost]   = useState<FeedPost | null>(null);
+          addCommentToFeedPost, addRoute, avatarUri } = useStore();
+  const [refreshing, setRefreshing]       = useState(false);
+  const [fabOpen, setFabOpen]             = useState(false);
+  const [commentPost, setCommentPost]     = useState<FeedPost | null>(null);
   const [commentVisible, setCommentVisible] = useState(false);
+  const [detailPost, setDetailPost]       = useState<FeedPost | null>(null);
+  const [detailVisible, setDetailVisible] = useState(false);
 
   const fabRotate    = useRef(new Animated.Value(0)).current;
   const fabItems     = useRef(FAB_ITEMS.map(() => new Animated.Value(0))).current;
@@ -528,6 +794,36 @@ export default function HomeScreen({ navigation }: any) {
   const openComments = (post: FeedPost) => { setCommentPost(post); setCommentVisible(true); };
   const closeComments = () => { setCommentVisible(false); setTimeout(() => setCommentPost(null), 300); };
 
+  const openDetail  = (post: FeedPost) => { setDetailPost(post); setDetailVisible(true); };
+  const closeDetail = () => { setDetailVisible(false); setTimeout(() => setDetailPost(null), 300); };
+
+  const handleQuickSave = async (post: FeedPost) => {
+    const already = savedRoutes.some(
+      (r: any) => r.name === post.title ||
+        (r.destination_lat === post.destinationLat && r.destination_lng === post.destinationLng)
+    );
+    if (already) { Alert.alert('Already saved', 'This route is already in your saved routes.'); return; }
+    try {
+      const saved = await routesAPI.save({
+        name: post.title,
+        activity_type: post.activityType || 'walking',
+        is_public: false,
+        origin_name: post.originName || 'Community route',
+        destination_name: post.destinationName || post.title,
+        origin_lat: post.originLat || 0,
+        origin_lng: post.originLng || 0,
+        destination_lat: post.destinationLat || 0,
+        destination_lng: post.destinationLng || 0,
+        distance: post.distanceMeters || (post.distanceKm * 1000),
+        duration: post.durationSeconds || (post.durationMin * 60),
+      });
+      addRoute(saved);
+      Alert.alert('✅ Saved!', `"${post.title}" has been added to your routes.`);
+    } catch {
+      Alert.alert('Error', 'Could not save route. Please try again.');
+    }
+  };
+
   // Sync comment sheet with live store updates
   const liveCommentPost = commentPost
     ? (routePosts || []).find((p: FeedPost) => p.id === commentPost.id) || commentPost
@@ -552,7 +848,11 @@ export default function HomeScreen({ navigation }: any) {
         {/* Header */}
         <View style={s.header}>
           <TouchableOpacity style={s.avatar} onPress={() => navigation.navigate('Profile')} activeOpacity={0.8}>
-            <Text style={s.avatarText}>{initials}</Text>
+            {avatarUri ? (
+              <Image source={{ uri: avatarUri }} style={{ width: 42, height: 42, borderRadius: 21 }} />
+            ) : (
+              <Text style={s.avatarText}>{initials}</Text>
+            )}
           </TouchableOpacity>
           <View style={{ flex: 1 }}>
             <Text style={s.greeting}>{greeting()},</Text>
@@ -665,6 +965,8 @@ export default function HomeScreen({ navigation }: any) {
               currentUserId={user?.id?.toString() || '0'}
               onLike={(id) => likeRouteFeedPost(id, user?.id?.toString() || '0')}
               onOpenComments={openComments}
+              onOpenDetail={openDetail}
+              onSave={handleQuickSave}
             />
           ))
         )}
@@ -704,6 +1006,14 @@ export default function HomeScreen({ navigation }: any) {
           addCommentToFeedPost(postId, comment);
         }}
         currentUser={user}
+      />
+
+      {/* Route detail modal */}
+      <RouteDetailModal
+        visible={detailVisible}
+        post={detailPost}
+        onClose={closeDetail}
+        navigation={navigation}
       />
     </SafeAreaView>
   );

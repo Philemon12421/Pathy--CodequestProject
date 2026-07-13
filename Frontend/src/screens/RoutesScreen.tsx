@@ -51,7 +51,7 @@ export default function RoutesScreen({ navigation }: any) {
       {/* Header */}
       <View style={s.header}>
         <Text style={s.title}>My Routes</Text>
-        <TouchableOpacity style={s.addBtn} onPress={() => navigation.navigate('Map')}>
+        <TouchableOpacity style={s.addBtn} onPress={() => navigation.navigate('Tabs', { screen: 'Map' })}>
           <Ionicons name="add" size={22} color="#006c44" />
         </TouchableOpacity>
       </View>
@@ -81,7 +81,7 @@ export default function RoutesScreen({ navigation }: any) {
               </View>
               <Text style={s.emptyTitle}>{tab === 'favorites' ? 'No favourites yet' : 'No routes saved'}</Text>
               <Text style={s.emptyText}>Search a destination on the Map and save your route.</Text>
-              <TouchableOpacity style={s.mapBtn} onPress={() => navigation.navigate('Map')}>
+              <TouchableOpacity style={s.mapBtn} onPress={() => navigation.navigate('Tabs', { screen: 'Map' })}>
                 <Ionicons name="map-outline" size={16} color="#fff" />
                 <Text style={s.mapBtnText}>Open Map</Text>
               </TouchableOpacity>
@@ -93,7 +93,7 @@ export default function RoutesScreen({ navigation }: any) {
                 route={r}
                 onFav={() => toggleFav(r.id)}
                 onDelete={() => deleteRoute(r.id)}
-                onNavigate={() => navigation.navigate('Map')}
+                onNavigate={() => navigation.navigate('Tabs', { screen: 'Map' })}
                 onPost={() => navigation.navigate('PostRoute', { routeData: r })}
               />
             ))

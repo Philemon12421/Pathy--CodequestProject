@@ -87,6 +87,15 @@ export default function PostRouteScreen({ navigation, route }: any) {
           comments:        [],
           createdAt:       new Date().toISOString(),
           activityType:    activity,
+          // Geo fields — allow other users to view & save this route
+          originName:      routeData?.origin_name      || 'My Location',
+          destinationName: routeData?.destination_name || 'Destination',
+          originLat:       routeData?.origin_lat       || 0,
+          originLng:       routeData?.origin_lng       || 0,
+          destinationLat:  routeData?.destination_lat  || 0,
+          destinationLng:  routeData?.destination_lng  || 0,
+          distanceMeters:  routeData?.distance         || 0,
+          durationSeconds: routeData?.duration         || 0,
         };
         addRouteFeedPost(feedPost);
       }
@@ -97,7 +106,13 @@ export default function PostRouteScreen({ navigation, route }: any) {
           ? `"${name}" is now live on the community feed.`
           : `"${name}" has been saved to your routes.`,
         [
-          { text: isPublic ? 'View Feed' : 'View Routes', onPress: () => navigation.navigate(isPublic ? 'Home' : 'Leaderboard') },
+          { text: isPublic ? 'View Feed' : 'View Routes', onPress: () => {
+            if (isPublic) {
+              navigation.navigate('Tabs', { screen: 'Home' });
+            } else {
+              navigation.navigate('Tabs', { screen: 'Leaderboard' });
+            }
+          } },
           { text: 'OK', onPress: () => navigation.goBack() },
         ]
       );
