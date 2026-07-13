@@ -56,7 +56,7 @@ export default function ReportScreen({ navigation }: any) {
       const incident = await incidentsAPI.create(fd);
       addIncident(incident);
       Alert.alert('✅ Reported', `Your report will help ${Math.floor(Math.random() * 500 + 800)} nearby users`, [
-        { text: 'View on Map', onPress: () => navigation.navigate('Map') },
+        { text: 'View on Map', onPress: () => navigation.navigate('Tabs', { screen: 'Map' }) },
         { text: 'OK', onPress: () => navigation.goBack() },
       ]);
     } catch (err: any) {

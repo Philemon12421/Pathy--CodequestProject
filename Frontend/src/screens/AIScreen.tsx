@@ -46,6 +46,15 @@ export default function AIScreen({ navigation }: any) {
       .finally(() => setHistLoading(false));
   }, [setChatMessages]);
 
+  // ── Keyword detection helper ────────────────────────────────────────────────
+  const detectKeywordAction = (msg: string): 'navigate' | 'music' | 'incident' | null => {
+    const lower = msg.toLowerCase();
+    if (/\bnavigate\b/.test(lower)) return 'navigate';
+    if (/\bmusic\b/.test(lower))    return 'music';
+    if (/\b(incident|report)\b/.test(lower)) return 'incident';
+    return null;
+  };
+
   const send = async (text?: string) => {
     const msg = (text ?? input).trim();
     if (!msg || loading) return;
@@ -53,8 +62,41 @@ export default function AIScreen({ navigation }: any) {
 
     const userMsg = { role: 'user', content: msg, id: `u-${Date.now()}` };
     addChatMessage(userMsg);
-    setLoading(true);
 
+    // ── Instant keyword-based navigation (no API round-trip needed) ──────────
+    const keyword = detectKeywordAction(msg);
+    if (keyword === 'navigate') {
+      addChatMessage({
+        role: 'assistant',
+        content: "Opening the map so you can search for your destination. Long-press anywhere on the map or use the search bar to set your route! 🗺️",
+        id: `a-${Date.now()}`,
+        action: { type: 'navigate' },
+      });
+      navigation.navigate('Tabs', { screen: 'Map' });
+      return;
+    }
+    if (keyword === 'music') {
+      addChatMessage({
+        role: 'assistant',
+        content: "Starting the music player for you! Enjoy the drive 🎵",
+        id: `a-${Date.now()}`,
+        action: { type: 'music' },
+      });
+      navigation.navigate('Music');
+      return;
+    }
+    if (keyword === 'incident') {
+      addChatMessage({
+        role: 'assistant',
+        content: "Opening the incident report form. Please fill in the details so Pathy can alert other drivers nearby 🚨",
+        id: `a-${Date.now()}`,
+        action: { type: 'report_incident' },
+      });
+      navigation.navigate('Report');
+      return;
+    }
+    // ── Regular AI conversation ───────────────────────────────────────────────
+    setLoading(true);
     try {
       const history = (chatMessages || []).slice(-10);
       const res = await aiAPI.chat(msg, history);
@@ -75,7 +117,7 @@ export default function AIScreen({ navigation }: any) {
       case 'navigate':
         Alert.alert('Navigate', `Open the map and head to "${action.destination || 'this destination'}"?`, [
           { text: 'Cancel', style: 'cancel' },
-          { text: 'Go', onPress: () => navigation.navigate('Map') },
+          { text: 'Go', onPress: () => navigation.navigate('Tabs', { screen: 'Map' }) },
         ]);
         break;
 

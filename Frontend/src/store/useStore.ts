@@ -68,6 +68,10 @@ export interface StoreState {
   // ── Theme ─────────────────────────────────────────────────────────────────
   theme: 'light' | 'dark';
   toggleTheme: () => void;
+
+  // ── Profile picture ────────────────────────────────────────────
+  avatarUri: string | null;
+  setAvatarUri: (uri: string | null) => void;
 }
 
 const useStore = create<StoreState>((set, get) => ({
@@ -170,6 +174,10 @@ const useStore = create<StoreState>((set, get) => ({
   // ── Theme ─────────────────────────────────────────────────────────────────
   theme: 'light',   // light-first, matches the whole UI system
   toggleTheme: () => set((s) => ({ theme: s.theme === 'dark' ? 'light' : 'dark' })),
+
+  // ── Profile picture ────────────────────────────────────────────
+  avatarUri: null,
+  setAvatarUri: (uri) => set({ avatarUri: uri }),
 }));
 
 export default useStore;

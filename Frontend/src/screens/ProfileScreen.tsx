@@ -52,12 +52,11 @@ function StatTile({ icon, label, value, color }: any) {
 
 export default function ProfileScreen({ navigation }: any) {
   const C = useColors();
-  const { user, logout, savedRoutes, setSavedRoutes, theme, toggleTheme, myAds, setAuth } = useStore();
+  const { user, logout, savedRoutes, setSavedRoutes, theme, toggleTheme, myAds, setAuth, avatarUri, setAvatarUri } = useStore();
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [editingName, setEditingName] = useState(false);
   const [nameValue, setNameValue] = useState(user?.name || '');
-  const [avatarUri, setAvatarUri] = useState<string | null>(null);
   const avatarAnim = useRef(new Animated.Value(1)).current;
 
   const loadRoutes = useCallback(async () => {
@@ -73,7 +72,10 @@ export default function ProfileScreen({ navigation }: any) {
 
   const pickAvatar = async () => {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (status !== 'granted') { Alert.alert('Permission needed', 'Allow photo access to change your profile picture.'); return; }
+    if (status !== 'granted') {
+      Alert.alert('Permission needed', 'Allow photo access to change your profile picture.');
+      return;
+    }
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
       allowsEditing: true, aspect: [1, 1], quality: 0.85,
@@ -83,7 +85,8 @@ export default function ProfileScreen({ navigation }: any) {
         Animated.timing(avatarAnim, { toValue: 0.85, duration: 120, useNativeDriver: true }),
         Animated.spring(avatarAnim, { toValue: 1, friction: 4, useNativeDriver: true }),
       ]).start();
-      setAvatarUri(result.assets[0].uri);
+      setAvatarUri(result.assets[0].uri); // updates global store
+      Alert.alert('📸 Photo updated!', 'Your profile picture has been set.');
     }
   };
 
