@@ -1,4 +1,4 @@
-# 🚀 Pathy (formerly SafeTck)
+# 🚀 Pathy (formerly SafeTrack)
 
 <p align="center">
   <img src="https://readme-typing-svg.herokuapp.com?font=Inter&size=28&pause=1000&color=006c44&center=true&vCenter=true&width=700&lines=Navigate+Smarter.;Travel+Together.;AI-Powered+Navigation.;Community+Driven+Routes.;Welcome+to+Pathy." />
