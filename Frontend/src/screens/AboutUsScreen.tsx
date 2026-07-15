@@ -130,7 +130,7 @@ export default function AboutUsScreen({ navigation }: any) {
         <View style={s.footer}>
           <View style={s.footerDivider} />
           <Text style={s.footerVersion}>Pathy v1.0.0</Text>
-          <Text style={s.footerSub}>Built with ❤️ for university · CodeQuest Project</Text>
+          <Text style={s.footerSub}>CodeQuest Project</Text>
           <TouchableOpacity onPress={() => Linking.openURL('https://github.com/Philemon12421/Pathy--CodequestProject/')}>
             <View style={s.githubRow}>
               <Ionicons name="logo-github" size={16} color={C.textMuted} />
