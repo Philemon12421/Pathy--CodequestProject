@@ -24,6 +24,7 @@ export default function LoginScreen({ navigation }: any) {
   const [showPw, setShowPw]     = useState(false);
   const [showCPw, setShowCPw]   = useState(false);
   const [focused, setFocused]   = useState<string | null>(null);
+  const [tabLayout, setTabLayout] = useState({ width: 0 });
 
   // Screen mount animation
   const screenOpacity   = useRef(new Animated.Value(0)).current;
@@ -81,7 +82,8 @@ export default function LoginScreen({ navigation }: any) {
 
   const bdr = (f: string) => focused === f ? '#006c44' : 'rgba(0,108,68,0.15)';
 
-  const indicatorTranslateX = indicatorX.interpolate({ inputRange: [0, 1], outputRange: [4, 152] });
+  const tabWidth = (tabLayout.width - 8) / 2;
+  const indicatorTranslateX = indicatorX.interpolate({ inputRange: [0, 1], outputRange: [4, 4 + tabWidth] });
 
   return (
     <KeyboardAvoidingView style={s.root} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
@@ -98,9 +100,8 @@ export default function LoginScreen({ navigation }: any) {
           </View>
 
           {/* Tab toggle with sliding indicator */}
-          <View style={s.tabWrap}>
-            <Animated.View style={[s.tabIndicator, { transform: [{ translateX: indicatorTranslateX }] }]} />
-            <TouchableOpacity style={s.tabBtn} onPress={() => switchTab(true)}  activeOpacity={0.8}>
+            <View style={s.tabWrap} onLayout={(e) => setTabLayout({ width: e.nativeEvent.layout.width })}>
+             <Animated.View style={[s.tabIndicator, { width: tabWidth, transform: [{ translateX: indicatorTranslateX }] }]} />            <TouchableOpacity style={s.tabBtn} onPress={() => switchTab(true)}  activeOpacity={0.8}>
               <Text style={[s.tabText, isLogin  && s.tabTextActive]}>Sign In</Text>
             </TouchableOpacity>
             <TouchableOpacity style={s.tabBtn} onPress={() => switchTab(false)} activeOpacity={0.8}>
@@ -224,7 +225,7 @@ function makeStyles(C: any) {
   appName: { fontSize: FONTS.sizes.xxxl, fontWeight: '800', color: '#006c44', letterSpacing: -1 },
 
   tabWrap: { flexDirection: 'row', backgroundColor: C.border, borderRadius: RADIUS.md, padding: 4, marginBottom: SPACING.xl, position: 'relative' },
-  tabIndicator: { position: 'absolute', top: 4, bottom: 4, width: 148, backgroundColor: C.surface, borderRadius: RADIUS.sm, ...SHADOW.xs },
+  tabIndicator: { position: 'absolute', top: 4, bottom: 4, backgroundColor: C.surface, borderRadius: RADIUS.sm, ...SHADOW.xs },
   tabBtn:  { flex: 1, paddingVertical: 11, alignItems: 'center', borderRadius: RADIUS.sm, zIndex: 1 },
   tabText: { fontSize: FONTS.sizes.sm, color: C.textMuted, fontWeight: '500' },
   tabTextActive: { color: '#006c44', fontWeight: '700' },
