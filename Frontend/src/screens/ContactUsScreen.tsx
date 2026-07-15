@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
-  TextInput, Alert, ActivityIndicator, Linking,
+  TextInput, Alert, ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { BlurView } from 'expo-blur';
@@ -58,12 +58,7 @@ export default function ContactUsScreen({ navigation }: any) {
         </BlurView>
 
   
-        {/* Divider */}
-        <View style={s.dividerRow}>
-          <View style={s.dividerLine} />
-          <Text style={s.dividerText}>OR SEND A MESSAGE</Text>
-          <View style={s.dividerLine} />
-        </View>
+
 
         {sent ? (
           /* Success state */
@@ -156,12 +151,7 @@ function makeStyles(C: any) {
   heroTitle: { fontSize: FONTS.sizes.xl, fontWeight: '800', color: C.text, textAlign: 'center' },
   heroSub: { fontSize: FONTS.sizes.sm, color: C.textSecondary, textAlign: 'center', lineHeight: 20 },
 
-  sectionLabel: { fontSize: 11, fontWeight: '700', color: C.textMuted, letterSpacing: 0.8 },
-  methodsRow: { flexDirection: 'row', gap: SPACING.md },
-  methodCard: { flex: 1, borderRadius: RADIUS.xl, padding: SPACING.md, alignItems: 'center', gap: SPACING.xs, ...SHADOW.xs },
-  methodLabel: { fontSize: FONTS.sizes.xs, fontWeight: '700' },
-  methodSub: { fontSize: 9, color: C.textMuted, textAlign: 'center' },
-
+  
   dividerRow: { flexDirection: 'row', alignItems: 'center', gap: SPACING.sm },
   dividerLine: { flex: 1, height: 1, backgroundColor: C.border },
   dividerText: { fontSize: 10, color: C.textMuted, fontWeight: '600', letterSpacing: 0.8 },
