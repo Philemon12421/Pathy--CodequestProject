@@ -274,7 +274,7 @@ export default function ProfileScreen({ navigation }: any) {
           })
         )}
 
-        <Text style={s.versionText}>Pathy v1.0.0 · Built with ❤️ for university</Text>
+        <Text style={s.versionText}>Pathy v1.0.0</Text>
       </ScrollView>
     </SafeAreaView>
   );

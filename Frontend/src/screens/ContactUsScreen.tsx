@@ -9,11 +9,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useColors } from '../config/ThemeContext';
 import { FONTS, RADIUS, SPACING, SHADOW } from '../config/theme';
 
-const CONTACT_METHODS = [
-  { icon: 'mail-outline',      label: 'Email Us',   sub: 'support@pathy.app',         color: '#006c44', bg: '#e1f9eb', action: () => Linking.openURL('mailto:support@pathy.app') },
-  { icon: 'logo-whatsapp',     label: 'WhatsApp',   sub: '+233 XX XXX XXXX',           color: '#25D366', bg: '#e8fdf1', action: () => Linking.openURL('https://wa.me/233') },
-  { icon: 'logo-twitter',      label: 'Twitter/X',  sub: '@pathy_app',                 color: '#1DA1F2', bg: '#e8f5fd', action: () => Linking.openURL('https://twitter.com') },
-];
+
 
 export default function ContactUsScreen({ navigation }: any) {
   const C = useColors();
@@ -61,18 +57,7 @@ export default function ContactUsScreen({ navigation }: any) {
           <Text style={s.heroSub}>Send us a message and we'll get back to you within 24 hours.</Text>
         </BlurView>
 
-        {/* Contact method chips */}
-        <Text style={s.sectionLabel}>REACH US DIRECTLY</Text>
-        <View style={s.methodsRow}>
-          {CONTACT_METHODS.map(m => (
-            <TouchableOpacity key={m.label} style={[s.methodCard, { backgroundColor: m.bg }]} onPress={m.action} activeOpacity={0.8}>
-              <Ionicons name={m.icon as any} size={22} color={m.color} />
-              <Text style={[s.methodLabel, { color: m.color }]}>{m.label}</Text>
-              <Text style={s.methodSub}>{m.sub}</Text>
-            </TouchableOpacity>
-          ))}
-        </View>
-
+  
         {/* Divider */}
         <View style={s.dividerRow}>
           <View style={s.dividerLine} />
