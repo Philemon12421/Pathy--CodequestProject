@@ -101,10 +101,11 @@ export default function LoginScreen({ navigation }: any) {
 
           {/* Tab toggle with sliding indicator */}
             <View style={s.tabWrap} onLayout={(e) => setTabLayout({ width: e.nativeEvent.layout.width })}>
-             <Animated.View style={[s.tabIndicator, { width: tabWidth, transform: [{ translateX: indicatorTranslateX }] }]} />            <TouchableOpacity style={s.tabBtn} onPress={() => switchTab(true)}  activeOpacity={0.8}>
+             <Animated.View style={[s.tabIndicator, { width: tabWidth, transform: [{ translateX: indicatorTranslateX }] }]} />       
+             <TouchableOpacity style={s.tabBtn} onPress={() => switchTab(true)}  activeOpacity={0.8}>
               <Text style={[s.tabText, isLogin  && s.tabTextActive]}>Sign In</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={s.tabBtn} onPress={() => switchTab(false)} activeOpacity={0.8}>
+             </TouchableOpacity>
+             <TouchableOpacity style={s.tabBtn} onPress={() => switchTab(false)} activeOpacity={0.8}>
               <Text style={[s.tabText, !isLogin && s.tabTextActive]}>Create Account</Text>
             </TouchableOpacity>
           </View>
