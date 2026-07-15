@@ -184,8 +184,8 @@ function DealCard({ ad }: any) {
         </TouchableOpacity>
       ) : null}
 
-      {ad.expires_in && (
-        <View style={s.expireRow}>
+          {!!ad.expires_in && (
+          <View style={s.expireRow}>
           <Ionicons name="time-outline" size={12} color={C.textMuted} />
           <Text style={s.expireText}>Offer expires in {ad.expires_in}</Text>
         </View>
