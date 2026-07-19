@@ -325,12 +325,14 @@ export default function MusicScreen({ navigation }: any) {
       setTracks([withSource, ...tracks]);
       setQueue([withSource, ...tracks]);
       Alert.alert('Uploaded', `"${track.title}" added to your library`);
-    } catch { Alert.alert('Error', 'Upload failed'); }
-    finally { setUploading(false); }
-  };
+     } catch (e) { 
+      console.log('UPLOAD ERROR:', e);
+      Alert.alert('Error', 'Upload failed'); 
+      }    finally { setUploading(false); }
+      };
 
-  const spin = albumRotate.interpolate({ inputRange: [0, 1], outputRange: ['0deg', '360deg'] });
-  const progress = duration ? (position / duration) : 0;
+     const spin = albumRotate.interpolate({ inputRange: [0, 1], outputRange: ['0deg', '360deg'] });
+     const progress = duration ? (position / duration) : 0;
 
   const tabLabel = (t: 'tracks' | 'discover' | 'playlists') => {
     if (t === 'tracks') return `Library (${tracks.length})`;
