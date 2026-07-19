@@ -47,3 +47,7 @@ yarn-error.*
 .env.local
 *.m4a
 *.mp3
+
+# Railway
+.railway
+.railway-config-pull-*

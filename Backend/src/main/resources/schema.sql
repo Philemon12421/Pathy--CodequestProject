@@ -134,3 +134,17 @@ CREATE TABLE IF NOT EXISTS verification_codes (
 );
 
 CREATE INDEX IF NOT EXISTS idx_verification_codes_email ON verification_codes(email, type);
+
+-- Add balance column to users (safe migration)
+ALTER TABLE users ADD COLUMN IF NOT EXISTS balance NUMERIC(12, 2) DEFAULT 0.00;
+
+-- Deposits table for Paystack deposits
+CREATE TABLE IF NOT EXISTS deposits (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  user_id UUID REFERENCES users(id) ON DELETE CASCADE,
+  amount NUMERIC(12, 2) NOT NULL,
+  status VARCHAR(20) DEFAULT 'pending', -- 'pending', 'success', 'failed'
+  paystack_reference TEXT UNIQUE,
+  created_at TIMESTAMP DEFAULT NOW()
+);
+

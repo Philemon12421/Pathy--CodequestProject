@@ -37,7 +37,14 @@ public class AuthController {
     Map<String, Object> user = jdbc.sql("INSERT INTO users (name, email, password_hash) VALUES (:name, :email, :hash) RETURNING id, name, email")
         .param("name", name).param("email", email).param("hash", encoder.encode(password)).query().singleRow();
     String token = jwtService.createToken((UUID) user.get("id"), (String) user.get("email"));
-    return ResponseEntity.status(201).body(Map.of("token", token, "user", user));
+    Map<String, Object> publicUser = Map.of(
+        "id", user.get("id"),
+        "name", user.get("name"),
+        "email", user.get("email"),
+        "avatar_url", "",
+        "balance", 0.00
+    );
+    return ResponseEntity.status(201).body(Map.of("token", token, "user", publicUser));
   }
 
   @PostMapping("/login")
@@ -50,9 +57,18 @@ public class AuthController {
 
     Map<String, Object> user = rows.get(0);
     String token = jwtService.createToken((UUID) user.get("id"), (String) user.get("email"));
+    
+    // Read balance and handle potential null
+    Number balanceNum = (Number) user.get("balance");
+    double balance = balanceNum != null ? balanceNum.doubleValue() : 0.0;
+
     Map<String, Object> publicUser = Map.of(
-        "id", user.get("id"), "name", user.get("name"), "email", user.get("email"),
-        "avatar_url", user.get("avatar_url") == null ? "" : user.get("avatar_url"));
+        "id", user.get("id"),
+        "name", user.get("name"),
+        "email", user.get("email"),
+        "avatar_url", user.get("avatar_url") == null ? "" : user.get("avatar_url"),
+        "balance", balance
+    );
     return ResponseEntity.ok(Map.of("token", token, "user", publicUser));
   }
 

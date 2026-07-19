@@ -9,7 +9,7 @@ import MapView, { Marker, Circle } from 'react-native-maps';
 import { Ionicons } from '@expo/vector-icons';
 import { useColors } from '../config/ThemeContext';
 import { FONTS, RADIUS, SPACING, SHADOW } from '../config/theme';
-import { adsAPI } from '../services/api';
+import { adsAPI, walletAPI } from '../services/api';
 import useStore from '../store/useStore';
 
 const RADIUS_OPTIONS = ['0.5', '1', '2', '5', '10'];
@@ -130,7 +130,7 @@ function makeMyCardStyles(COLORS: any) {
 export default function AdPortalScreen() {
   const COLORS = useColors();
   const s = makeStyles(COLORS);
-  const { userLocation, myAds, setMyAds, addAd } = useStore();
+  const { userLocation, myAds, setMyAds, addAd, user, setAuth, token } = useStore();
 
   // Form / flow state
   const [creating, setCreating] = useState(false);
@@ -141,15 +141,7 @@ export default function AdPortalScreen() {
   const [submitting, setSubmitting] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [done, setDone] = useState(false);
-
-  // Payment details state
-  const [paymentMethod, setPaymentMethod] = useState<'momo' | 'card'>('momo');
-  const [momoNumber, setMomoNumber] = useState('');
-  const [momoNetwork, setMomoNetwork] = useState<'MTN' | 'Vodafone' | 'AirtelTigo'>('MTN');
-  const [cardNumber, setCardNumber] = useState('');
-  const [cardExpiry, setCardExpiry] = useState('');
-  const [cardCVV, setCardCVV] = useState('');
-  const [cardName, setCardName] = useState('');
+  const [walletBalance, setWalletBalance] = useState<number>(typeof user?.balance === 'number' ? user.balance : 0);
 
   // Slide animation for step transitions
   const slideAnim = useRef(new Animated.Value(0)).current;
@@ -169,11 +161,22 @@ export default function AdPortalScreen() {
     } catch { }
   }, [setMyAds]);
 
-  useEffect(() => { loadMyAds(); }, [loadMyAds]);
+  const refreshWalletBalance = useCallback(async () => {
+    try {
+      const latest = await walletAPI.getMe();
+      setWalletBalance(typeof latest.balance === 'number' ? latest.balance : 0);
+      setAuth(token, latest);
+    } catch { }
+  }, [token, setAuth]);
+
+  useEffect(() => {
+    loadMyAds();
+    refreshWalletBalance();
+  }, [loadMyAds, refreshWalletBalance]);
 
   const onRefresh = async () => {
     setRefreshing(true);
-    await loadMyAds();
+    await Promise.all([loadMyAds(), refreshWalletBalance()]);
     setRefreshing(false);
   };
 
@@ -184,13 +187,6 @@ export default function AdPortalScreen() {
     setAdId(null);
     setForm({ business_name: '', description: '', website_url: '', radius_km: '2' });
     setPin(userLocation || { latitude: 6.6885, longitude: -1.6244 });
-    setPaymentMethod('momo');
-    setMomoNumber('');
-    setMomoNetwork('MTN');
-    setCardNumber('');
-    setCardExpiry('');
-    setCardCVV('');
-    setCardName('');
   };
 
   // Step 0 → 1: validate details
@@ -199,7 +195,7 @@ export default function AdPortalScreen() {
     animateStep(1);
   };
 
-  // Step 1 → 2: create draft ad and go to payment details
+  // Step 1 → 2: create draft ad and go to wallet review
   const goToPaymentDetails = async () => {
     setSubmitting(true);
     try {
@@ -212,6 +208,8 @@ export default function AdPortalScreen() {
         website_url: form.website_url,
       });
       setAdId(ad.id);
+      // Refresh balance before showing wallet review
+      await refreshWalletBalance();
       animateStep(2);
     } catch (e: any) {
       Alert.alert('Error', e.error || 'Could not save ad details. Try again.');
@@ -220,72 +218,31 @@ export default function AdPortalScreen() {
     }
   };
 
-  // Validate payment details and go to summary
-  const goToSummary = () => {
-    if (paymentMethod === 'momo') {
-      if (!momoNumber.trim() || momoNumber.replace(/\D/g, '').length < 10) {
-        Alert.alert('Invalid Number', 'Please enter a valid 10-digit MoMo number.');
-        return;
-      }
-    } else {
-      if (cardNumber.replace(/\s/g, '').length < 16) {
-        Alert.alert('Invalid Card', 'Please enter a valid 16-digit card number.');
-        return;
-      }
-      if (!cardExpiry.trim() || cardExpiry.length < 5) {
-        Alert.alert('Invalid Expiry', 'Please enter a valid expiry date (MM/YY).');
-        return;
-      }
-      if (cardCVV.length < 3) {
-        Alert.alert('Invalid CVV', 'Please enter a valid 3-digit CVV.');
-        return;
-      }
-      if (!cardName.trim()) {
-        Alert.alert('Required', 'Please enter the name on the card.');
-        return;
-      }
-    }
-    animateStep(3);
-  };
+  // Step 2 → 3: skip straight to confirm since we use wallet
+  const goToSummary = () => animateStep(3);
 
-  // Format card number with spaces
-  const formatCardNumber = (text: string) => {
-    const cleaned = text.replace(/\D/g, '').slice(0, 16);
-    return cleaned.replace(/(\d{4})(?=\d)/g, '$1 ');
-  };
-
-  // Format expiry MM/YY
-  const formatExpiry = (text: string) => {
-    const cleaned = text.replace(/\D/g, '').slice(0, 4);
-    if (cleaned.length >= 3) return cleaned.slice(0, 2) + '/' + cleaned.slice(2);
-    return cleaned;
-  };
-
-  // Step 3: activate ad directly (simulation mode — skips Paystack hosted page)
+  // Step 3: activate ad by deducting from wallet balance
   const payAndActivate = async () => {
     if (!adId) return;
+    const price = computePrice(form.radius_km);
+    if (walletBalance < price) {
+      Alert.alert(
+        'Insufficient Balance',
+        `You need GH₵ ${price.toFixed(2)} but your wallet only has GH₵ ${walletBalance.toFixed(2)}.\n\nPlease deposit funds from your Profile page.`
+      );
+      return;
+    }
     setSubmitting(true);
     try {
       const activatedAd = await adsAPI.activate(adId);
+      // Refresh balance after successful payment
+      await refreshWalletBalance();
       addAd(activatedAd);
       setDone(true);
       loadMyAds();
     } catch (e: any) {
-      console.log('Payment activation backend error, falling back to local simulation:', e);
-      const mockActivatedAd = {
-        id: adId,
-        business_name: form.business_name,
-        description: form.description,
-        latitude: pin.latitude,
-        longitude: pin.longitude,
-        radius_km: parseFloat(form.radius_km) || 2,
-        website_url: form.website_url,
-        payment_status: 'paid',
-        active: true,
-        expires_at: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString()
-      };
-      addAd(mockActivatedAd);
-      setDone(true);
+      const errMsg = e?.error || 'Payment failed. Please try again.';
+      Alert.alert('Payment Failed', errMsg);
     } finally {
       setSubmitting(false);
     }
@@ -453,131 +410,61 @@ export default function AdPortalScreen() {
             {/* ── Step 2: Payment Details ── */}
             {step === 2 && (
               <View style={s.stepContent}>
-                <Text style={s.stepTitle}>Payment Details</Text>
-                <Text style={s.stepDesc}>Choose your payment method to complete your ad</Text>
+                <Text style={s.stepTitle}>Wallet Payment</Text>
+                <Text style={s.stepDesc}>Your ad will be paid directly from your Pathy wallet</Text>
 
-                {/* Method selector */}
-                <View style={s.methodRow}>
-                  <TouchableOpacity
-                    style={[s.methodBtn, paymentMethod === 'momo' && s.methodBtnActive]}
-                    onPress={() => setPaymentMethod('momo')}
-                  >
-                    <Ionicons name="phone-portrait" size={20} color={paymentMethod === 'momo' ? COLORS.primary : COLORS.textMuted} />
-                    <Text style={[s.methodLabel, paymentMethod === 'momo' && { color: COLORS.primary, fontWeight: '700' }]}>Mobile Money</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    style={[s.methodBtn, paymentMethod === 'card' && s.methodBtnActive]}
-                    onPress={() => setPaymentMethod('card')}
-                  >
-                    <Ionicons name="card" size={20} color={paymentMethod === 'card' ? COLORS.primary : COLORS.textMuted} />
-                    <Text style={[s.methodLabel, paymentMethod === 'card' && { color: COLORS.primary, fontWeight: '700' }]}>Bank Card</Text>
-                  </TouchableOpacity>
-                </View>
-
-                {/* MoMo Fields */}
-                {paymentMethod === 'momo' && (
-                  <View style={s.payFields}>
-                    <View style={s.networkRow}>
-                      {(['MTN', 'Vodafone', 'AirtelTigo'] as const).map((net) => (
-                        <TouchableOpacity
-                          key={net}
-                          style={[s.networkBtn, momoNetwork === net && s.networkBtnActive]}
-                          onPress={() => setMomoNetwork(net)}
-                        >
-                          <Text style={[s.networkBtnText, momoNetwork === net && { color: COLORS.primary, fontWeight: '700' }]}>{net}</Text>
-                        </TouchableOpacity>
-                      ))}
+                {/* Wallet balance card */}
+                <View style={s.walletReviewCard}>
+                  <View style={s.walletReviewRow}>
+                    <View style={s.walletReviewIcon}>
+                      <Ionicons name="wallet" size={20} color="#006c44" />
                     </View>
-
-                    <Text style={s.label}>MoMo Number *</Text>
-                    <TextInput
-                      style={s.input}
-                      placeholderTextColor={COLORS.textMuted}
-                      placeholder="e.g. 0241234567"
-                      value={momoNumber}
-                      onChangeText={(v) => setMomoNumber(v.replace(/\D/g, '').slice(0, 10))}
-                      keyboardType="phone-pad"
-                      maxLength={10}
-                    />
-                    <View style={s.momoHintRow}>
-                      <Ionicons name="information-circle" size={14} color={COLORS.textMuted} />
-                      <Text style={s.momoHintText}>You will receive a MoMo prompt to authorise GHS {computePrice(form.radius_km)}</Text>
+                    <View style={{ flex: 1 }}>
+                      <Text style={s.walletReviewLabel}>Current Balance</Text>
+                      <Text style={s.walletReviewBal}>GH₵ {walletBalance.toFixed(2)}</Text>
                     </View>
                   </View>
-                )}
 
-                {/* Bank Card Fields */}
-                {paymentMethod === 'card' && (
-                  <View style={s.payFields}>
-                    <Text style={s.label}>Card Number *</Text>
-                    <TextInput
-                      style={s.input}
-                      placeholderTextColor={COLORS.textMuted}
-                      placeholder="0000 0000 0000 0000"
-                      value={cardNumber}
-                      onChangeText={(v) => setCardNumber(formatCardNumber(v))}
-                      keyboardType="number-pad"
-                      maxLength={19}
-                    />
+                  <View style={s.walletReviewDivider} />
 
-                    <Text style={s.label}>Name on Card *</Text>
-                    <TextInput
-                      style={s.input}
-                      placeholderTextColor={COLORS.textMuted}
-                      placeholder="e.g. KWAME ASANTE"
-                      value={cardName}
-                      onChangeText={setCardName}
-                      autoCapitalize="characters"
-                    />
+                  <View style={s.walletLineRow}>
+                    <Text style={s.walletLineKey}>Ad Cost</Text>
+                    <Text style={s.walletLineVal}>- GH₵ {computePrice(form.radius_km).toFixed(2)}</Text>
+                  </View>
+                  <View style={[s.walletLineRow, { marginTop: 4 }]}>
+                    <Text style={[s.walletLineKey, { fontWeight: '700' }]}>Remaining After</Text>
+                    <Text style={[
+                      s.walletLineVal,
+                      { fontWeight: '800', color: walletBalance >= computePrice(form.radius_km) ? '#006c44' : '#E24B4A' }
+                    ]}>
+                      GH₵ {Math.max(0, walletBalance - computePrice(form.radius_km)).toFixed(2)}
+                    </Text>
+                  </View>
+                </View>
 
-                    <View style={s.cardRow}>
-                      <View style={{ flex: 1 }}>
-                        <Text style={s.label}>Expiry Date *</Text>
-                        <TextInput
-                          style={s.input}
-                          placeholderTextColor={COLORS.textMuted}
-                          placeholder="MM/YY"
-                          value={cardExpiry}
-                          onChangeText={(v) => setCardExpiry(formatExpiry(v))}
-                          keyboardType="number-pad"
-                          maxLength={5}
-                        />
-                      </View>
-                      <View style={{ flex: 1 }}>
-                        <Text style={s.label}>CVV *</Text>
-                        <TextInput
-                          style={s.input}
-                          placeholderTextColor={COLORS.textMuted}
-                          placeholder="123"
-                          value={cardCVV}
-                          onChangeText={(v) => setCardCVV(v.replace(/\D/g, '').slice(0, 3))}
-                          keyboardType="number-pad"
-                          maxLength={3}
-                          secureTextEntry
-                        />
-                      </View>
-                    </View>
+                {/* Insufficient balance warning */}
+                {walletBalance < computePrice(form.radius_km) && (
+                  <View style={s.insufficientBanner}>
+                    <Ionicons name="warning" size={16} color="#E24B4A" />
+                    <Text style={s.insufficientText}>
+                      Insufficient balance. You need GH₵ {computePrice(form.radius_km).toFixed(2)} but only have GH₵ {walletBalance.toFixed(2)}. Please deposit funds from your Profile page.
+                    </Text>
                   </View>
                 )}
-
-                <View style={s.secureRow}>
-                  <Ionicons name="lock-closed" size={13} color={COLORS.accent} />
-                  <Text style={s.secureText}>256-bit encrypted · Your details are safe</Text>
-                </View>
 
                 <View style={s.rowBtns}>
                   <TouchableOpacity style={s.backBtnOutline} onPress={() => animateStep(1)}>
                     <Text style={s.backBtnText}>Back</Text>
                   </TouchableOpacity>
                   <TouchableOpacity style={[s.nextBtn, { flex: 1 }]} onPress={goToSummary}>
-                    <Text style={s.nextBtnText}>Review & Pay</Text>
+                    <Text style={s.nextBtnText}>Review & Confirm</Text>
                     <Ionicons name="arrow-forward" size={18} color="#fff" />
                   </TouchableOpacity>
                 </View>
               </View>
             )}
 
-            {/* ── Step 3: Pay GHS 50 ── */}
+
             {step === 3 && (
               <View style={s.stepContent}>
                 <Text style={s.stepTitle}>Confirm & Pay</Text>
@@ -601,13 +488,8 @@ export default function AdPortalScreen() {
                   <View style={s.summaryRow}><Text style={s.summaryKey}>Radius</Text><Text style={s.summaryVal}>{form.radius_km} km</Text></View>
                   <View style={s.summaryRow}><Text style={s.summaryKey}>Duration</Text><Text style={s.summaryVal}>30 days</Text></View>
                   <View style={s.summaryRow}>
-                    <Text style={s.summaryKey}>Payment</Text>
-                    <Text style={s.summaryVal}>
-                      {paymentMethod === 'momo'
-                        ? `${momoNetwork} MoMo · ${momoNumber}`
-                        : `Card · **** ${cardNumber.replace(/\s/g, '').slice(-4)}`
-                      }
-                    </Text>
+                    <Text style={s.summaryKey}>Pay from Wallet</Text>
+                    <Text style={s.summaryVal}>GH₵ {walletBalance.toFixed(2)} balance</Text>
                   </View>
                   <View style={[s.summaryRow, s.summaryTotal]}>
                     <Text style={s.summaryTotalKey}>Total</Text>
@@ -615,15 +497,29 @@ export default function AdPortalScreen() {
                   </View>
                 </View>
 
-                <View style={s.secureRow}>
-                  <Ionicons name="lock-closed" size={13} color={COLORS.accent} />
-                  <Text style={s.secureText}>Secure payment · Your ad goes live instantly on the map</Text>
-                </View>
+                {/* Insufficient balance warning in step 3 too */}
+                {walletBalance < computePrice(form.radius_km) ? (
+                  <View style={s.insufficientBanner}>
+                    <Ionicons name="warning" size={16} color="#E24B4A" />
+                    <Text style={s.insufficientText}>
+                      Insufficient balance — deposit funds from your Profile page first.
+                    </Text>
+                  </View>
+                ) : (
+                  <View style={s.secureRow}>
+                    <Ionicons name="wallet" size={13} color={COLORS.accent} />
+                    <Text style={s.secureText}>Paid from your Pathy wallet · Ad goes live instantly</Text>
+                  </View>
+                )}
 
-                <TouchableOpacity style={s.payBtn} onPress={payAndActivate} disabled={submitting}>
+                <TouchableOpacity
+                  style={[s.payBtn, walletBalance < computePrice(form.radius_km) && { opacity: 0.5 }]}
+                  onPress={payAndActivate}
+                  disabled={submitting || walletBalance < computePrice(form.radius_km)}
+                >
                   {submitting
                     ? <ActivityIndicator color="#fff" />
-                    : <><Ionicons name="card" size={20} color="#fff" /><Text style={s.payBtnText}>Pay GHS {computePrice(form.radius_km)} & Go Live</Text></>
+                    : <><Ionicons name="wallet" size={20} color="#fff" /><Text style={s.payBtnText}>Pay GHS {computePrice(form.radius_km)} & Go Live</Text></>
                   }
                 </TouchableOpacity>
 
@@ -815,6 +711,19 @@ function makeStyles(COLORS: any) {
     successInfoText: { color: COLORS.primary, fontSize: FONTS.sizes.sm, fontWeight: FONTS.weights.semibold },
     successBtn: { flexDirection: 'row', alignItems: 'center', gap: SPACING.sm, backgroundColor: COLORS.primary, borderRadius: RADIUS.lg, paddingHorizontal: SPACING.xxl, paddingVertical: SPACING.md, marginTop: SPACING.sm },
     successBtnText: { color: '#fff', fontSize: FONTS.sizes.md, fontWeight: FONTS.weights.bold },
+
+    // Wallet review styles
+    walletReviewCard: { backgroundColor: COLORS.surface, borderRadius: RADIUS.lg, padding: SPACING.md, borderWidth: 1, borderColor: COLORS.border, gap: SPACING.sm },
+    walletReviewRow: { flexDirection: 'row', alignItems: 'center', gap: SPACING.md },
+    walletReviewIcon: { width: 40, height: 40, borderRadius: RADIUS.md, backgroundColor: COLORS.primary + '18', alignItems: 'center', justifyContent: 'center' },
+    walletReviewLabel: { fontSize: FONTS.sizes.xs, color: COLORS.textMuted },
+    walletReviewBal: { fontSize: FONTS.sizes.lg, fontWeight: FONTS.weights.bold, color: COLORS.text },
+    walletReviewDivider: { height: 1, backgroundColor: COLORS.border, marginVertical: 4 },
+    walletLineRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+    walletLineKey: { fontSize: FONTS.sizes.sm, color: COLORS.textSecondary },
+    walletLineVal: { fontSize: FONTS.sizes.sm, color: COLORS.text, fontWeight: FONTS.weights.semibold },
+    insufficientBanner: { flexDirection: 'row', gap: SPACING.sm, backgroundColor: '#E24B4A18', borderRadius: RADIUS.md, padding: SPACING.md, marginTop: SPACING.md, alignItems: 'center' },
+    insufficientText: { color: '#E24B4A', fontSize: FONTS.sizes.xs, flex: 1, lineHeight: 16, fontWeight: FONTS.weights.bold },
   });
 
 }

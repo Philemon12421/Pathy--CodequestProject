@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
   RefreshControl, ActivityIndicator, Alert, Switch, TextInput,
-  Image, Animated,
+  Image, Animated, Modal, Linking,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as ImagePicker from 'expo-image-picker';
@@ -10,7 +10,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { BlurView } from 'expo-blur';
 import { FONTS, RADIUS, SPACING, SHADOW } from '../config/theme';
 import { useColors } from '../config/ThemeContext';
-import { routesAPI } from '../services/api';
+import { routesAPI, walletAPI } from '../services/api';
 import useStore from '../store/useStore';
 
 const MEDAL: Record<number, string> = { 1: '#FFD700', 2: '#C0C0C0', 3: '#CD7F32' };
@@ -52,23 +52,88 @@ function StatTile({ icon, label, value, color }: any) {
 
 export default function ProfileScreen({ navigation }: any) {
   const C = useColors();
-  const { user, logout, savedRoutes, setSavedRoutes, theme, toggleTheme, myAds, setAuth, avatarUri, setAvatarUri } = useStore();
+  const { user, logout, savedRoutes, setSavedRoutes, theme, toggleTheme, myAds, setAuth, token, avatarUri, setAvatarUri } = useStore();
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [editingName, setEditingName] = useState(false);
   const [nameValue, setNameValue] = useState(user?.name || '');
   const avatarAnim = useRef(new Animated.Value(1)).current;
 
+  // Deposit states
+  const [isDepositModalVisible, setIsDepositModalVisible] = useState(false);
+  const [depositAmount, setDepositAmount] = useState('');
+  const [depositLoading, setDepositLoading] = useState(false);
+  const [paystackRef, setPaystackRef] = useState<string | null>(null);
+  const [isVerifying, setIsVerifying] = useState(false);
+
   const loadRoutes = useCallback(async () => {
     try { const d = await routesAPI.getAll(); setSavedRoutes(d as any); } catch {}
   }, [setSavedRoutes]);
 
+  const fetchLatestProfile = useCallback(async () => {
+    try {
+      const latestUser = await walletAPI.getMe();
+      setAuth(token, latestUser);
+    } catch (e) {
+      console.log('Error fetching latest user details', e);
+    }
+  }, [token, setAuth]);
+
   useEffect(() => {
     setLoading(true);
-    loadRoutes().finally(() => setLoading(false));
-  }, [loadRoutes]);
+    Promise.all([
+      loadRoutes(),
+      fetchLatestProfile(),
+    ]).finally(() => setLoading(false));
+  }, [loadRoutes, fetchLatestProfile]);
 
-  const onRefresh = async () => { setRefreshing(true); await loadRoutes(); setRefreshing(false); };
+  const onRefresh = async () => {
+    setRefreshing(true);
+    await Promise.all([
+      loadRoutes(),
+      fetchLatestProfile(),
+    ]);
+    setRefreshing(false);
+  };
+
+  const handleInitiateDeposit = async () => {
+    const amt = parseFloat(depositAmount);
+    if (isNaN(amt) || amt <= 0) {
+      Alert.alert('Invalid Amount', 'Please enter a valid deposit amount.');
+      return;
+    }
+    setDepositLoading(true);
+    try {
+      const res = await walletAPI.deposit(amt);
+      setPaystackRef(res.reference);
+      if (res.authorization_url) {
+        await Linking.openURL(res.authorization_url);
+      } else {
+        throw new Error('No authorization URL returned');
+      }
+    } catch (e: any) {
+      Alert.alert('Deposit Error', e.error || 'Failed to initialize deposit.');
+    } finally {
+      setDepositLoading(false);
+    }
+  };
+
+  const handleVerifyDeposit = async () => {
+    if (!paystackRef) return;
+    setIsVerifying(true);
+    try {
+      const updatedUser = await walletAPI.verify(paystackRef);
+      setAuth(token, updatedUser);
+      Alert.alert('Success 🎉', `Your deposit was successful! New balance: GH₵ ${updatedUser.balance.toFixed(2)}`);
+      setIsDepositModalVisible(false);
+      setDepositAmount('');
+      setPaystackRef(null);
+    } catch (e: any) {
+      Alert.alert('Verification Failed', e.error || 'Could not verify payment yet. Please ensure you have completed the authorization.');
+    } finally {
+      setIsVerifying(false);
+    }
+  };
 
   const pickAvatar = async () => {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -177,6 +242,128 @@ export default function ProfileScreen({ navigation }: any) {
             <Text style={s.roleText}>{user?.role || 'User'}</Text>
           </View>
         </BlurView>
+
+        {/* ── Wallet Balance Card ────────────────────────────────────────── */}
+        <View style={s.walletCard}>
+          <View style={s.walletLeft}>
+            <View style={s.walletIconWrap}>
+              <Ionicons name="wallet" size={22} color="#fff" />
+            </View>
+            <View>
+              <Text style={s.walletLabel}>Wallet Balance</Text>
+              <Text style={s.walletBalance}>
+                GH₵ {typeof user?.balance === 'number' ? user.balance.toFixed(2) : '0.00'}
+              </Text>
+            </View>
+          </View>
+          <TouchableOpacity
+            style={s.depositBtn}
+            onPress={() => { setDepositAmount(''); setPaystackRef(null); setIsDepositModalVisible(true); }}
+          >
+            <Ionicons name="add-circle-outline" size={16} color="#fff" />
+            <Text style={s.depositBtnText}>Deposit</Text>
+          </TouchableOpacity>
+        </View>
+
+        {/* ── Deposit Modal ──────────────────────────────────────────────── */}
+        <Modal
+          visible={isDepositModalVisible}
+          transparent
+          animationType="slide"
+          onRequestClose={() => setIsDepositModalVisible(false)}
+        >
+          <View style={s.modalOverlay}>
+            <View style={s.modalSheet}>
+              <View style={s.modalHeader}>
+                <Text style={s.modalTitle}>💳 Deposit Funds</Text>
+                <TouchableOpacity onPress={() => setIsDepositModalVisible(false)} style={s.modalCloseBtn}>
+                  <Ionicons name="close" size={20} color={C.textMuted} />
+                </TouchableOpacity>
+              </View>
+              <Text style={s.modalSub}>Add money to your Pathy wallet to pay for ads</Text>
+
+              {/* Quick amount chips */}
+              <View style={s.amountChips}>
+                {['50', '100', '200', '500'].map((amt) => (
+                  <TouchableOpacity
+                    key={amt}
+                    style={[s.amountChip, depositAmount === amt && s.amountChipActive]}
+                    onPress={() => setDepositAmount(amt)}
+                  >
+                    <Text style={[s.amountChipText, depositAmount === amt && { color: '#006c44', fontWeight: '700' }]}>
+                      GH₵ {amt}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+
+              {/* Custom amount input */}
+              <Text style={s.inputLabel}>Or enter a custom amount (GHS)</Text>
+              <TextInput
+                style={s.amountInput}
+                value={depositAmount}
+                onChangeText={setDepositAmount}
+                placeholder="e.g. 150"
+                placeholderTextColor={C.textMuted}
+                keyboardType="numeric"
+              />
+
+              {/* Current balance display */}
+              <View style={s.currentBalanceRow}>
+                <Ionicons name="information-circle-outline" size={14} color={C.textMuted} />
+                <Text style={s.currentBalanceText}>
+                  Current balance: GH₵ {typeof user?.balance === 'number' ? user.balance.toFixed(2) : '0.00'}
+                </Text>
+              </View>
+
+              {/* Step 1: initiate deposit → open Paystack */}
+              {!paystackRef ? (
+                <TouchableOpacity
+                  style={[s.payNowBtn, depositLoading && { opacity: 0.7 }]}
+                  onPress={handleInitiateDeposit}
+                  disabled={depositLoading}
+                >
+                  {depositLoading
+                    ? <ActivityIndicator color="#fff" />
+                    : <>
+                        <Ionicons name="card" size={18} color="#fff" />
+                        <Text style={s.payNowBtnText}>Pay via Paystack</Text>
+                      </>
+                  }
+                </TouchableOpacity>
+              ) : (
+                /* Step 2: verify after completing payment in browser */
+                <View style={s.verifySection}>
+                  <View style={s.verifyHintRow}>
+                    <Ionicons name="checkmark-circle-outline" size={16} color="#006c44" />
+                    <Text style={s.verifyHintText}>
+                      Paystack page opened. Complete payment, then tap below.
+                    </Text>
+                  </View>
+                  <TouchableOpacity
+                    style={[s.verifyBtn, isVerifying && { opacity: 0.7 }]}
+                    onPress={handleVerifyDeposit}
+                    disabled={isVerifying}
+                  >
+                    {isVerifying
+                      ? <ActivityIndicator color="#fff" />
+                      : <>
+                          <Ionicons name="shield-checkmark" size={18} color="#fff" />
+                          <Text style={s.payNowBtnText}>Verify Payment</Text>
+                        </>
+                    }
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={s.reopenLinkBtn}
+                    onPress={handleInitiateDeposit}
+                  >
+                    <Text style={s.reopenLinkText}>Reopen Paystack page</Text>
+                  </TouchableOpacity>
+                </View>
+              )}
+            </View>
+          </View>
+        </Modal>
 
         {/* Stats */}
         <View style={s.statsRow}>
@@ -349,4 +536,71 @@ function makeStyles(C: ReturnType<typeof useColors>) { return StyleSheet.create(
   mapBtnText: { color: '#fff', fontWeight: '700', fontSize: FONTS.sizes.sm },
 
   versionText: { textAlign: 'center', fontSize: FONTS.sizes.xs, color: C.textMuted, paddingVertical: SPACING.lg },
+
+  // Wallet card
+  walletCard: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    backgroundColor: '#006c44', borderRadius: RADIUS.xl, padding: SPACING.lg,
+    ...SHADOW.sm,
+  },
+  walletLeft: { flexDirection: 'row', alignItems: 'center', gap: SPACING.md },
+  walletIconWrap: {
+    width: 44, height: 44, borderRadius: RADIUS.lg,
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    alignItems: 'center', justifyContent: 'center',
+  },
+  walletLabel: { fontSize: FONTS.sizes.xs, color: 'rgba(255,255,255,0.75)', fontWeight: '500', marginBottom: 2 },
+  walletBalance: { fontSize: FONTS.sizes.xl, fontWeight: '800', color: '#fff' },
+  depositBtn: {
+    flexDirection: 'row', alignItems: 'center', gap: 5,
+    backgroundColor: 'rgba(255,255,255,0.2)', borderRadius: RADIUS.full,
+    paddingHorizontal: SPACING.md, paddingVertical: SPACING.sm,
+    borderWidth: 1, borderColor: 'rgba(255,255,255,0.35)',
+  },
+  depositBtnText: { color: '#fff', fontWeight: '700', fontSize: FONTS.sizes.sm },
+
+  // Deposit modal
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
+  modalSheet: {
+    backgroundColor: C.surface, borderTopLeftRadius: RADIUS.xxl, borderTopRightRadius: RADIUS.xxl,
+    padding: SPACING.xl, paddingBottom: 40, gap: SPACING.md,
+    borderTopWidth: 1, borderColor: C.border,
+  },
+  modalHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  modalTitle: { fontSize: FONTS.sizes.lg, fontWeight: '800', color: C.text },
+  modalCloseBtn: { width: 32, height: 32, borderRadius: RADIUS.full, backgroundColor: C.surfaceGlass, alignItems: 'center', justifyContent: 'center' },
+  modalSub: { fontSize: FONTS.sizes.sm, color: C.textMuted, marginTop: -4 },
+  amountChips: { flexDirection: 'row', gap: SPACING.sm, marginTop: SPACING.sm, flexWrap: 'wrap' },
+  amountChip: {
+    paddingHorizontal: SPACING.md, paddingVertical: SPACING.sm,
+    borderRadius: RADIUS.full, borderWidth: 1.5, borderColor: C.border,
+    backgroundColor: C.background,
+  },
+  amountChipActive: { borderColor: '#006c44', backgroundColor: '#006c4415' },
+  amountChipText: { fontSize: FONTS.sizes.sm, color: C.textSecondary },
+  inputLabel: { fontSize: FONTS.sizes.xs, fontWeight: '700', color: C.textMuted, textTransform: 'uppercase', letterSpacing: 0.6, marginTop: SPACING.sm },
+  amountInput: {
+    backgroundColor: C.background, borderRadius: RADIUS.md,
+    borderWidth: 1.5, borderColor: C.border,
+    paddingHorizontal: SPACING.md, paddingVertical: 12,
+    fontSize: FONTS.sizes.lg, color: C.text, fontWeight: '700',
+  },
+  currentBalanceRow: { flexDirection: 'row', alignItems: 'center', gap: 5, marginTop: -4 },
+  currentBalanceText: { fontSize: FONTS.sizes.xs, color: C.textMuted },
+  payNowBtn: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+    gap: SPACING.sm, backgroundColor: '#006c44',
+    borderRadius: RADIUS.lg, padding: SPACING.md, marginTop: SPACING.sm, ...SHADOW.sm,
+  },
+  payNowBtnText: { color: '#fff', fontSize: FONTS.sizes.md, fontWeight: '700' },
+  verifySection: { gap: SPACING.sm },
+  verifyHintRow: { flexDirection: 'row', alignItems: 'flex-start', gap: SPACING.sm, backgroundColor: '#006c4412', borderRadius: RADIUS.md, padding: SPACING.md },
+  verifyHintText: { fontSize: FONTS.sizes.sm, color: '#006c44', flex: 1, lineHeight: 18 },
+  verifyBtn: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+    gap: SPACING.sm, backgroundColor: '#006c44',
+    borderRadius: RADIUS.lg, padding: SPACING.md, ...SHADOW.sm,
+  },
+  reopenLinkBtn: { alignItems: 'center', paddingVertical: SPACING.sm },
+  reopenLinkText: { color: '#006c44', fontSize: FONTS.sizes.sm, fontWeight: '600', textDecorationLine: 'underline' },
 }); }

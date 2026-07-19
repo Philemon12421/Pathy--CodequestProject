@@ -83,4 +83,11 @@ export const adsAPI = {
   delete: (id: string | number) => api.delete(`/ads/${id}`),
 };
 
+// Wallet
+export const walletAPI = {
+  getMe: () => api.get('/wallet/me'),
+  deposit: (amount: number) => api.post('/wallet/deposit', { amount }),
+  verify: (reference: string) => api.post('/wallet/verify', { reference }),
+};
+
 export default api;
