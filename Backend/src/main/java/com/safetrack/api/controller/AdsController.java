@@ -261,12 +261,44 @@ public class AdsController extends BaseController {
   @PostMapping("/{id}/activate")
   public ResponseEntity<?> activate(HttpServletRequest request, @PathVariable("id") UUID id) {
     // Verify ad belongs to this user
+    UUID userId = user(request).id();
     List<Map<String, Object>> rows = jdbc.sql("SELECT * FROM ads WHERE id=:id AND user_id=:user_id")
-        .param("id", id).param("user_id", user(request).id()).query().listOfRows();
+        .param("id", id).param("user_id", userId).query().listOfRows();
     if (rows.isEmpty())
       return ResponseEntity.status(404).body(Map.of("error", "Ad not found"));
 
+    Map<String, Object> ad = rows.get(0);
+    
+    // If already paid, return it (idempotency)
+    if ("paid".equals(ad.get("payment_status"))) {
+      return ResponseEntity.ok(ad);
+    }
+
+    // Compute price based on radius
+    double radiusKm = ad.get("radius_km") != null ? ((Number) ad.get("radius_km")).doubleValue() : 2.0;
+    int amountPesewas = computeAmountPesewas(radiusKm);
+    double priceGhs = amountPesewas / 100.0;
+
+    // Fetch user's current balance
+    Map<String, Object> userRow = jdbc.sql("SELECT balance FROM users WHERE id=:id")
+        .param("id", userId).query().singleRow();
+    Number balanceNum = (Number) userRow.get("balance");
+    double balance = balanceNum != null ? balanceNum.doubleValue() : 0.0;
+
+    // Check if user has enough balance
+    if (balance < priceGhs) {
+      return ResponseEntity.badRequest().body(Map.of(
+          "error", "Insufficient balance. You need GH₵ " + String.format("%.2f", priceGhs) + 
+                   " but your current balance is GH₵ " + String.format("%.2f", balance) + "."
+      ));
+    }
+
     try {
+      // Deduct from balance
+      jdbc.sql("UPDATE users SET balance = balance - :price WHERE id=:id")
+          .param("price", priceGhs).param("id", userId).update();
+
+      // Activate ad
       List<Map<String, Object>> activated = jdbc.sql("""
           UPDATE ads
           SET payment_status='paid', active=true,
@@ -276,7 +308,7 @@ public class AdsController extends BaseController {
           """)
           .param("days", AD_DURATION_DAYS)
           .param("id", id)
-          .param("user_id", user(request).id())
+          .param("user_id", userId)
           .query().listOfRows();
 
       if (activated.isEmpty()) {
