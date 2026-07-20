@@ -389,7 +389,7 @@ export default function ProfileScreen({ navigation }: any) {
                 />
               }
             />
-            <SettingRow icon="notifications-outline" label="Notifications" sub="Incidents & leaderboard alerts" onPress={() => Alert.alert('Coming soon', 'Notification settings coming in the next update.')} last />
+            <SettingRow icon="notifications-outline" label="Notifications" sub="Incidents & leaderboard alerts" onPress={() => navigation.navigate('Notifications')} last />
           </View>
         </View>
 
