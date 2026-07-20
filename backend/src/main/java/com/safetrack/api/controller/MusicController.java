@@ -1,6 +1,7 @@
 package com.safetrack.api.controller;
 
 import com.safetrack.api.service.FileStorageService;
+import com.safetrack.api.service.NotificationService;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -16,10 +17,12 @@ import java.util.UUID;
 public class MusicController extends BaseController {
   private final JdbcClient jdbc;
   private final FileStorageService files;
+  private final NotificationService notifications;
 
-  public MusicController(JdbcClient jdbc, FileStorageService files) {
+  public MusicController(JdbcClient jdbc, FileStorageService files, NotificationService notifications) {
     this.jdbc = jdbc;
     this.files = files;
+    this.notifications = notifications;
   }
 
   @GetMapping("/tracks")
@@ -45,7 +48,11 @@ public class MusicController extends BaseController {
         """)
         .param("user_id", user(request).id()).param("title", title).param("artist", artist).param("album", album)
         .param("duration", duration).param("file_url", fileUrl).param("cover_url", coverUrl).query().singleRow();
+
+    notifications.create(user(request).id(), "Music Uploaded", "You uploaded track: \"" + title + "\" by " + artist + ".", "music_uploaded");
+
     return ResponseEntity.status(201).body(track);
+
   }
 
   @DeleteMapping("/tracks/{id}")

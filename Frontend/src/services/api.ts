@@ -93,4 +93,13 @@ export const walletAPI = {
   verify: (reference: string) => api.post('/wallet/verify', { reference }),
 };
 
+// Notifications
+export const notificationsAPI = {
+  getAll: () => api.get('/notifications'),
+  markAsRead: (id: string | number) => api.patch(`/notifications/${id}/read`),
+  readAll: () => api.post('/notifications/read-all'),
+  delete: (id: string | number) => api.delete(`/notifications/${id}`),
+  deleteAll: () => api.delete('/notifications'),
+};
+
 export default api;

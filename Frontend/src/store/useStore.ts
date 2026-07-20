@@ -2,6 +2,8 @@ import { create } from 'zustand';
 import { Audio } from 'expo-av';
 import * as FileSystem from 'expo-file-system/legacy';
 import { FeedPost, Comment } from '../screens/HomeScreen';
+import { notificationsAPI } from '../services/api';
+
 
 export interface StoreState {
   // ── Auth ──────────────────────────────────────────────────────────────────
@@ -81,7 +83,18 @@ export interface StoreState {
   // ── Profile picture ────────────────────────────────────────────
   avatarUri: string | null;
   setAvatarUri: (uri: string | null) => void;
+
+  // ── Notifications ──────────────────────────────────────────────
+  notifications: any[];
+  unreadNotificationsCount: number;
+  setNotifications: (notifications: any[]) => void;
+  fetchNotifications: () => Promise<void>;
+  markNotificationAsRead: (id: string) => Promise<void>;
+  markAllNotificationsAsRead: () => Promise<void>;
+  deleteNotification: (id: string) => Promise<void>;
+  deleteAllNotifications: () => Promise<void>;
 }
+
 
 const useStore = create<StoreState>((set, get) => ({
   // ── Auth ──────────────────────────────────────────────────────────────────
@@ -316,6 +329,63 @@ const useStore = create<StoreState>((set, get) => ({
   // ── Profile picture ────────────────────────────────────────────
   avatarUri: null,
   setAvatarUri: (uri) => set({ avatarUri: uri }),
+
+  // ── Notifications ──────────────────────────────────────────────
+  notifications: [],
+  unreadNotificationsCount: 0,
+  setNotifications: (notifications) => {
+    const unread = notifications.filter((n: any) => !n.read).length;
+    set({ notifications, unreadNotificationsCount: unread });
+  },
+  fetchNotifications: async () => {
+    try {
+      const data = await notificationsAPI.getAll();
+      const unread = data.filter((n: any) => !n.read).length;
+      set({ notifications: data, unreadNotificationsCount: unread });
+    } catch (e) {
+      console.log('Error fetching notifications:', e);
+    }
+  },
+  markNotificationAsRead: async (id) => {
+    try {
+      await notificationsAPI.markAsRead(id);
+      const notifications = get().notifications.map((n: any) =>
+        n.id === id ? { ...n, read: true } : n
+      );
+      const unread = notifications.filter((n: any) => !n.read).length;
+      set({ notifications, unreadNotificationsCount: unread });
+    } catch (e) {
+      console.log('Error marking notification as read:', e);
+    }
+  },
+  markAllNotificationsAsRead: async () => {
+    try {
+      await notificationsAPI.readAll();
+      const notifications = get().notifications.map((n: any) => ({ ...n, read: true }));
+      set({ notifications, unreadNotificationsCount: 0 });
+    } catch (e) {
+      console.log('Error marking all notifications as read:', e);
+    }
+  },
+  deleteNotification: async (id) => {
+    try {
+      await notificationsAPI.delete(id);
+      const notifications = get().notifications.filter((n: any) => n.id !== id);
+      const unread = notifications.filter((n: any) => !n.read).length;
+      set({ notifications, unreadNotificationsCount: unread });
+    } catch (e) {
+      console.log('Error deleting notification:', e);
+    }
+  },
+  deleteAllNotifications: async () => {
+    try {
+      await notificationsAPI.deleteAll();
+      set({ notifications: [], unreadNotificationsCount: 0 });
+    } catch (e) {
+      console.log('Error deleting all notifications:', e);
+    }
+  },
 }));
+
 
 export default useStore;

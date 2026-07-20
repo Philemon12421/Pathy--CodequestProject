@@ -1,6 +1,7 @@
 package com.safetrack.api.controller;
 
 import com.safetrack.api.service.FileStorageService;
+import com.safetrack.api.service.NotificationService;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -19,10 +20,12 @@ import java.util.UUID;
 public class IncidentController extends BaseController {
   private final JdbcClient jdbc;
   private final FileStorageService files;
+  private final NotificationService notifications;
 
-  public IncidentController(JdbcClient jdbc, FileStorageService files) {
+  public IncidentController(JdbcClient jdbc, FileStorageService files, NotificationService notifications) {
     this.jdbc = jdbc;
     this.files = files;
+    this.notifications = notifications;
   }
 
   @GetMapping
@@ -45,6 +48,9 @@ public class IncidentController extends BaseController {
         .param("user_id", user(request).id()).param("type", type).param("title", title).param("description", description)
         .param("latitude", Double.valueOf(latitude)).param("longitude", Double.valueOf(longitude)).param("severity", severity).param("media_url", mediaUrl)
         .query().singleRow();
+
+    notifications.create(user(request).id(), "New Incident Reported", "You reported a new " + type + " incident: \"" + title + "\".", "incident_created");
+
     return ResponseEntity.status(201).body(incident);
   }
 
