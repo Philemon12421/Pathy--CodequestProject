@@ -44,31 +44,33 @@ const ONBOARDING_KEY = 'pathy_has_onboarded';
 
 // ─── Elegant frosted-glass bottom navbar ─────────────────────────────────────
 const TABS = [
-  { name: 'Home',          icon: 'home-outline',          iconActive: 'home',          label: 'Home'   },
-  { name: 'Map',           icon: 'navigate-outline',      iconActive: 'navigate',      label: 'Map'    },
-  { name: 'Leaderboard',   icon: 'trophy-outline',        iconActive: 'trophy',        label: 'Board'  },
-  { name: 'Chat',          icon: 'chatbox-outline',       iconActive: 'chatbox',       label: 'AI Chat'},
-  { name: 'Alerts',        icon: 'notifications-outline', iconActive: 'notifications', label: 'Alerts' },
+  { name: 'Home',        icon: 'home-outline',     iconActive: 'home',     label: 'Home' },
+  { name: 'Map',         icon: 'navigate-outline', iconActive: 'navigate', label: 'Map' },
+  { name: 'Leaderboard', icon: 'trophy-outline',   iconActive: 'trophy',   label: 'Board' },
+  { name: 'Chat',        icon: 'chatbox-outline',  iconActive: 'chatbox',  label: 'AI Chat' },
 ];
 
 function CustomTabBar({ state, descriptors, navigation }: any) {
   const insets = useSafeAreaInsets();
   const pb = Math.max(insets.bottom, 8);
   const theme = useStore((st) => st.theme);
-  const unreadCount = useStore((st) => st.unreadNotificationsCount);
   const C = useColors();
   const s = makeStyles(C);
 
   return (
     <View style={[s.wrapper, { paddingBottom: pb }]}>
-      <BlurView intensity={85} tint={theme === 'dark' ? 'dark' : 'light'} style={s.blur}>
+      <BlurView
+        intensity={95}
+        tint={theme === 'dark' ? 'dark' : 'light'}
+        style={s.blur}
+      >
         <View style={s.inner}>
           {state.routes.map((route: any, index: number) => {
+            const { options } = descriptors[route.key];
             const focused = state.index === index;
             const tab = TABS.find(t => t.name === route.name)
               || { icon: 'ellipse-outline', iconActive: 'ellipse', label: route.name };
 
-            const isAlerts = route.name === 'Alerts';
             return (
               <TouchableOpacity
                 key={route.key}
@@ -80,18 +82,11 @@ function CustomTabBar({ state, descriptors, navigation }: any) {
                 activeOpacity={0.7}
               >
                 {focused && <View style={s.activePill} />}
-                <View style={{ position: 'relative' }}>
-                  <Ionicons
-                    name={(focused ? tab.iconActive : tab.icon) as any}
-                    size={22}
-                    color={focused ? C.primary : C.textMuted}
-                  />
-                  {isAlerts && unreadCount > 0 && (
-                    <View style={s.badgeDot}>
-                      <Text style={s.badgeDotText}>{unreadCount > 9 ? '9+' : unreadCount}</Text>
-                    </View>
-                  )}
-                </View>
+                <Ionicons
+                  name={(focused ? tab.iconActive : tab.icon) as any}
+                  size={22}
+                  color={focused ? C.primary : C.textMuted}
+                />
                 <Text style={[s.label, focused && s.labelActive]}>{tab.label}</Text>
               </TouchableOpacity>
             );
@@ -102,22 +97,16 @@ function CustomTabBar({ state, descriptors, navigation }: any) {
   );
 }
 
-function makeStyles(C: any) {
-  return StyleSheet.create({
+const makeStyles = (C: any) => StyleSheet.create({
   wrapper: {
-    position: 'absolute', bottom: 0, left: 0, right: 0,
-    shadowColor: C.primary,
-    shadowOffset: { width: 0, height: -4 },
-    shadowOpacity: 0.06,
-    shadowRadius: 16,
-    elevation: 12,
+    position: 'absolute',
+    bottom: 0, left: 0, right: 0,
+    backgroundColor: 'transparent',
+    borderTopWidth: 1,
+    borderTopColor: C.borderLight,
   },
   blur: {
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
     overflow: 'hidden',
-    borderTopWidth: 1,
-    borderTopColor: C.border,
   },
   inner: {
     flexDirection: 'row',
@@ -130,25 +119,6 @@ function makeStyles(C: any) {
     paddingVertical: 6, borderRadius: 16,
     position: 'relative',
   },
-  badgeDot: {
-    position: 'absolute',
-    top: -4,
-    right: -6,
-    minWidth: 16,
-    height: 16,
-    borderRadius: 8,
-    backgroundColor: '#E24B4A',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 3,
-    borderWidth: 1.5,
-    borderColor: C.surfaceGlass,
-  },
-  badgeDotText: {
-    fontSize: 9,
-    fontWeight: '800',
-    color: '#fff',
-  },
   activePill: {
     position: 'absolute',
     top: 0, left: 8, right: 8, bottom: 0,
@@ -158,7 +128,6 @@ function makeStyles(C: any) {
   label: { fontSize: 10, color: C.textMuted, fontWeight: '500', letterSpacing: 0.2 },
   labelActive: { color: C.primary, fontWeight: '700' },
 });
-}
 
 function MainTabs() {
   return (
@@ -167,7 +136,6 @@ function MainTabs() {
       <Tab.Screen name="Map"         component={MapScreen} />
       <Tab.Screen name="Leaderboard" component={LeaderboardScreen} />
       <Tab.Screen name="Chat"        component={AIScreen} />
-      <Tab.Screen name="Alerts"      component={NotificationsScreen} />
     </Tab.Navigator>
   );
 }
