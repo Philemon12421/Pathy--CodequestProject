@@ -10,7 +10,7 @@ An AI-powered navigation, safety tracking, and community explorer platform. User
 
 ## 🏗️ System Architecture
 
-Pathy is built on a modern, decoupled client-server architecture:
+Pathy uses a modern, modular client-server structure:
 
 ```mermaid
 graph TD
