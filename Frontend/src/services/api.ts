@@ -1,5 +1,4 @@
 import axios, { InternalAxiosRequestConfig } from 'axios';
-import { getToken } from './tokenGetter';
 
 const BASE_URL = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:4000/api';
 
@@ -14,10 +13,15 @@ const _api = axios.create({
 // matching runtime behavior where the interceptor returns res.data.
 const api = _api as any;
 
+let authToken: string | null = null;
+
+export const setAuthToken = (token: string | null) => {
+  authToken = token;
+};
+
 api.interceptors.request.use((config: InternalAxiosRequestConfig) => {
-  const token = getToken();
-  if (token && config.headers) {
-    config.headers.Authorization = `Bearer ${token}`;
+  if (authToken && config.headers) {
+    config.headers.Authorization = `Bearer ${authToken}`;
   }
   return config;
 });
