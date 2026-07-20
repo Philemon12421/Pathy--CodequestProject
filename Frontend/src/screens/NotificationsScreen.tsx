@@ -171,6 +171,8 @@ export default function NotificationsScreen() {
     deleteAllNotifications,
   } = useStore();
 
+  const listData = notifications || [];
+
   const [refreshing, setRefreshing] = React.useState(false);
 
   useEffect(() => {
@@ -226,7 +228,7 @@ export default function NotificationsScreen() {
           </View>
 
           {/* Action buttons */}
-          {notifications.length > 0 && (
+          {listData.length > 0 && (
             <View style={s.headerActions}>
               {unreadNotificationsCount > 0 && (
                 <TouchableOpacity style={s.actionBtn} onPress={handleMarkAllRead}>
@@ -245,7 +247,7 @@ export default function NotificationsScreen() {
 
       {/* ── Notifications List ─────────────────────────── */}
       <FlatList
-        data={notifications}
+        data={listData}
         keyExtractor={(item) => item.id}
         renderItem={renderItem}
         refreshControl={
@@ -259,7 +261,7 @@ export default function NotificationsScreen() {
         contentContainerStyle={[
           s.listContent,
           { paddingBottom: insets.bottom + 90 },
-          notifications.length === 0 && s.emptyContainer,
+          listData.length === 0 && s.emptyContainer,
         ]}
         showsVerticalScrollIndicator={false}
         ListEmptyComponent={

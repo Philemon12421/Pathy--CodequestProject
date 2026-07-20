@@ -334,26 +334,29 @@ const useStore = create<StoreState>((set, get) => ({
   notifications: [],
   unreadNotificationsCount: 0,
   setNotifications: (notifications) => {
-    const unread = notifications.filter((n: any) => !n.read).length;
-    set({ notifications, unreadNotificationsCount: unread });
+    const list = Array.isArray(notifications) ? notifications : [];
+    const unread = list.filter((n: any) => !n.read).length;
+    set({ notifications: list, unreadNotificationsCount: unread });
   },
   fetchNotifications: async () => {
     try {
-      const data = await notificationsAPI.getAll();
+      const res = await notificationsAPI.getAll();
+      const data = Array.isArray(res) ? res : [];
       const unread = data.filter((n: any) => !n.read).length;
       set({ notifications: data, unreadNotificationsCount: unread });
     } catch (e) {
       console.log('Error fetching notifications:', e);
+      set({ notifications: [], unreadNotificationsCount: 0 });
     }
   },
   markNotificationAsRead: async (id) => {
     try {
       await notificationsAPI.markAsRead(id);
-      const notifications = get().notifications.map((n: any) =>
+      const list = (get().notifications || []).map((n: any) =>
         n.id === id ? { ...n, read: true } : n
       );
-      const unread = notifications.filter((n: any) => !n.read).length;
-      set({ notifications, unreadNotificationsCount: unread });
+      const unread = list.filter((n: any) => !n.read).length;
+      set({ notifications: list, unreadNotificationsCount: unread });
     } catch (e) {
       console.log('Error marking notification as read:', e);
     }
@@ -361,8 +364,8 @@ const useStore = create<StoreState>((set, get) => ({
   markAllNotificationsAsRead: async () => {
     try {
       await notificationsAPI.readAll();
-      const notifications = get().notifications.map((n: any) => ({ ...n, read: true }));
-      set({ notifications, unreadNotificationsCount: 0 });
+      const list = (get().notifications || []).map((n: any) => ({ ...n, read: true }));
+      set({ notifications: list, unreadNotificationsCount: 0 });
     } catch (e) {
       console.log('Error marking all notifications as read:', e);
     }
@@ -370,9 +373,9 @@ const useStore = create<StoreState>((set, get) => ({
   deleteNotification: async (id) => {
     try {
       await notificationsAPI.delete(id);
-      const notifications = get().notifications.filter((n: any) => n.id !== id);
-      const unread = notifications.filter((n: any) => !n.read).length;
-      set({ notifications, unreadNotificationsCount: unread });
+      const list = (get().notifications || []).filter((n: any) => n.id !== id);
+      const unread = list.filter((n: any) => !n.read).length;
+      set({ notifications: list, unreadNotificationsCount: unread });
     } catch (e) {
       console.log('Error deleting notification:', e);
     }
