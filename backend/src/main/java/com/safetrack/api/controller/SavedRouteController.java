@@ -26,15 +26,7 @@ public class SavedRouteController extends BaseController {
         .param("user_id", user(request).id()).query().listOfRows();
   }
 
-  @GetMapping("/debug")
-  public Object debug() {
-    return Map.of(
-      "users", jdbc.sql("SELECT id, name, email FROM users").query().listOfRows(),
-      "routes", jdbc.sql("SELECT id, user_id, name, origin_lat, origin_lng, destination_lat, destination_lng, created_at FROM saved_routes").query().listOfRows()
-    );
-  }
 
-  /**
    * Leaderboard — all-time: aggregate total km per user using the Haversine
    * formula on each route's origin→destination great-circle distance.
    * Returns top 50 users ranked by total_km descending.
@@ -57,6 +49,7 @@ public class SavedRouteController extends BaseController {
         FROM users u
         LEFT JOIN saved_routes r ON r.user_id = u.id
         GROUP BY u.id, u.name, u.avatar_url
+        HAVING COUNT(r.id) > 0
         ORDER BY total_km DESC
         LIMIT 50
         """)
@@ -86,6 +79,7 @@ public class SavedRouteController extends BaseController {
         LEFT JOIN saved_routes r ON r.user_id = u.id
           AND r.created_at >= DATE_TRUNC('week', NOW())
         GROUP BY u.id, u.name, u.avatar_url
+        HAVING COUNT(r.id) > 0
         ORDER BY total_km DESC
         LIMIT 50
         """)
