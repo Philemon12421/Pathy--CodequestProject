@@ -1,5 +1,5 @@
 import axios, { InternalAxiosRequestConfig } from 'axios';
-import useStore from '../store/useStore';
+import { getToken } from './tokenGetter';
 
 const BASE_URL = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:4000/api';
 
@@ -15,7 +15,7 @@ const _api = axios.create({
 const api = _api as any;
 
 api.interceptors.request.use((config: InternalAxiosRequestConfig) => {
-  const token = useStore.getState().token;
+  const token = getToken();
   if (token && config.headers) {
     config.headers.Authorization = `Bearer ${token}`;
   }
