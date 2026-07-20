@@ -1,6 +1,7 @@
 package com.safetrack.api.controller;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.safetrack.api.service.NotificationService;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.http.ResponseEntity;
 import org.springframework.jdbc.core.simple.JdbcClient;
@@ -14,10 +15,12 @@ import java.util.UUID;
 public class SavedRouteController extends BaseController {
   private final JdbcClient jdbc;
   private final ObjectMapper mapper;
+  private final NotificationService notifications;
 
-  public SavedRouteController(JdbcClient jdbc, ObjectMapper mapper) {
+  public SavedRouteController(JdbcClient jdbc, ObjectMapper mapper, NotificationService notifications) {
     this.jdbc = jdbc;
     this.mapper = mapper;
+    this.notifications = notifications;
   }
 
   @GetMapping
@@ -98,7 +101,11 @@ public class SavedRouteController extends BaseController {
         .param("origin_lng", body.get("origin_lng")).param("destination_lat", body.get("destination_lat"))
         .param("destination_lng", body.get("destination_lng")).param("route_data", routeData)
         .query().singleRow();
+
+    notifications.create(user(request).id(), "Route Saved", "You successfully saved a new route: \"" + body.get("name") + "\".", "route_saved");
+
     return ResponseEntity.status(201).body(route);
+
   }
 
   @PatchMapping("/{id}/favorite")

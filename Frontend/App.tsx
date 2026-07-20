@@ -32,6 +32,7 @@ import ContactUsScreen         from './src/screens/ContactUsScreen';
 import AboutUsScreen           from './src/screens/AboutUsScreen';
 import PrivacyPolicyScreen     from './src/screens/PrivacyPolicyScreen';
 import TermsScreen             from './src/screens/TermsScreen';
+import NotificationsScreen     from './src/screens/NotificationsScreen';
 
 import useStore from './src/store/useStore';
 import { ThemeProvider, useColors } from './src/config/ThemeContext';
@@ -43,16 +44,18 @@ const ONBOARDING_KEY = 'pathy_has_onboarded';
 
 // ─── Elegant frosted-glass bottom navbar ─────────────────────────────────────
 const TABS = [
-  { name: 'Home',        icon: 'home-outline',     iconActive: 'home',     label: 'Home' },
-  { name: 'Map',         icon: 'navigate-outline', iconActive: 'navigate', label: 'Map' },
-  { name: 'Leaderboard', icon: 'trophy-outline',   iconActive: 'trophy',   label: 'Board' },
-  { name: 'Chat',        icon: 'chatbox-outline',  iconActive: 'chatbox',  label: 'AI Chat' },
+  { name: 'Home',          icon: 'home-outline',          iconActive: 'home',          label: 'Home'   },
+  { name: 'Map',           icon: 'navigate-outline',      iconActive: 'navigate',      label: 'Map'    },
+  { name: 'Leaderboard',   icon: 'trophy-outline',        iconActive: 'trophy',        label: 'Board'  },
+  { name: 'Chat',          icon: 'chatbox-outline',       iconActive: 'chatbox',       label: 'AI Chat'},
+  { name: 'Alerts',        icon: 'notifications-outline', iconActive: 'notifications', label: 'Alerts' },
 ];
 
 function CustomTabBar({ state, descriptors, navigation }: any) {
   const insets = useSafeAreaInsets();
   const pb = Math.max(insets.bottom, 8);
-  const theme = useStore((s) => s.theme);
+  const theme = useStore((st) => st.theme);
+  const unreadCount = useStore((st) => st.unreadNotificationsCount);
   const C = useColors();
   const s = makeStyles(C);
 
@@ -65,6 +68,7 @@ function CustomTabBar({ state, descriptors, navigation }: any) {
             const tab = TABS.find(t => t.name === route.name)
               || { icon: 'ellipse-outline', iconActive: 'ellipse', label: route.name };
 
+            const isAlerts = route.name === 'Alerts';
             return (
               <TouchableOpacity
                 key={route.key}
@@ -76,11 +80,18 @@ function CustomTabBar({ state, descriptors, navigation }: any) {
                 activeOpacity={0.7}
               >
                 {focused && <View style={s.activePill} />}
-                <Ionicons
-                  name={(focused ? tab.iconActive : tab.icon) as any}
-                  size={22}
-                  color={focused ? C.primary : C.textMuted}
-                />
+                <View style={{ position: 'relative' }}>
+                  <Ionicons
+                    name={(focused ? tab.iconActive : tab.icon) as any}
+                    size={22}
+                    color={focused ? C.primary : C.textMuted}
+                  />
+                  {isAlerts && unreadCount > 0 && (
+                    <View style={s.badgeDot}>
+                      <Text style={s.badgeDotText}>{unreadCount > 9 ? '9+' : unreadCount}</Text>
+                    </View>
+                  )}
+                </View>
                 <Text style={[s.label, focused && s.labelActive]}>{tab.label}</Text>
               </TouchableOpacity>
             );
@@ -119,6 +130,25 @@ function makeStyles(C: any) {
     paddingVertical: 6, borderRadius: 16,
     position: 'relative',
   },
+  badgeDot: {
+    position: 'absolute',
+    top: -4,
+    right: -6,
+    minWidth: 16,
+    height: 16,
+    borderRadius: 8,
+    backgroundColor: '#E24B4A',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 3,
+    borderWidth: 1.5,
+    borderColor: C.surfaceGlass,
+  },
+  badgeDotText: {
+    fontSize: 9,
+    fontWeight: '800',
+    color: '#fff',
+  },
   activePill: {
     position: 'absolute',
     top: 0, left: 8, right: 8, bottom: 0,
@@ -137,6 +167,7 @@ function MainTabs() {
       <Tab.Screen name="Map"         component={MapScreen} />
       <Tab.Screen name="Leaderboard" component={LeaderboardScreen} />
       <Tab.Screen name="Chat"        component={AIScreen} />
+      <Tab.Screen name="Alerts"      component={NotificationsScreen} />
     </Tab.Navigator>
   );
 }
@@ -162,6 +193,7 @@ function MainApp() {
         <MainStack.Screen name="Terms"             component={TermsScreen}             options={{ animation: 'slide_from_right' }} />
         <MainStack.Screen name="ForgotPassword"    component={ForgotPasswordScreen}    options={{ animation: 'slide_from_right' }} />
         <MainStack.Screen name="EmailVerification" component={EmailVerificationScreen} options={{ animation: 'slide_from_right' }} />
+        <MainStack.Screen name="Notifications"     component={NotificationsScreen}     options={{ animation: 'slide_from_right' }} />
       </MainStack.Navigator>
       <AdProximityManager />
     </View>

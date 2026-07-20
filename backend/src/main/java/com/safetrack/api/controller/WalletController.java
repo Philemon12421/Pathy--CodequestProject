@@ -1,6 +1,7 @@
 package com.safetrack.api.controller;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.safetrack.api.service.NotificationService;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.ResponseEntity;
@@ -21,14 +22,17 @@ public class WalletController extends BaseController {
 
   private final JdbcClient jdbc;
   private final String paystackSecretKey;
+  private final NotificationService notifications;
   private final HttpClient httpClient = HttpClient.newHttpClient();
   private final ObjectMapper objectMapper = new ObjectMapper();
 
   public WalletController(
       JdbcClient jdbc,
-      @Value("${app.paystack-secret-key:}") String paystackSecretKey) {
+      @Value("${app.paystack-secret-key:}") String paystackSecretKey,
+      NotificationService notifications) {
     this.jdbc = jdbc;
     this.paystackSecretKey = paystackSecretKey;
+    this.notifications = notifications;
   }
 
   @GetMapping("/me")
@@ -180,8 +184,11 @@ public class WalletController extends BaseController {
           .param("id", userId)
           .update();
 
+      notifications.create(userId, "Wallet Credited", "Successfully deposited GHS " + String.format("%.2f", amount) + " to your wallet.", "wallet_deposit");
+
       // Return the updated user info
       return getMe(request);
+
     } catch (Exception e) {
       return ResponseEntity.status(500).body(Map.of("error", "Verification failed: " + e.getMessage()));
     }

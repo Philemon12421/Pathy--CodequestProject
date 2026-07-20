@@ -1,6 +1,7 @@
 package com.safetrack.api.controller;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.safetrack.api.service.NotificationService;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.ResponseEntity;
@@ -25,14 +26,17 @@ public class AdsController extends BaseController {
 
   private final JdbcClient jdbc;
   private final String paystackSecretKey;
+  private final NotificationService notifications;
   private final HttpClient httpClient = HttpClient.newHttpClient();
   private final ObjectMapper objectMapper = new ObjectMapper();
 
   public AdsController(
       JdbcClient jdbc,
-      @Value("${app.paystack-secret-key:}") String paystackSecretKey) {
+      @Value("${app.paystack-secret-key:}") String paystackSecretKey,
+      NotificationService notifications) {
     this.jdbc = jdbc;
     this.paystackSecretKey = paystackSecretKey;
+    this.notifications = notifications;
   }
 
   // ── Price helper ─────────────────────────────────────────────────────────────
@@ -109,7 +113,11 @@ public class AdsController extends BaseController {
         .param("radius_km", body.getOrDefault("radius_km", 2))
         .param("website_url", body.get("website_url"))
         .query().singleRow();
+
+    notifications.create(user(request).id(), "Ad Campaign Created", "Your ad campaign for \"" + businessName + "\" has been created and is pending payment.", "ad_created");
+
     return ResponseEntity.status(201).body(ad);
+
   }
 
   // ── POST /api/ads/{id}/checkout ───────────────────────────────────────────────
@@ -249,7 +257,13 @@ public class AdsController extends BaseController {
           .param("user_id", user(request).id())
           .query().listOfRows();
 
+      if (!activated.isEmpty()) {
+        Map<String, Object> adMap = activated.get(0);
+        notifications.create(user(request).id(), "Ad Campaign Activated", "Your ad campaign for \"" + adMap.get("business_name") + "\" has been activated!", "ad_activated");
+      }
+
       return ResponseEntity.ok(activated.get(0));
+
 
     } catch (Exception e) {
       return ResponseEntity.status(500).body(Map.of("error", "Verification failed: " + e.getMessage()));
@@ -298,7 +312,6 @@ public class AdsController extends BaseController {
       jdbc.sql("UPDATE users SET balance = balance - :price WHERE id=:id")
           .param("price", priceGhs).param("id", userId).update();
 
-      // Activate ad
       List<Map<String, Object>> activated = jdbc.sql("""
           UPDATE ads
           SET payment_status='paid', active=true,
@@ -314,7 +327,12 @@ public class AdsController extends BaseController {
       if (activated.isEmpty()) {
         return ResponseEntity.status(500).body(Map.of("error", "Could not activate ad"));
       }
-      return ResponseEntity.ok(activated.get(0));
+
+      Map<String, Object> adMap = activated.get(0);
+      notifications.create(userId, "Ad Campaign Activated", "Your ad campaign for \"" + adMap.get("business_name") + "\" has been activated!", "ad_activated");
+
+      return ResponseEntity.ok(adMap);
+
     } catch (Exception e) {
       return ResponseEntity.status(500).body(Map.of("error", "Activation failed: " + e.getMessage()));
     }
