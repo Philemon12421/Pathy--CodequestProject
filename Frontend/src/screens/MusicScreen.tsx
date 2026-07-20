@@ -45,6 +45,12 @@ function normalizeAudiusTrack(t: any) {
   };
 }
 
+// Lives outside the component so it survives navigating away from this
+// screen — audio keeps playing across tabs instead of being unloaded
+// when MusicScreen unmounts.
+const soundRef: { current: Audio.Sound | null } = { current: null };
+let loadedTrackId: string | null = null;
+
 export default function MusicScreen({ navigation }: any) {
   const C = useColors();
   const s = makeStyles(C);
