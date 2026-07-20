@@ -1,4 +1,6 @@
 import { create } from 'zustand';
+import { Audio } from 'expo-av';
+import * as FileSystem from 'expo-file-system/legacy';
 import { FeedPost, Comment } from '../screens/HomeScreen';
 
 export interface StoreState {
@@ -23,9 +25,6 @@ export interface StoreState {
   addRoute: (r: any) => void;
 
   // ── Community route feed ──────────────────────────────────────────────────
-  // Posts live only in-memory per session (no backend yet).
-  // PostRouteScreen calls addRouteFeedPost() after a user posts.
-  // HomeScreen reads routePosts to build the feed.
   routePosts: FeedPost[];
   addRouteFeedPost: (post: FeedPost) => void;
   likeRouteFeedPost: (postId: string, userId: string) => void;
@@ -44,6 +43,11 @@ export interface StoreState {
   isPlaying: boolean;
   tracks: any[];
   playlists: any[];
+  sound: Audio.Sound | null;
+  position: number;
+  duration: number;
+  loadingTrackId: string | null;
+  audiusHost: string | null;
   setCurrentTrack: (track: any) => void;
   setQueue: (queue: any[]) => void;
   setIsPlaying: (v: boolean) => void;
@@ -51,6 +55,11 @@ export interface StoreState {
   setPlaylists: (playlists: any[]) => void;
   nextTrack: () => void;
   prevTrack: () => void;
+  playTrack: (track: any) => Promise<void>;
+  togglePlay: () => Promise<void>;
+  ensureAudiusHost: () => Promise<string>;
+  setPosition: (pos: number) => void;
+  setDuration: (dur: number) => void;
 
   // ── AI action ─────────────────────────────────────────────────────────────
   pendingAIAction: any | null;
@@ -96,7 +105,7 @@ const useStore = create<StoreState>((set, get) => ({
   addRoute: (r) => set((s) => ({ savedRoutes: [r, ...s.savedRoutes] })),
 
   // ── Community feed ────────────────────────────────────────────────────────
-  routePosts: [],   // starts empty — only real user posts appear here
+  routePosts: [],
 
   addRouteFeedPost: (post) =>
     set((s) => ({ routePosts: [post, ...s.routePosts] })),
@@ -109,8 +118,8 @@ const useStore = create<StoreState>((set, get) => ({
         return {
           ...p,
           likes: already
-            ? p.likes.filter((id) => id !== userId)   // unlike
-            : [...p.likes, userId],                   // like
+            ? p.likes.filter((id) => id !== userId)
+            : [...p.likes, userId],
         };
       }),
     })),
@@ -139,20 +148,149 @@ const useStore = create<StoreState>((set, get) => ({
   isPlaying: false,
   tracks: [],
   playlists: [],
-  setCurrentTrack: (track) => set({ currentTrack: track }),
+  sound: null,
+  position: 0,
+  duration: 0,
+  loadingTrackId: null,
+  audiusHost: null,
+  setCurrentTrack: (track) => {
+    set({ currentTrack: track });
+    if (track) {
+      get().playTrack(track);
+    } else {
+      const { sound } = get();
+      if (sound) {
+        sound.unloadAsync().catch(() => {});
+        set({ sound: null, isPlaying: false, position: 0, duration: 0 });
+      }
+    }
+  },
   setQueue: (queue) => set({ queue }),
   setIsPlaying: (v) => set({ isPlaying: v }),
   setTracks: (tracks) => set({ tracks }),
   setPlaylists: (playlists) => set({ playlists }),
+  setPosition: (pos) => set({ position: pos }),
+  setDuration: (dur) => set({ duration: dur }),
+  
   nextTrack: () => {
     const { queue, currentTrack } = get();
     const idx = queue.findIndex((t: any) => t.id === currentTrack?.id);
-    if (idx < queue.length - 1) set({ currentTrack: queue[idx + 1] });
+    if (idx < queue.length - 1) {
+      get().setCurrentTrack(queue[idx + 1]);
+    }
   },
   prevTrack: () => {
     const { queue, currentTrack } = get();
     const idx = queue.findIndex((t: any) => t.id === currentTrack?.id);
-    if (idx > 0) set({ currentTrack: queue[idx - 1] });
+    if (idx > 0) {
+      get().setCurrentTrack(queue[idx - 1]);
+    }
+  },
+
+  ensureAudiusHost: async () => {
+    const { audiusHost } = get();
+    if (audiusHost) return audiusHost;
+
+    const AUDIUS_FALLBACK_HOSTS = [
+      'https://discoveryprovider.audius.co',
+      'https://discoveryprovider2.audius.co',
+      'https://discoveryprovider3.audius.co',
+    ];
+
+    let candidates = AUDIUS_FALLBACK_HOSTS;
+    try {
+      const res = await fetch('https://api.audius.co');
+      const json = await res.json();
+      if (Array.isArray(json?.data) && json.data.length > 0) {
+        candidates = json.data;
+      }
+    } catch {}
+
+    for (const host of candidates) {
+      try {
+        const test = await fetch(`${host}/v1/tracks/trending?app_name=Pathy&limit=1`);
+        if (test.ok) {
+          set({ audiusHost: host });
+          return host;
+        }
+      } catch {}
+    }
+
+    set({ audiusHost: candidates[0] });
+    return candidates[0];
+  },
+
+  playTrack: async (track: any) => {
+    const { sound: currentSound } = get();
+    try {
+      if (currentSound) {
+        await currentSound.unloadAsync();
+        set({ sound: null, isPlaying: false, position: 0, duration: 0 });
+      }
+
+      set({ loadingTrackId: track.id });
+
+      let localUri: string;
+      if (track.source === 'audius') {
+        const host = await get().ensureAudiusHost();
+        localUri = `${host}/v1/tracks/${track.audiusId}/stream?app_name=Pathy`;
+      } else {
+        // Extract original file extension to avoid format mismatch in AVPlayer
+        const ext = track.file_url?.split('.').pop() || 'mp3';
+        const fileUri = `${FileSystem.cacheDirectory}${track.id}.${ext}`;
+        const fileInfo = await FileSystem.getInfoAsync(fileUri);
+        localUri = fileUri;
+
+        if (!fileInfo.exists) {
+          const apiBase = process.env.EXPO_PUBLIC_API_URL?.replace('/api', '') || 'http://localhost:4000';
+          const downloadResult = await FileSystem.downloadAsync(
+            `${apiBase}${track.file_url}`,
+            fileUri,
+            {
+              headers: {
+                'ngrok-skip-browser-warning': 'true',
+              }
+            }
+          );
+          localUri = downloadResult.uri;
+        }
+      }
+
+      set({ loadingTrackId: null });
+
+      const { sound } = await Audio.Sound.createAsync(
+        { uri: localUri },
+        { shouldPlay: true },
+        (status: any) => {
+          if (status.isLoaded) {
+            set({
+              position: status.positionMillis || 0,
+              duration: status.durationMillis || 0,
+            });
+            if (status.didJustFinish) {
+              get().nextTrack();
+            }
+          }
+        }
+      );
+
+      set({ sound, isPlaying: true });
+    } catch (e) {
+      set({ loadingTrackId: null, isPlaying: false });
+      console.log('Playback error in store:', e);
+    }
+  },
+
+  togglePlay: async () => {
+    const { sound, isPlaying } = get();
+    if (!sound) return;
+    if (isPlaying) {
+      await sound.pauseAsync();
+      set({ isPlaying: false });
+    } else {
+      await sound.playAsync();
+      set({ isPlaying: true });
+    }
   },
 
   // ── AI action ─────────────────────────────────────────────────────────────
@@ -172,7 +310,7 @@ const useStore = create<StoreState>((set, get) => ({
   setAds: (ads) => set({ ads }),
 
   // ── Theme ─────────────────────────────────────────────────────────────────
-  theme: 'light',   // light-first, matches the whole UI system
+  theme: 'light',
   toggleTheme: () => set((s) => ({ theme: s.theme === 'dark' ? 'light' : 'dark' })),
 
   // ── Profile picture ────────────────────────────────────────────
