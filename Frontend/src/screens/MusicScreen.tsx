@@ -45,12 +45,17 @@ function normalizeAudiusTrack(t: any) {
   };
 }
 
+// Lives outside the component so it survives navigating away from this
+// screen — audio keeps playing across tabs instead of being unloaded
+// when MusicScreen unmounts.
+const soundRef: { current: Audio.Sound | null } = { current: null };
+let loadedTrackId: string | null = null;
+
 export default function MusicScreen({ navigation }: any) {
   const C = useColors();
   const s = makeStyles(C);
   const { tracks, setTracks, playlists, setPlaylists, currentTrack,
           setCurrentTrack, isPlaying, setIsPlaying, setQueue } = useStore();
-  const soundRef = useRef<Audio.Sound | null>(null);
   const [position, setPosition] = useState(0);
   const [duration, setDuration] = useState(0);
   const [uploading, setUploading] = useState(false);
@@ -80,7 +85,9 @@ export default function MusicScreen({ navigation }: any) {
       }
     };
     setupAudio();
-    return () => { soundRef.current?.unloadAsync(); };
+    // No cleanup here on purpose — unloading on unmount is what was
+    // stopping playback when leaving this tab. The sound now lives
+    // outside the component and keeps playing across navigation.
   }, []);
 
   useEffect(() => {
@@ -199,6 +206,14 @@ export default function MusicScreen({ navigation }: any) {
 
   const playTrack = async (track: any) => {
     try {
+      // If this exact track is already loaded (e.g. we just re-entered
+      // the Music tab while it was already playing in the background),
+      // don't reload it — just sync local UI state and bail out.
+      if (soundRef.current && loadedTrackId === track.id) {
+        setIsPlaying(true);
+        return;
+      }
+
       if (soundRef.current) {
         await soundRef.current.unloadAsync();
         soundRef.current = null;
@@ -243,6 +258,7 @@ export default function MusicScreen({ navigation }: any) {
         }
       );
       soundRef.current = sound;
+      loadedTrackId = track.id;
       setIsPlaying(true);
     } catch (e) {
       setLoadingTrackId(null);
