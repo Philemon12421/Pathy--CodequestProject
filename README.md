@@ -21,13 +21,15 @@ graph TD
     Postgres[(🐘 PostgreSQL Database)]
     Groq[🧠 GROQ LLM API]
     Paystack[💳 Paystack Payment Gateway]
+    Audius[🎵 Audius Music API]
 
     Client -->|1. Route Requests| OSRM
     Client -->|2. Search Coordinates| Nominatim
     Client -->|3. Save Routes / Auth / Incidents| Backend
-    Backend -->|4. Persist Data| Postgres
-    Backend -->|5. AI Chat Recommendations| Groq
-    Backend -->|6. Ad Purchases & Activation| Paystack
+    Client -->|4. Play Audio Streams| Audius
+    Backend -->|5. Persist Data| Postgres
+    Backend -->|6. AI Chat Recommendations| Groq
+    Backend -->|7. Wallet Deposits & Ad Purchases| Paystack
 ```
 
 ---
@@ -36,8 +38,8 @@ graph TD
 
 ### 1. Saved Routes & Feed
 - **Your Routes**: A horizontal, swipeable gallery directly on the Home screen displaying personal saved route metrics (distance in km, duration, activity category, and quick-post buttons).
-- **Interactive Map Picker**: Seamlessly select destinations using the in-app map search bar or by long-pressing anywhere on the map grid. The path is automatically generated via the OpenStreetMap routing API, displaying time/distance info, and returns you back to the form with all fields pre-filled.
-- **Community Feed**: Post public routes with customizable captions, descriptions, and media. Fellow users can like, review, and comment on routes in real-time.
+- **Interactive Map Picker**: Seamlessly select destinations using the in-app map search bar or by long-pressing anywhere on the map grid. The path is automatically generated via the OpenStreetMap routing API, displaying time/distance info.
+- **Community Feed**: Post public routes with customizable captions, descriptions, and live mini-maps displaying start and end markers. Fellow users can like, review, and comment on routes in real-time.
 
 ### 2. Live Incident Map & Alerts
 - Real-time reporting of safety issues: **Accidents, Hazards, Crimes, Weather, and Custom alerts**.
@@ -49,10 +51,40 @@ graph TD
 - Provides tailored navigation tips, route safety suggestions, local warnings, and answers travel questions.
 - Preserves a clean history of your messages locally and on the server database.
 
-### 4. Merchant Ad Portal (Proximity Ads)
+### 4. Global Music Player & Streaming
+- Synchronized music playback powered by **Zustand global state**. Plays audio streams seamlessly in the background across all tabs and screens.
+- **Discover**: Stream trending music tracks directly from the Audius API (no API key required).
+- **Library**: Upload personal audio files (MP3/M4A) via Spring Boot's multipart upload endpoint. Handles cached playback offline. Preserves file formats correctly to ensure high-fidelity playback.
+
+### 5. Merchant Ad Portal (Proximity Ads)
 - Businesses can set up active advertisement zones with custom radiuses (in kilometers) on the map.
-- Safe integration with **Paystack Payment Gateway** for purchasing ad space.
 - Automatic device proximity alerts: alerts users when they approach a business's coordinates.
+- Fully integrated with the user's **Internal Wallet** system.
+
+### 6. Wallet & Deposit System
+- **Deposits**: Users can top up their wallet balance using **Paystack Payment Gateway** payments.
+- **Ad Campaigns**: Merchant ads can be purchased and activated instantly by deducting fees directly from the traveler/business wallet balance.
+
+### 7. Competitive Leaderboard
+- Displays user rankings based on route distances.
+- **Haversine Formula Calculation**: Backend calculates exact distance dynamically in SQL using spatial spherical trigonometry over coordinates (`origin_lat`/`lng` to `destination_lat`/`lng`).
+- Features a visual **Rank Podium** for the top 3 users and a scrolling leaderboard list of all active participants.
+- Provides toggle filtering for **All-Time** vs. **Weekly** metrics.
+
+---
+
+## 🐘 Database Schema
+
+The database utilizes PostgreSQL and is structured as follows:
+
+- **`users`**: Tracks traveler credentials, verification states (`is_verified`), and wallet funds (`balance`).
+- **`incidents`**: Stores locations, types, and severity levels of reported traffic hazards.
+- **`saved_routes`**: Logs route geo-endpoints, names, and raw geo JSON coordinates.
+- **`ads`**: Stores sponsored local pins, website targets, and campaign validity dates.
+- **`chat_messages`**: Saves persistent histories of AI travel dialogs.
+- **`music_tracks`**: Stores music metadata and file upload links.
+- **`playlists`** & **`playlist_tracks`**: Defines user playlist relationships.
+- **`deposits`**: Logs wallet transaction top-ups via Paystack.
 
 ---
 
@@ -64,19 +96,19 @@ PathyCodequestProject/
 │   ├── assets/               # Local logos, icons, and image resources
 │   ├── src/
 │   │   ├── config/           # Theme palettes, dark mode context (useColors)
-│   │   ├── screens/          # Application views (Home, Map, PostRoute, etc.)
+│   │   ├── screens/          # Application views (Home, Map, Music, Leaderboard, etc.)
 │   │   ├── services/         # API abstraction layer (Axios wrappers)
-│   │   └── store/            # Zustand global state (auth, incidents, ads, themes)
+│   │   └── store/            # Zustand global state (auth, music, incidents, ads)
 │   ├── App.tsx               # Main entrypoint, stack/tab navigators
 │   └── .env                  # Client-side environment variables
 │
-├── backend/                  # Java / Spring Boot Microservice
-│   ├── src/
-│   │   ├── main/java/        # Spring boot controller, service, domain packages
-│   │   └── main/resources/   # central application.yml properties
-│   ├── Dockerfile            # Container configuration
-│   ├── docker-compose.yml    # Database / caching orchestrator
-│   └── .env                  # Secret keys (GROQ, PAYSTACK, database credentials)
+└── backend/                  # Java / Spring Boot Microservice
+    ├── src/
+    │   ├── main/java/        # Spring boot controllers, services, repositories
+    │   └── main/resources/   # Central application.yml configuration & SQL schema
+    ├── Dockerfile            # Container configuration
+    ├── docker-compose.yml    # Database / caching orchestrator
+    └── .env                  # Secret keys (GROQ, PAYSTACK, database credentials)
 ```
 
 ---
@@ -146,12 +178,15 @@ Scan the QR code in your console using the **Expo Go** application on your iOS o
 | `/api/auth/login` | `POST` | Authenticate credentials and return JWT token | No |
 | `/api/auth/forgot-password` | `POST` | Trigger password reset verification email | No |
 | `/api/auth/verify-reset` | `POST` | Confirm OTP validation code | No |
-| `/api/auth/reset-password` | `POST` | Apply new secure account credentials | No |
-| `/api/incidents` | `GET` | Retrieve list of nearby safety incidents | Yes |
-| `/api/incidents` | `POST` | Post a new hazard with media uploads | Yes |
-| `/api/routes` | `GET` | Retrieve saved routes for current user | Yes |
-| `/api/routes` | `POST` | Save a newly selected route path | Yes |
+| `/api/auth/reset-password` | `POST` | Apply new secure credentials | No |
+| `/api/incidents` | `GET`/`POST` | Retrieve and post real-time hazards | Yes |
+| `/api/routes` | `GET`/`POST` | Retrieve and save recorded route paths | Yes |
+| `/api/routes/leaderboard` | `GET` | Get all-time user rankings by route distance | Yes |
+| `/api/routes/leaderboard/weekly` | `GET` | Get current week user rankings | Yes |
+| `/api/wallet/deposit` | `POST` | Log and verify a Paystack deposit reference | Yes |
+| `/api/music/tracks` | `GET`/`POST`/`DELETE` | Retrieve, upload, and remove personal library tracks | Yes |
+| `/api/music/playlists` | `GET`/`POST` | Create and retrieve playlists | Yes |
 | `/api/ai/chat` | `POST` | Query the Pathy AI Assistant | Yes |
-| `/api/ads` | `GET` | Retrieve list of active ads | Yes |
-| `/api/ads` | `POST` | Publish a merchant advertisement campaign | Yes |
-| `/api/ads/{id}/activate` | `POST` | Process payment confirmation & launch ad | Yes |
+| `/api/ads` | `GET`/`POST` | Retrieve and launch sponsored campaigns | Yes |
+| `/api/ads/{id}/activate` | `POST` | Deduct balance and activate merchant pin | Yes |
+
