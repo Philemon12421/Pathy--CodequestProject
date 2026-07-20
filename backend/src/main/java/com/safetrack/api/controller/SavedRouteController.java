@@ -26,6 +26,72 @@ public class SavedRouteController extends BaseController {
         .param("user_id", user(request).id()).query().listOfRows();
   }
 
+  @GetMapping("/debug")
+  public Object debug() {
+    return Map.of(
+      "users", jdbc.sql("SELECT id, name, email FROM users").query().listOfRows(),
+      "routes", jdbc.sql("SELECT id, user_id, name, origin_lat, origin_lng, destination_lat, destination_lng, created_at FROM saved_routes").query().listOfRows()
+    );
+  }
+
+  /**
+   * Leaderboard — all-time: aggregate total km per user using the Haversine
+   * formula on each route's origin→destination great-circle distance.
+   * Returns top 50 users ranked by total_km descending.
+   */
+  @GetMapping("/leaderboard")
+  public Object leaderboard(HttpServletRequest request) {
+    return jdbc.sql("""
+        SELECT
+          u.id        AS user_id,
+          u.name      AS user_name,
+          u.avatar_url,
+          COUNT(r.id) AS route_count,
+          COALESCE(SUM(
+            6371.0 * 2 * ASIN(SQRT(
+              POWER(SIN(RADIANS(r.destination_lat - r.origin_lat) / 2), 2) +
+              COS(RADIANS(r.origin_lat)) * COS(RADIANS(r.destination_lat)) *
+              POWER(SIN(RADIANS(r.destination_lng - r.origin_lng) / 2), 2)
+            ))
+          ), 0) AS total_km
+        FROM users u
+        LEFT JOIN saved_routes r ON r.user_id = u.id
+        GROUP BY u.id, u.name, u.avatar_url
+        ORDER BY total_km DESC
+        LIMIT 50
+        """)
+        .query().listOfRows();
+  }
+
+  /**
+   * Leaderboard — weekly: same as above but restricted to routes saved
+   * within the current ISO calendar week.
+   */
+  @GetMapping("/leaderboard/weekly")
+  public Object leaderboardWeekly(HttpServletRequest request) {
+    return jdbc.sql("""
+        SELECT
+          u.id        AS user_id,
+          u.name      AS user_name,
+          u.avatar_url,
+          COUNT(r.id) AS route_count,
+          COALESCE(SUM(
+            6371.0 * 2 * ASIN(SQRT(
+              POWER(SIN(RADIANS(r.destination_lat - r.origin_lat) / 2), 2) +
+              COS(RADIANS(r.origin_lat)) * COS(RADIANS(r.destination_lat)) *
+              POWER(SIN(RADIANS(r.destination_lng - r.origin_lng) / 2), 2)
+            ))
+          ), 0) AS total_km
+        FROM users u
+        LEFT JOIN saved_routes r ON r.user_id = u.id
+          AND r.created_at >= DATE_TRUNC('week', NOW())
+        GROUP BY u.id, u.name, u.avatar_url
+        ORDER BY total_km DESC
+        LIMIT 50
+        """)
+        .query().listOfRows();
+  }
+
   @PostMapping
   public ResponseEntity<?> create(HttpServletRequest request, @RequestBody Map<String, Object> body) throws Exception {
     String routeData = body.get("route_data") == null ? "{}" : mapper.writeValueAsString(body.get("route_data"));

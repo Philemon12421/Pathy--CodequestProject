@@ -6,18 +6,13 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { BlurView } from 'expo-blur';
+import MapView, { Marker } from 'react-native-maps';
 import { useColors } from '../config/ThemeContext';
 import { FONTS, RADIUS, SPACING, SHADOW } from '../config/theme';
 import { adsAPI } from '../services/api';
 import useStore from '../store/useStore';
 
-const FILTERS = [
-  { key: 'All',         icon: 'apps-outline'    },
-  { key: 'Food & Drink',icon: 'cafe-outline'    },
-  { key: 'Shopping',    icon: 'bag-outline'     },
-  { key: 'Fuel',        icon: 'flame-outline'   },
-  { key: 'Pharmacy',    icon: 'medical-outline' },
-];
+
 
 export default function NearbyDealsScreen({ navigation }: any) {
   const C = useColors();
@@ -26,7 +21,6 @@ export default function NearbyDealsScreen({ navigation }: any) {
   const [ads, setAds] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
-  const [filter, setFilter] = useState('All');
 
   const load = async () => {
     try {
@@ -63,20 +57,51 @@ export default function NearbyDealsScreen({ navigation }: any) {
         </TouchableOpacity>
       </View>
 
-      {/* Map placeholder */}
+      {/* Mini map — real MapView with nearby ad markers */}
       <View style={s.mapWrap}>
-        <View style={s.mapBg}>
-          <Ionicons name="map-outline" size={32} color="rgba(0,108,68,0.2)" />
-          {/* User dot */}
-          <View style={s.userDot} />
-          {/* Business pins */}
-          {[{ t: '28%', l: '20%' }, { t: '16%', l: '60%' }, { t: '52%', l: '74%' }].map((p, i) => (
-            <View key={i} style={[s.bizPin, { top: p.t as any, left: p.l as any }]}>
-              <Ionicons name="storefront" size={14} color="#fff" />
-            </View>
-          ))}
-        </View>
-        {/* Radius circles overlay hint */}
+        {userLocation ? (
+          <MapView
+            style={StyleSheet.absoluteFillObject}
+            region={{
+              latitude: userLocation.latitude,
+              longitude: userLocation.longitude,
+              latitudeDelta: 0.04,
+              longitudeDelta: 0.04,
+            }}
+            scrollEnabled={false}
+            zoomEnabled={false}
+            pitchEnabled={false}
+            rotateEnabled={false}
+            showsUserLocation
+            showsMyLocationButton={false}
+          >
+            {ads
+              .filter((ad: any) => {
+                const lat = parseFloat(ad.latitude);
+                const lng = parseFloat(ad.longitude);
+                return !isNaN(lat) && !isNaN(lng);
+              })
+              .map((ad: any) => (
+                <Marker
+                  key={ad.id}
+                  coordinate={{ latitude: parseFloat(ad.latitude), longitude: parseFloat(ad.longitude) }}
+                  title={ad.business_name}
+                  description={ad.description}
+                >
+                  <View style={s.bizPinMarker}>
+                    <Ionicons name="storefront" size={14} color="#fff" />
+                  </View>
+                </Marker>
+              ))
+            }
+          </MapView>
+        ) : (
+          <View style={s.mapPlaceholderBg}>
+            <Ionicons name="map-outline" size={32} color="rgba(0,108,68,0.2)" />
+            <Text style={s.mapPlaceholderText}>Locating you…</Text>
+          </View>
+        )}
+        {/* Coordinate overlay */}
         <View style={s.mapOverlay}>
           <Ionicons name="location" size={12} color="#006c44" />
           <Text style={s.mapOverlayText}>
@@ -84,23 +109,11 @@ export default function NearbyDealsScreen({ navigation }: any) {
               ? `${userLocation.latitude?.toFixed(3)}, ${userLocation.longitude?.toFixed(3)}`
               : 'Locating...'}
           </Text>
+          {ads.length > 0 && (
+            <Text style={[s.mapOverlayText, { marginLeft: 8 }]}>· {ads.length} deals nearby</Text>
+          )}
         </View>
       </View>
-
-      {/* Filter chips */}
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.filterRow}>
-        {FILTERS.map(f => (
-          <TouchableOpacity
-            key={f.key}
-            style={[s.chip, filter === f.key && s.chipActive]}
-            onPress={() => setFilter(f.key)}
-            activeOpacity={0.8}
-          >
-            <Ionicons name={f.icon as any} size={13} color={filter === f.key ? '#fff' : C.textSecondary} />
-            <Text style={[s.chipText, filter === f.key && s.chipTextActive]}>{f.key}</Text>
-          </TouchableOpacity>
-        ))}
-      </ScrollView>
 
       {/* Deals list */}
       <ScrollView
@@ -209,18 +222,14 @@ function makeStyles(C: any) {
     postAdBtn: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: C.text === '#F9FAFB' ? 'rgba(76,175,125,0.12)' : '#e1f9eb', borderRadius: RADIUS.full, paddingHorizontal: SPACING.md, paddingVertical: 8, borderWidth: 1.5, borderColor: C.border },
     postAdText: { fontSize: FONTS.sizes.xs, color: C.primary, fontWeight: '700' },
 
-    mapWrap: { height: 180, marginHorizontal: SPACING.xl, borderRadius: RADIUS.xl, overflow: 'hidden', marginBottom: SPACING.md },
-    mapBg: { flex: 1, backgroundColor: C.text === '#F9FAFB' ? '#1c2638' : '#f0f4f0', alignItems: 'center', justifyContent: 'center', position: 'relative' },
-    userDot: { position: 'absolute', width: 14, height: 14, borderRadius: 7, backgroundColor: '#4285F4', borderWidth: 2.5, borderColor: '#fff', ...SHADOW.sm },
-    bizPin: { position: 'absolute', width: 32, height: 32, borderRadius: 9, backgroundColor: C.primary, alignItems: 'center', justifyContent: 'center', ...SHADOW.sm },
+    mapWrap: { height: 180, marginHorizontal: SPACING.xl, borderRadius: RADIUS.xl, overflow: 'hidden', marginBottom: SPACING.md, position: 'relative' },
+    mapPlaceholderBg: { flex: 1, backgroundColor: C.text === '#F9FAFB' ? '#1c2638' : '#f0f4f0', alignItems: 'center', justifyContent: 'center', gap: 8 },
+    mapPlaceholderText: { fontSize: FONTS.sizes.xs, color: 'rgba(0,108,68,0.4)', fontWeight: '600' },
+    bizPinMarker: { width: 30, height: 30, borderRadius: 8, backgroundColor: C.primary, alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: '#fff', ...SHADOW.sm },
     mapOverlay: { position: 'absolute', bottom: 8, left: 10, right: 10, flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: C.text === '#F9FAFB' ? 'rgba(28,38,56,0.85)' : 'rgba(255,255,255,0.85)', borderRadius: RADIUS.full, paddingHorizontal: SPACING.md, paddingVertical: 5 },
     mapOverlayText: { fontSize: FONTS.sizes.xs, color: C.primary, fontWeight: '600' },
 
-    filterRow: { paddingHorizontal: SPACING.xl, paddingBottom: SPACING.md, gap: SPACING.sm },
-    chip: { flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: SPACING.md, paddingVertical: SPACING.sm, borderRadius: RADIUS.full, borderWidth: 1.5, borderColor: C.border, backgroundColor: C.surface },
-    chipActive: { backgroundColor: C.primary, borderColor: C.primary },
-    chipText: { fontSize: FONTS.sizes.xs, fontWeight: '600', color: C.textSecondary },
-    chipTextActive: { color: '#fff' },
+
 
     list: { paddingHorizontal: SPACING.xl, paddingBottom: 100, gap: SPACING.md },
     sampleNote: { flexDirection: 'row', alignItems: 'center', gap: SPACING.sm, backgroundColor: C.text === '#F9FAFB' ? 'rgba(76,175,125,0.12)' : '#e1f9eb', borderRadius: RADIUS.lg, padding: SPACING.md, marginBottom: SPACING.xs },
