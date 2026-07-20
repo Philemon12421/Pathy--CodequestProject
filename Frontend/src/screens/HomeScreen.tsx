@@ -7,6 +7,7 @@ import {
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import MapView, { Marker, Polyline } from 'react-native-maps';
 import { FONTS, RADIUS, SPACING, SHADOW } from '../config/theme';
 import { useColors } from '../config/ThemeContext';
 import { incidentsAPI, routesAPI } from '../services/api';
@@ -283,10 +284,50 @@ function RouteDetailModal({ visible, post, onClose, navigation }: {
 
         {/* Thumbnail */}
         <View style={rd.thumb}>
-          <View style={rd.thumbBg} />
-          <View style={rd.routeLine1} />
-          <View style={rd.routeLine2} />
-          <View style={rd.routeLine3} />
+          {post.originLat && post.destinationLat ? (
+            <MapView
+              style={StyleSheet.absoluteFillObject}
+              initialRegion={{
+                latitude: (post.originLat + post.destinationLat) / 2,
+                longitude: (post.originLng + post.destinationLng) / 2,
+                latitudeDelta: Math.abs(post.originLat - post.destinationLat) * 1.6 + 0.015,
+                longitudeDelta: Math.abs(post.originLng - post.destinationLng) * 1.6 + 0.015,
+              }}
+              scrollEnabled={false}
+              zoomEnabled={false}
+              pitchEnabled={false}
+              rotateEnabled={false}
+            >
+              <Marker
+                coordinate={{ latitude: post.originLat, longitude: post.originLng }}
+                anchor={{ x: 0.5, y: 0.5 }}
+              >
+                <View style={rd.markerDotStart} />
+              </Marker>
+              <Marker
+                coordinate={{ latitude: post.destinationLat, longitude: post.destinationLng }}
+                anchor={{ x: 0.5, y: 0.5 }}
+              >
+                <View style={rd.markerDotEnd} />
+              </Marker>
+              <Polyline
+                coordinates={[
+                  { latitude: post.originLat, longitude: post.originLng },
+                  { latitude: post.destinationLat, longitude: post.destinationLng },
+                ]}
+                strokeWidth={3}
+                strokeColor="#006c44"
+              />
+            </MapView>
+          ) : (
+            <>
+              <View style={rd.thumbBg} />
+              <View style={rd.routeLine1} />
+              <View style={rd.routeLine2} />
+              <View style={rd.routeLine3} />
+            </>
+          )}
+          <View style={rd.thumbBgGradient} />
           <View style={rd.thumbOverlay}>
             <Text style={rd.thumbTitle} numberOfLines={2}>{post.title}</Text>
             <View style={rd.badgeRow}>
@@ -404,10 +445,13 @@ const rd = StyleSheet.create({
   handle:        { width: 36, height: 4, borderRadius: 2, backgroundColor: 'rgba(0,108,68,0.2)' },
   thumb:         { width: '100%', height: 200, backgroundColor: '#2d5a45', position: 'relative' },
   thumbBg:       { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,20,10,0.35)' },
+  thumbBgGradient:{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.35)' },
   routeLine1:    { position: 'absolute', width: '65%', height: 3,   backgroundColor: 'rgba(76,175,125,0.7)', borderRadius: 2, top: '38%', left: '12%', transform: [{ rotate: '-10deg' }] },
   routeLine2:    { position: 'absolute', width: '35%', height: 2.5, backgroundColor: 'rgba(76,175,125,0.5)', borderRadius: 2, top: '52%', left: '35%', transform: [{ rotate:  '6deg' }] },
   routeLine3:    { position: 'absolute', width: '20%', height: 2,   backgroundColor: 'rgba(76,175,125,0.35)',borderRadius: 2, top: '62%', left: '55%', transform: [{ rotate:  '-4deg'}] },
-  thumbOverlay:  { position: 'absolute', bottom: 0, left: 0, right: 0, padding: SPACING.md, backgroundColor: 'rgba(0,20,10,0.55)' },
+  markerDotStart:{ width: 12, height: 12, borderRadius: 6, backgroundColor: '#4caf7d', borderWidth: 2, borderColor: '#fff' },
+  markerDotEnd:  { width: 12, height: 12, borderRadius: 6, backgroundColor: '#E24B4A', borderWidth: 2, borderColor: '#fff' },
+  thumbOverlay:  { position: 'absolute', bottom: 0, left: 0, right: 0, padding: SPACING.md, backgroundColor: 'rgba(0,0,0,0.45)' },
   thumbTitle:    { fontSize: FONTS.sizes.xl, fontWeight: '800', color: '#fff', marginBottom: 8 },
   badgeRow:      { flexDirection: 'row', gap: SPACING.sm, flexWrap: 'wrap' },
   badge:         { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: 'rgba(0,108,68,0.75)', borderRadius: RADIUS.full, paddingHorizontal: 10, paddingVertical: 4 },
@@ -502,10 +546,51 @@ function FeedCard({ post, currentUserId, onLike, onOpenComments, onOpenDetail, o
 
       {/* Route thumbnail — tappable to open detail */}
       <TouchableOpacity style={fc.thumb} onPress={() => onOpenDetail(post)} activeOpacity={0.9}>
-        <View style={fc.thumbBg} />
-        <View style={fc.routeLine1} />
-        <View style={fc.routeLine2} />
-        <View style={fc.routeLine3} />
+        {post.originLat && post.destinationLat ? (
+          <MapView
+            style={StyleSheet.absoluteFillObject}
+            initialRegion={{
+              latitude: (post.originLat + post.destinationLat) / 2,
+              longitude: (post.originLng + post.destinationLng) / 2,
+              latitudeDelta: Math.abs(post.originLat - post.destinationLat) * 1.6 + 0.015,
+              longitudeDelta: Math.abs(post.originLng - post.destinationLng) * 1.6 + 0.015,
+            }}
+            scrollEnabled={false}
+            zoomEnabled={false}
+            pitchEnabled={false}
+            rotateEnabled={false}
+            cacheEnabled={true}
+          >
+            <Marker
+              coordinate={{ latitude: post.originLat, longitude: post.originLng }}
+              anchor={{ x: 0.5, y: 0.5 }}
+            >
+              <View style={fc.markerDotStart} />
+            </Marker>
+            <Marker
+              coordinate={{ latitude: post.destinationLat, longitude: post.destinationLng }}
+              anchor={{ x: 0.5, y: 0.5 }}
+            >
+              <View style={fc.markerDotEnd} />
+            </Marker>
+            <Polyline
+              coordinates={[
+                { latitude: post.originLat, longitude: post.originLng },
+                { latitude: post.destinationLat, longitude: post.destinationLng },
+              ]}
+              strokeWidth={3}
+              strokeColor="#006c44"
+            />
+          </MapView>
+        ) : (
+          <>
+            <View style={fc.thumbBg} />
+            <View style={fc.routeLine1} />
+            <View style={fc.routeLine2} />
+            <View style={fc.routeLine3} />
+          </>
+        )}
+        <View style={fc.thumbBgGradient} />
         {/* Tap hint */}
         <View style={fc.tapHint}>
           <Ionicons name="eye-outline" size={13} color="rgba(255,255,255,0.85)" />
@@ -597,12 +682,15 @@ const fc = StyleSheet.create({
 
   thumb:        { width: '100%', height: 220, backgroundColor: '#2d5a45', overflow: 'hidden', position: 'relative' },
   thumbBg:      { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,30,15,0.3)' },
+  thumbBgGradient:{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.3)' },
   routeLine1:   { position: 'absolute', width: '65%', height: 3,  backgroundColor: 'rgba(76,175,125,0.7)', borderRadius: 2, top: '38%', left: '12%', transform: [{ rotate: '-10deg' }] },
   routeLine2:   { position: 'absolute', width: '35%', height: 2.5,backgroundColor: 'rgba(76,175,125,0.5)', borderRadius: 2, top: '52%', left: '35%', transform: [{ rotate:  '6deg' }] },
   routeLine3:   { position: 'absolute', width: '20%', height: 2,  backgroundColor: 'rgba(76,175,125,0.35)',borderRadius: 2, top: '62%', left: '55%', transform: [{ rotate:  '-4deg'}] },
+  markerDotStart:{ width: 12, height: 12, borderRadius: 6, backgroundColor: '#4caf7d', borderWidth: 2, borderColor: '#fff' },
+  markerDotEnd:  { width: 12, height: 12, borderRadius: 6, backgroundColor: '#E24B4A', borderWidth: 2, borderColor: '#fff' },
   tapHint:      { position: 'absolute', top: 10, right: 12, flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: 'rgba(0,0,0,0.35)', borderRadius: RADIUS.full, paddingHorizontal: 9, paddingVertical: 4 },
   tapHintText:  { fontSize: 10, color: 'rgba(255,255,255,0.9)', fontWeight: '600' },
-  thumbOverlay: { position: 'absolute', bottom: 0, left: 0, right: 0, padding: SPACING.md, paddingBottom: SPACING.md, backgroundColor: 'rgba(0,20,10,0.55)' },
+  thumbOverlay: { position: 'absolute', bottom: 0, left: 0, right: 0, padding: SPACING.md, paddingBottom: SPACING.md, backgroundColor: 'rgba(0,0,0,0.45)' },
   thumbTitle:   { fontSize: FONTS.sizes.lg, fontWeight: '800', color: '#fff', marginBottom: 6 },
   thumbBadges:  { flexDirection: 'row', gap: SPACING.sm },
   thumbBadge:   { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: 'rgba(0,108,68,0.75)', borderRadius: RADIUS.full, paddingHorizontal: 10, paddingVertical: 4 },

@@ -48,13 +48,12 @@ function normalizeAudiusTrack(t: any) {
 export default function MusicScreen({ navigation }: any) {
   const C = useColors();
   const s = makeStyles(C);
-  const { tracks, setTracks, playlists, setPlaylists, currentTrack,
-          setCurrentTrack, isPlaying, setIsPlaying, setQueue } = useStore();
-  const soundRef = useRef<Audio.Sound | null>(null);
-  const [position, setPosition] = useState(0);
-  const [duration, setDuration] = useState(0);
+  const {
+    tracks, setTracks, playlists, setPlaylists, currentTrack,
+    setCurrentTrack, isPlaying, setIsPlaying, setQueue,
+    sound, position, duration, loadingTrackId, playTrack, togglePlay
+  } = useStore();
   const [uploading, setUploading] = useState(false);
-  const [loadingTrackId, setLoadingTrackId] = useState<string | null>(null);
   const [tab, setTab] = useState<'tracks' | 'discover' | 'playlists'>('tracks');
   const albumRotate = useRef(new Animated.Value(0)).current;
   const rotationRef = useRef<Animated.CompositeAnimation | null>(null);
@@ -80,12 +79,7 @@ export default function MusicScreen({ navigation }: any) {
       }
     };
     setupAudio();
-    return () => { soundRef.current?.unloadAsync(); };
   }, []);
-
-  useEffect(() => {
-    if (currentTrack) playTrack(currentTrack);
-  }, [currentTrack]);
 
   useEffect(() => {
     if (isPlaying) {
@@ -130,7 +124,7 @@ export default function MusicScreen({ navigation }: any) {
       const [tr, pl] = await Promise.all([musicAPI.getTracks(), musicAPI.getPlaylists()]);
       const libraryTracks = (tr || []).map((t: any) => ({ ...t, source: 'library' as const }));
       setTracks(libraryTracks); setPlaylists(pl || []);
-      if (libraryTracks.length > 0) setQueue(libraryTracks);
+      if (libraryTracks.length > 0 && !currentTrack) setQueue(libraryTracks);
     } catch {}
   };
 
@@ -161,8 +155,6 @@ export default function MusicScreen({ navigation }: any) {
       }
     }
 
-    // Last resort — use the first fallback even if we couldn't verify it,
-    // so playback attempts still have a URL to try rather than silently failing.
     audiusHostRef.current = candidates[0] || AUDIUS_FALLBACK_HOSTS[0];
     return audiusHostRef.current;
   };
@@ -197,60 +189,6 @@ export default function MusicScreen({ navigation }: any) {
     }
   };
 
-  const playTrack = async (track: any) => {
-    try {
-      if (soundRef.current) {
-        await soundRef.current.unloadAsync();
-        soundRef.current = null;
-      }
-
-      let localUri: string;
-
-      if (track.source === 'audius') {
-        setLoadingTrackId(track.id);
-        const host = await ensureAudiusHost();
-        localUri = `${host}/v1/tracks/${track.audiusId}/stream?app_name=${AUDIUS_APP_NAME}`;
-      } else {
-        const fileUri = `${FileSystem.cacheDirectory}${track.id}.m4a`;
-        const fileInfo = await FileSystem.getInfoAsync(fileUri);
-        localUri = fileUri;
-
-        if (!fileInfo.exists) {
-          setLoadingTrackId(track.id);
-          const downloadResult = await FileSystem.downloadAsync(
-            `${BASE_URL}${track.file_url}`,
-            fileUri,
-            {
-              headers: {
-                'ngrok-skip-browser-warning': 'true',
-              }
-            }
-          );
-          localUri = downloadResult.uri;
-        }
-      }
-
-      setLoadingTrackId(null);
-      const { sound } = await Audio.Sound.createAsync(
-        { uri: localUri },
-        { shouldPlay: true },
-        (status: any) => {
-          if (status.isLoaded) {
-            setPosition(status.positionMillis || 0);
-            setDuration(status.durationMillis || 0);
-            if (status.didJustFinish) useStore.getState().nextTrack();
-          }
-        }
-      );
-      soundRef.current = sound;
-      setIsPlaying(true);
-    } catch (e) {
-      setLoadingTrackId(null);
-      console.log('Playback error:', e);
-      Alert.alert('Playback Error', 'Failed to load and play audio.');
-    }
-  };
-
   const playFromDiscover = (track: any) => {
     // Isolate Audius playback in its own single-track queue so skip/prev
     // controls don't unexpectedly jump into the local library queue.
@@ -264,14 +202,7 @@ export default function MusicScreen({ navigation }: any) {
 
       // Stop and unload if currently playing
       if (currentTrack?.id === id) {
-        if (soundRef.current) {
-          await soundRef.current.unloadAsync();
-          soundRef.current = null;
-        }
         setCurrentTrack(null);
-        setIsPlaying(false);
-        setPosition(0);
-        setDuration(0);
       }
 
       // Try to clean up local cache file
@@ -304,11 +235,6 @@ export default function MusicScreen({ navigation }: any) {
     );
   };
 
-  const togglePlay = async () => {
-    if (!soundRef.current) return;
-    if (isPlaying) { await soundRef.current.pauseAsync(); setIsPlaying(false); }
-    else { await soundRef.current.playAsync(); setIsPlaying(true); }
-  };
 
   const uploadTrack = async () => {
     try {
