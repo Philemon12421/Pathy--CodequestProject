@@ -57,8 +57,7 @@ export const DARK_COLORS = {
   surfaceElevated:  '#1A2235',
   surfaceGlass:     'rgba(17,24,39,0.88)',
 
-  primary:          '#4caf7d',       // sage green reads well on dark bg (was #3B82F6 blue)
-  primaryDark:      '#3a8c63',
+  primary:          '#6EE7A0',       // brighter mint-green, more legible on dark bg  primaryDark:      '#3a8c63',
   primaryContainer: '#1a3a2a',       // dark green container (NEW)
   onSurface:        '#F9FAFB',       // (NEW)
   secondary:        '#9CA3AF',       // (NEW)
