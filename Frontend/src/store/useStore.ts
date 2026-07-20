@@ -2,7 +2,7 @@ import { create } from 'zustand';
 import { Audio } from 'expo-av';
 import * as FileSystem from 'expo-file-system/legacy';
 import { FeedPost, Comment } from '../screens/HomeScreen';
-import { notificationsAPI } from '../services/api';
+import { notificationsAPI, setAuthToken } from '../services/api';
 
 
 export interface StoreState {
@@ -100,8 +100,14 @@ const useStore = create<StoreState>((set, get) => ({
   // ── Auth ──────────────────────────────────────────────────────────────────
   token: null,
   user: null,
-  setAuth: (token, user) => set({ token, user }),
-  logout: () => set({ token: null, user: null }),
+  setAuth: (token, user) => {
+    setAuthToken(token);
+    set({ token, user });
+  },
+  logout: () => {
+    setAuthToken(null);
+    set({ token: null, user: null });
+  },
 
   // ── Location ──────────────────────────────────────────────────────────────
   userLocation: null,
