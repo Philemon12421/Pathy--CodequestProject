@@ -52,7 +52,10 @@ export const routesAPI = {
   save: (data: any) => api.post('/routes', data),
   toggleFavorite: (id: string | number) => api.patch(`/routes/${id}/favorite`),
   delete: (id: string | number) => api.delete(`/routes/${id}`),
+  leaderboard: () => api.get('/routes/leaderboard'),
+  leaderboardWeekly: () => api.get('/routes/leaderboard/weekly'),
 };
+
 
 // AI
 export const aiAPI = {
