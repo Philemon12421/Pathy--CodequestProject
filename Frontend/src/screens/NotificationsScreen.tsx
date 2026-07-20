@@ -1,9 +1,10 @@
-import React, { useEffect, useCallback } from 'react';
+import React, { useCallback } from 'react';
 import {
   View, Text, StyleSheet, FlatList, TouchableOpacity,
-  RefreshControl, Animated, Alert, Platform,
+  RefreshControl, Animated, Alert,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { BlurView } from 'expo-blur';
 import { useColors } from '../config/ThemeContext';
@@ -173,11 +174,15 @@ export default function NotificationsScreen() {
 
   const listData = notifications || [];
 
+  const token = useStore((st) => st.token);
   const [refreshing, setRefreshing] = React.useState(false);
 
-  useEffect(() => {
-    fetchNotifications();
-  }, []);
+  // Fetch only when this tab is focused AND user is logged in
+  useFocusEffect(
+    useCallback(() => {
+      if (token) fetchNotifications();
+    }, [token])
+  );
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
