@@ -5,6 +5,7 @@ import com.safetrack.api.service.FileStorageService;
 import com.safetrack.api.service.NotificationService;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.web.bind.annotation.*;
@@ -125,14 +126,16 @@ public class AdsController extends BaseController {
     return ResponseEntity.status(201).body(ad);
   }
 
-  @PostMapping(value = "/upload-image", consumes = "multipart/form-data")
+  @PostMapping(value = "/upload-image", consumes = {MediaType.MULTIPART_FORM_DATA_VALUE, "multipart/*"})
   public ResponseEntity<?> uploadImage(
-      @RequestParam("image") MultipartFile image) {
-    if (image == null || image.isEmpty()) {
+      @RequestPart(name = "image", required = false) MultipartFile imagePart,
+      @RequestParam(name = "image", required = false) MultipartFile imageParam) {
+    MultipartFile file = imagePart != null ? imagePart : imageParam;
+    if (file == null || file.isEmpty()) {
       return ResponseEntity.badRequest().body(Map.of("error", "Image file is required"));
     }
     try {
-      String url = fileStorage.save(image, "ad-");
+      String url = fileStorage.save(file, "ad-");
       return ResponseEntity.ok(Map.of("image_url", url));
     } catch (Exception e) {
       return ResponseEntity.status(500).body(Map.of("error", "Could not upload image: " + e.getMessage()));
