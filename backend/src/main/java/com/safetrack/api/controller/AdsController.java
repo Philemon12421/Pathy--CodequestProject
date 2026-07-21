@@ -1,12 +1,14 @@
 package com.safetrack.api.controller;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.safetrack.api.service.FileStorageService;
 import com.safetrack.api.service.NotificationService;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.ResponseEntity;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.net.URI;
 import java.net.http.HttpClient;
@@ -27,16 +29,19 @@ public class AdsController extends BaseController {
   private final JdbcClient jdbc;
   private final String paystackSecretKey;
   private final NotificationService notifications;
+  private final FileStorageService fileStorage;
   private final HttpClient httpClient = HttpClient.newHttpClient();
   private final ObjectMapper objectMapper = new ObjectMapper();
 
   public AdsController(
       JdbcClient jdbc,
       @Value("${app.paystack-secret-key:}") String paystackSecretKey,
-      NotificationService notifications) {
+      NotificationService notifications,
+      FileStorageService fileStorage) {
     this.jdbc = jdbc;
     this.paystackSecretKey = paystackSecretKey;
     this.notifications = notifications;
+    this.fileStorage = fileStorage;
   }
 
   // ── Price helper ─────────────────────────────────────────────────────────────
@@ -102,8 +107,8 @@ public class AdsController extends BaseController {
       return ResponseEntity.badRequest().body(Map.of("error", "Location is required"));
 
     Map<String, Object> ad = jdbc.sql("""
-        INSERT INTO ads (user_id, business_name, description, latitude, longitude, radius_km, website_url)
-        VALUES (:user_id,:business_name,:description,:latitude,:longitude,:radius_km,:website_url) RETURNING *
+        INSERT INTO ads (user_id, business_name, description, latitude, longitude, radius_km, image_url, website_url)
+        VALUES (:user_id,:business_name,:description,:latitude,:longitude,:radius_km,:image_url,:website_url) RETURNING *
         """)
         .param("user_id", user(request).id())
         .param("business_name", businessName)
@@ -111,13 +116,27 @@ public class AdsController extends BaseController {
         .param("latitude", body.get("latitude"))
         .param("longitude", body.get("longitude"))
         .param("radius_km", body.getOrDefault("radius_km", 2))
+        .param("image_url", body.get("image_url"))
         .param("website_url", body.get("website_url"))
         .query().singleRow();
 
     notifications.create(user(request).id(), "Ad Campaign Created", "Your ad campaign for \"" + businessName + "\" has been created and is pending payment.", "ad_created");
 
     return ResponseEntity.status(201).body(ad);
+  }
 
+  @PostMapping(value = "/upload-image", consumes = "multipart/form-data")
+  public ResponseEntity<?> uploadImage(
+      @RequestParam("image") MultipartFile image) {
+    if (image == null || image.isEmpty()) {
+      return ResponseEntity.badRequest().body(Map.of("error", "Image file is required"));
+    }
+    try {
+      String url = fileStorage.save(image, "ad-");
+      return ResponseEntity.ok(Map.of("image_url", url));
+    } catch (Exception e) {
+      return ResponseEntity.status(500).body(Map.of("error", "Could not upload image: " + e.getMessage()));
+    }
   }
 
   // ── POST /api/ads/{id}/checkout ───────────────────────────────────────────────

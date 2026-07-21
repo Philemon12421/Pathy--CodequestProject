@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
-  RefreshControl, ActivityIndicator, Linking, Alert,
+  RefreshControl, ActivityIndicator, Linking, Alert, Image,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -11,6 +11,14 @@ import { useColors } from '../config/ThemeContext';
 import { FONTS, RADIUS, SPACING, SHADOW } from '../config/theme';
 import { adsAPI } from '../services/api';
 import useStore from '../store/useStore';
+
+function resolveImageUrl(url: string | null | undefined): string | null {
+  if (!url) return null;
+  if (url.startsWith('http://') || url.startsWith('https://') || url.startsWith('data:')) return url;
+  const apiUrl = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:4000/api';
+  const baseUrl = apiUrl.replace('/api', '');
+  return `${baseUrl}${url}`;
+}
 
 
 
@@ -165,6 +173,7 @@ function DealCard({ ad }: any) {
   const [expanded, setExpanded] = useState(false);
   const dist = ad.distance_km != null ? distLabel(ad.distance_km) : ad.radius_km ? `${ad.radius_km} km radius` : null;
   const bar = ad.bar ?? 0.5;
+  const imageUrl = resolveImageUrl(ad.image_url);
 
   return (
     <TouchableOpacity
@@ -172,6 +181,9 @@ function DealCard({ ad }: any) {
       onPress={() => setExpanded(!expanded)}
       activeOpacity={0.9}
     >
+      {imageUrl ? (
+        <Image source={{ uri: imageUrl }} style={s.dealImage} resizeMode="cover" />
+      ) : null}
       <View style={s.dealTop}>
         <View style={s.dealIcon}>
           <Ionicons name="storefront-outline" size={22} color="#006c44" />
@@ -237,6 +249,7 @@ function makeStyles(C: any) {
 
     dealCard: { backgroundColor: C.surface, borderRadius: RADIUS.xl, overflow: 'hidden', borderWidth: 1, borderColor: C.border, ...SHADOW.xs },
     dealCardOpen: { borderColor: C.primary, borderWidth: 1.5 },
+    dealImage: { width: '100%', height: 130 },
     dealTop: { flexDirection: 'row', alignItems: 'flex-start', gap: SPACING.md, padding: SPACING.md },
     dealIcon: { width: 48, height: 48, borderRadius: RADIUS.lg, backgroundColor: C.text === '#F9FAFB' ? 'rgba(76,175,125,0.12)' : '#e1f9eb', alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
     dealInfo: { flex: 1 },

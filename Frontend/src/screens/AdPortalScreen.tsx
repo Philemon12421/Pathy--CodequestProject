@@ -2,11 +2,12 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TextInput,
   TouchableOpacity, Alert, ActivityIndicator, Animated,
-  RefreshControl, Linking
+  RefreshControl, Linking, Image
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import MapView, { Marker, Circle } from 'react-native-maps';
 import { Ionicons } from '@expo/vector-icons';
+import * as ImagePicker from 'expo-image-picker';
 import { useColors } from '../config/ThemeContext';
 import { FONTS, RADIUS, SPACING, SHADOW } from '../config/theme';
 import { adsAPI, walletAPI } from '../services/api';
@@ -31,6 +32,14 @@ function daysLeft(expiresAt: any) {
 function formatDate(dateStr: any) {
   if (!dateStr) return '';
   return new Date(dateStr).toLocaleDateString('en-GH', { day: 'numeric', month: 'short', year: 'numeric' });
+}
+
+function resolveImageUrl(url: string | null | undefined): string | null {
+  if (!url) return null;
+  if (url.startsWith('http://') || url.startsWith('https://') || url.startsWith('data:')) return url;
+  const apiUrl = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:4000/api';
+  const baseUrl = apiUrl.replace('/api', '');
+  return `${baseUrl}${url}`;
 }
 
 // ─── Status Badge ─────────────────────────────────────────────────────────────
@@ -59,6 +68,7 @@ function MyAdCard({ ad, onDelete }: any) {
   const COLORS = useColors();
   const myCard = makeMyCardStyles(COLORS);
   const [deleting, setDeleting] = useState(false);
+  const imageUrl = resolveImageUrl(ad.image_url);
 
   const confirmDelete = () => {
     Alert.alert('Remove Ad', `Delete "${ad.business_name}"? This cannot be undone.`, [
@@ -76,6 +86,9 @@ function MyAdCard({ ad, onDelete }: any) {
 
   return (
     <View style={myCard.wrap}>
+      {imageUrl ? (
+        <Image source={{ uri: imageUrl }} style={myCard.imageBanner} resizeMode="cover" />
+      ) : null}
       <View style={myCard.row}>
         <View style={myCard.iconWrap}>
           <Ionicons name="storefront" size={20} color={COLORS.accent} />
@@ -114,6 +127,7 @@ function MyAdCard({ ad, onDelete }: any) {
 function makeMyCardStyles(COLORS: any) {
   return StyleSheet.create({
     wrap: { backgroundColor: COLORS.surface, borderRadius: RADIUS.lg, padding: SPACING.md, borderWidth: 1, borderColor: COLORS.border, gap: SPACING.sm },
+    imageBanner: { width: '100%', height: 120, borderRadius: RADIUS.md, marginBottom: SPACING.xs },
     row: { flexDirection: 'row', alignItems: 'flex-start', gap: SPACING.md },
     iconWrap: { width: 40, height: 40, borderRadius: RADIUS.md, backgroundColor: COLORS.accent + '22', alignItems: 'center', justifyContent: 'center' },
     name: { fontSize: FONTS.sizes.md, fontWeight: FONTS.weights.bold, color: COLORS.text },
@@ -136,6 +150,7 @@ export default function AdPortalScreen() {
   const [creating, setCreating] = useState(false);
   const [step, setStep] = useState(0);
   const [form, setForm] = useState({ business_name: '', description: '', website_url: '', radius_km: '2' });
+  const [imageAsset, setImageAsset] = useState<any>(null);
   const [pin, setPin] = useState(userLocation || { latitude: 6.6885, longitude: -1.6244 });
   const [adId, setAdId] = useState(null);
   const [submitting, setSubmitting] = useState(false);
@@ -152,6 +167,40 @@ export default function AdPortalScreen() {
       Animated.timing(slideAnim, { toValue: 0, duration: 180, useNativeDriver: true }),
     ]).start();
     setStep(newStep);
+  };
+
+  const pickBusinessImage = () => {
+    Alert.alert('Business Photo / Logo', 'Choose photo source', [
+      {
+        text: 'Take Photo',
+        onPress: async () => {
+          const { status } = await ImagePicker.requestCameraPermissionsAsync();
+          if (status !== 'granted') {
+            Alert.alert('Permission Denied', 'Camera permission is required.');
+            return;
+          }
+          const res = await ImagePicker.launchCameraAsync({ mediaTypes: ImagePicker.MediaTypeOptions.Images, quality: 0.8 });
+          if (!res.canceled && res.assets && res.assets.length > 0) {
+            setImageAsset(res.assets[0]);
+          }
+        }
+      },
+      {
+        text: 'Choose from Library',
+        onPress: async () => {
+          const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+          if (status !== 'granted') {
+            Alert.alert('Permission Denied', 'Photo library permission is required.');
+            return;
+          }
+          const res = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ImagePicker.MediaTypeOptions.Images, quality: 0.8 });
+          if (!res.canceled && res.assets && res.assets.length > 0) {
+            setImageAsset(res.assets[0]);
+          }
+        }
+      },
+      { text: 'Cancel', style: 'cancel' }
+    ]);
   };
 
   const loadMyAds = useCallback(async () => {
@@ -185,6 +234,7 @@ export default function AdPortalScreen() {
     setDone(false);
     setStep(0);
     setAdId(null);
+    setImageAsset(null);
     setForm({ business_name: '', description: '', website_url: '', radius_km: '2' });
     setPin(userLocation || { latitude: 6.6885, longitude: -1.6244 });
   };
@@ -199,6 +249,22 @@ export default function AdPortalScreen() {
   const goToPaymentDetails = async () => {
     setSubmitting(true);
     try {
+      let imageUrl = null;
+      if (imageAsset) {
+        try {
+          const fd = new FormData();
+          const uri = imageAsset.uri;
+          const fileName = uri.split('/').pop() || 'business.jpg';
+          const match = /\.(\w+)$/.exec(fileName);
+          const type = match ? `image/${match[1]}` : 'image/jpeg';
+          fd.append('image', { uri, name: fileName, type } as any);
+          const uploadRes = await adsAPI.uploadImage(fd);
+          imageUrl = uploadRes.image_url;
+        } catch (uploadErr) {
+          console.warn('Image upload failed, continuing ad creation without image:', uploadErr);
+        }
+      }
+
       const ad = await adsAPI.create({
         business_name: form.business_name,
         description: form.description,
@@ -206,6 +272,7 @@ export default function AdPortalScreen() {
         longitude: pin.longitude,
         radius_km: parseFloat(form.radius_km) || 2,
         website_url: form.website_url,
+        image_url: imageUrl,
       });
       setAdId(ad.id);
       // Refresh balance before showing wallet review
@@ -341,6 +408,30 @@ export default function AdPortalScreen() {
                   autoCapitalize="none"
                   keyboardType="url"
                 />
+
+                <Text style={s.label}>Business Photo / Logo (optional)</Text>
+                <Text style={s.sublabel}>Add an image for your business card & map popup</Text>
+                {imageAsset ? (
+                  <View style={s.imagePreviewContainer}>
+                    <Image source={{ uri: imageAsset.uri }} style={s.imagePreview} resizeMode="cover" />
+                    <View style={s.imagePreviewActions}>
+                      <TouchableOpacity style={s.imageChangeBtn} onPress={pickBusinessImage}>
+                        <Ionicons name="create-outline" size={16} color={COLORS.primary} />
+                        <Text style={s.imageChangeText}>Change Photo</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity style={s.imageRemoveBtn} onPress={() => setImageAsset(null)}>
+                        <Ionicons name="trash-outline" size={16} color={COLORS.danger} />
+                        <Text style={s.imageRemoveText}>Remove</Text>
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+                ) : (
+                  <TouchableOpacity style={s.imagePickerBox} onPress={pickBusinessImage} activeOpacity={0.8}>
+                    <Ionicons name="camera-outline" size={28} color={COLORS.accent} />
+                    <Text style={s.imagePickerText}>Upload Business Photo or Logo</Text>
+                    <Text style={s.imagePickerSubtext}>Tap to take a photo or select from gallery</Text>
+                  </TouchableOpacity>
+                )}
 
                 <TouchableOpacity style={s.nextBtn} onPress={goToLocation}>
                   <Text style={s.nextBtnText}>Next: Set Location</Text>
@@ -652,6 +743,16 @@ function makeStyles(COLORS: any) {
     sublabel: { fontSize: FONTS.sizes.xs, color: COLORS.textMuted, marginTop: -6 },
     input: { backgroundColor: COLORS.surface, borderRadius: RADIUS.md, borderWidth: 1, borderColor: COLORS.border, color: COLORS.text, fontSize: FONTS.sizes.md, padding: SPACING.md },
     textarea: { minHeight: 90, textAlignVertical: 'top' },
+    imagePreviewContainer: { marginTop: SPACING.xs, borderRadius: RADIUS.md, overflow: 'hidden', borderWidth: 1, borderColor: COLORS.border, backgroundColor: COLORS.surface },
+    imagePreview: { width: '100%', height: 150 },
+    imagePreviewActions: { flexDirection: 'row', justifyContent: 'space-between', padding: SPACING.sm, backgroundColor: COLORS.surface },
+    imageChangeBtn: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+    imageChangeText: { fontSize: FONTS.sizes.xs, color: COLORS.primary, fontWeight: FONTS.weights.semibold },
+    imageRemoveBtn: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+    imageRemoveText: { fontSize: FONTS.sizes.xs, color: COLORS.danger, fontWeight: FONTS.weights.semibold },
+    imagePickerBox: { marginTop: SPACING.xs, borderRadius: RADIUS.md, borderWidth: 1.5, borderColor: COLORS.accent + '66', borderStyle: 'dashed', backgroundColor: COLORS.accent + '11', padding: SPACING.lg, alignItems: 'center', justifyContent: 'center', gap: 4 },
+    imagePickerText: { fontSize: FONTS.sizes.sm, fontWeight: FONTS.weights.bold, color: COLORS.accent },
+    imagePickerSubtext: { fontSize: FONTS.sizes.xs, color: COLORS.textMuted },
     nextBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: SPACING.sm, backgroundColor: COLORS.primary, borderRadius: RADIUS.lg, padding: SPACING.md, marginTop: SPACING.lg, ...SHADOW.sm },
     nextBtnText: { color: '#fff', fontSize: FONTS.sizes.md, fontWeight: FONTS.weights.bold },
     backBtnOutline: { alignItems: 'center', padding: SPACING.md, marginTop: SPACING.sm, borderRadius: RADIUS.lg, borderWidth: 1, borderColor: COLORS.border },
