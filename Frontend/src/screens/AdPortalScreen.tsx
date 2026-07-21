@@ -179,7 +179,7 @@ export default function AdPortalScreen() {
             Alert.alert('Permission Denied', 'Camera permission is required.');
             return;
           }
-          const res = await ImagePicker.launchCameraAsync({ mediaTypes: ImagePicker.MediaTypeOptions.Images, quality: 0.8 });
+          const res = await ImagePicker.launchCameraAsync({ mediaTypes: ImagePicker.MediaTypeOptions.Images, quality: 0.7, base64: true });
           if (!res.canceled && res.assets && res.assets.length > 0) {
             setImageAsset(res.assets[0]);
           }
@@ -193,7 +193,7 @@ export default function AdPortalScreen() {
             Alert.alert('Permission Denied', 'Photo library permission is required.');
             return;
           }
-          const res = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ImagePicker.MediaTypeOptions.Images, quality: 0.8 });
+          const res = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ImagePicker.MediaTypeOptions.Images, quality: 0.7, base64: true });
           if (!res.canceled && res.assets && res.assets.length > 0) {
             setImageAsset(res.assets[0]);
           }
@@ -261,7 +261,10 @@ export default function AdPortalScreen() {
           const uploadRes = await adsAPI.uploadImage(fd);
           imageUrl = uploadRes.image_url;
         } catch (uploadErr) {
-          console.warn('Image upload failed, continuing ad creation without image:', uploadErr);
+          console.warn('Image server upload failed, falling back to base64 encoding:', uploadErr);
+          if (imageAsset.base64) {
+            imageUrl = `data:image/jpeg;base64,${imageAsset.base64}`;
+          }
         }
       }
 
