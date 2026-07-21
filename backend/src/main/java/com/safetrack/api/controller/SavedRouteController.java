@@ -30,6 +30,7 @@ public class SavedRouteController extends BaseController {
   }
 
 
+  /**
    * Leaderboard — all-time: aggregate total km per user using the Haversine
    * formula on each route's origin→destination great-circle distance.
    * Returns top 50 users ranked by total_km descending.
