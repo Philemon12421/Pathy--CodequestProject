@@ -150,7 +150,6 @@ export default function AdPortalScreen() {
   const [creating, setCreating] = useState(false);
   const [step, setStep] = useState(0);
   const [form, setForm] = useState({ business_name: '', description: '', website_url: '', radius_km: '2' });
-  const [imageAsset, setImageAsset] = useState<any>(null);
   const [pin, setPin] = useState(userLocation || { latitude: 6.6885, longitude: -1.6244 });
   const [adId, setAdId] = useState(null);
   const [submitting, setSubmitting] = useState(false);
@@ -167,40 +166,6 @@ export default function AdPortalScreen() {
       Animated.timing(slideAnim, { toValue: 0, duration: 180, useNativeDriver: true }),
     ]).start();
     setStep(newStep);
-  };
-
-  const pickBusinessImage = () => {
-    Alert.alert('Business Photo / Logo', 'Choose photo source', [
-      {
-        text: 'Take Photo',
-        onPress: async () => {
-          const { status } = await ImagePicker.requestCameraPermissionsAsync();
-          if (status !== 'granted') {
-            Alert.alert('Permission Denied', 'Camera permission is required.');
-            return;
-          }
-          const res = await ImagePicker.launchCameraAsync({ mediaTypes: ImagePicker.MediaTypeOptions.Images, quality: 0.7, base64: true });
-          if (!res.canceled && res.assets && res.assets.length > 0) {
-            setImageAsset(res.assets[0]);
-          }
-        }
-      },
-      {
-        text: 'Choose from Library',
-        onPress: async () => {
-          const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-          if (status !== 'granted') {
-            Alert.alert('Permission Denied', 'Photo library permission is required.');
-            return;
-          }
-          const res = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ImagePicker.MediaTypeOptions.Images, quality: 0.7, base64: true });
-          if (!res.canceled && res.assets && res.assets.length > 0) {
-            setImageAsset(res.assets[0]);
-          }
-        }
-      },
-      { text: 'Cancel', style: 'cancel' }
-    ]);
   };
 
   const loadMyAds = useCallback(async () => {
@@ -234,7 +199,6 @@ export default function AdPortalScreen() {
     setDone(false);
     setStep(0);
     setAdId(null);
-    setImageAsset(null);
     setForm({ business_name: '', description: '', website_url: '', radius_km: '2' });
     setPin(userLocation || { latitude: 6.6885, longitude: -1.6244 });
   };
@@ -249,25 +213,6 @@ export default function AdPortalScreen() {
   const goToPaymentDetails = async () => {
     setSubmitting(true);
     try {
-      let imageUrl = null;
-      if (imageAsset) {
-        try {
-          const fd = new FormData();
-          const uri = imageAsset.uri;
-          const fileName = uri.split('/').pop() || 'business.jpg';
-          const match = /\.(\w+)$/.exec(fileName);
-          const type = match ? `image/${match[1]}` : 'image/jpeg';
-          fd.append('image', { uri, name: fileName, type } as any);
-          const uploadRes = await adsAPI.uploadImage(fd);
-          imageUrl = uploadRes.image_url;
-        } catch (uploadErr) {
-          console.warn('Image server upload failed, falling back to base64 encoding:', uploadErr);
-          if (imageAsset.base64) {
-            imageUrl = `data:image/jpeg;base64,${imageAsset.base64}`;
-          }
-        }
-      }
-
       const ad = await adsAPI.create({
         business_name: form.business_name,
         description: form.description,
@@ -275,7 +220,6 @@ export default function AdPortalScreen() {
         longitude: pin.longitude,
         radius_km: parseFloat(form.radius_km) || 2,
         website_url: form.website_url,
-        image_url: imageUrl,
       });
       setAdId(ad.id);
       // Refresh balance before showing wallet review
@@ -411,30 +355,6 @@ export default function AdPortalScreen() {
                   autoCapitalize="none"
                   keyboardType="url"
                 />
-
-                <Text style={s.label}>Business Photo / Logo (optional)</Text>
-                <Text style={s.sublabel}>Add an image for your business card & map popup</Text>
-                {imageAsset ? (
-                  <View style={s.imagePreviewContainer}>
-                    <Image source={{ uri: imageAsset.uri }} style={s.imagePreview} resizeMode="cover" />
-                    <View style={s.imagePreviewActions}>
-                      <TouchableOpacity style={s.imageChangeBtn} onPress={pickBusinessImage}>
-                        <Ionicons name="create-outline" size={16} color={COLORS.primary} />
-                        <Text style={s.imageChangeText}>Change Photo</Text>
-                      </TouchableOpacity>
-                      <TouchableOpacity style={s.imageRemoveBtn} onPress={() => setImageAsset(null)}>
-                        <Ionicons name="trash-outline" size={16} color={COLORS.danger} />
-                        <Text style={s.imageRemoveText}>Remove</Text>
-                      </TouchableOpacity>
-                    </View>
-                  </View>
-                ) : (
-                  <TouchableOpacity style={s.imagePickerBox} onPress={pickBusinessImage} activeOpacity={0.8}>
-                    <Ionicons name="camera-outline" size={28} color={COLORS.accent} />
-                    <Text style={s.imagePickerText}>Upload Business Photo or Logo</Text>
-                    <Text style={s.imagePickerSubtext}>Tap to take a photo or select from gallery</Text>
-                  </TouchableOpacity>
-                )}
 
                 <TouchableOpacity style={s.nextBtn} onPress={goToLocation}>
                   <Text style={s.nextBtnText}>Next: Set Location</Text>

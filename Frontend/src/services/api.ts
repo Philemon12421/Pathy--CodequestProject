@@ -84,7 +84,6 @@ export const adsAPI = {
   getAll: () => api.get('/ads'),
   getNearby: (lat: number, lng: number) => api.get(`/ads/nearby?lat=${lat}&lng=${lng}`),
   create: (data: any) => api.post('/ads', data),
-  uploadImage: (formData: any) => api.post('/ads/upload-image', formData, { headers: { 'Content-Type': 'multipart/form-data' } }),
   checkout: (id: string | number) => api.post(`/ads/${id}/checkout`),
   activate: (id: string | number) => api.post(`/ads/${id}/activate`),
   getMine: () => api.get('/ads/mine'),
