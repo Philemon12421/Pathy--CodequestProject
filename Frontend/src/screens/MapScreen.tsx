@@ -609,7 +609,15 @@ export default function MapScreen({ navigation, route }: any) {
       {/* Ad banner */}
       {showAdBanner && (
         <View style={s.adBanner}>
-          <Ionicons name="storefront" size={20} color={COLORS.accent} />
+          {showAdBanner.image_url ? (
+            <Image
+              source={{ uri: getMediaUrl(showAdBanner.image_url) }}
+              style={s.adBannerThumb}
+              resizeMode="cover"
+            />
+          ) : (
+            <Ionicons name="storefront" size={20} color={COLORS.accent} />
+          )}
           <View style={{ flex: 1 }}>
             <Text style={s.adBannerTitle}>{showAdBanner.business_name}</Text>
             <Text style={s.adBannerDesc} numberOfLines={2}>{showAdBanner.description}</Text>
@@ -800,6 +808,7 @@ function makeStyles(COLORS: any) {
       borderWidth: 1, borderColor: COLORS.border, ...SHADOW.sm,
     },
     adBannerTitle: { color: COLORS.text, fontWeight: FONTS.weights.bold, fontSize: FONTS.sizes.md },
+    adBannerThumb: { width: 44, height: 44, borderRadius: RADIUS.md },
     adBannerDesc: { color: COLORS.textSecondary, fontSize: FONTS.sizes.xs, marginTop: 2 },
     detailSheet: {
       position: 'absolute', bottom: 90, left: SPACING.lg, right: SPACING.lg,

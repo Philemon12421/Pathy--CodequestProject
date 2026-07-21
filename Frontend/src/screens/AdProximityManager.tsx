@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   View, Text, StyleSheet, Animated, TouchableOpacity,
-  Linking, Dimensions, PanResponder
+  Linking, Dimensions, PanResponder, Image
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useColors } from '../config/ThemeContext';
@@ -13,6 +13,14 @@ const POLL_INTERVAL_MS = 30000; // 30 seconds
 const AUTO_DISMISS_MS = 12000;  // 12 seconds
 const { width } = Dimensions.get('window');
 
+function resolveImageUrl(url: string | null | undefined): string | null {
+  if (!url) return null;
+  if (url.startsWith('http://') || url.startsWith('https://') || url.startsWith('data:')) return url;
+  const apiUrl = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:4000/api';
+  const baseUrl = apiUrl.replace('/api', '');
+  return `${baseUrl}${url}`;
+}
+
 // ─── Proximity Popup Card ─────────────────────────────────────────────────────
 function ProximityPopup({ ad, onDismiss }: any) {
   const COLORS = useColors();
@@ -20,6 +28,7 @@ function ProximityPopup({ ad, onDismiss }: any) {
   const slideY = useRef(new Animated.Value(200)).current;
   const opacity = useRef(new Animated.Value(0)).current;
   const dismissTimer = useRef<any>(null);
+  const imageUrl = resolveImageUrl(ad.image_url);
 
   // Swipe-to-dismiss
   const panResponder = useRef(
@@ -89,6 +98,10 @@ function ProximityPopup({ ad, onDismiss }: any) {
             <Ionicons name="close" size={18} color={COLORS.textMuted} />
           </TouchableOpacity>
         </View>
+
+        {imageUrl ? (
+          <Image source={{ uri: imageUrl }} style={popup.adImage} resizeMode="cover" />
+        ) : null}
 
         {ad.description ? (
           <Text style={popup.desc} numberOfLines={2}>{ad.description}</Text>
@@ -161,6 +174,7 @@ function makeStyles(COLORS: any) {
     nearbyText: { fontSize: FONTS.sizes.xs, color: COLORS.accent, fontWeight: FONTS.weights.semibold },
     title: { fontSize: FONTS.sizes.md, fontWeight: FONTS.weights.bold, color: COLORS.text },
     closeBtn: { padding: 4 },
+    adImage: { width: '100%', height: 110, borderRadius: RADIUS.md, marginTop: 2 },
     desc: { fontSize: FONTS.sizes.sm, color: COLORS.textSecondary, lineHeight: 18 },
     actions: { flexDirection: 'row', gap: SPACING.sm, justifyContent: 'flex-end', marginTop: 2 },
     visitBtn: { flexDirection: 'row', alignItems: 'center', gap: 5, backgroundColor: COLORS.accent, borderRadius: RADIUS.full, paddingHorizontal: SPACING.md, paddingVertical: 7 },
