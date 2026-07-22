@@ -6,6 +6,7 @@
 
 An AI-powered navigation, safety tracking, and community explorer platform. Users can discover and record routes, report real-time hazards or incidents on a live map, consult an intelligent AI travel assistant, play synchronized music, run localized business campaigns, and track travel achievements.
 
+
 ---
 
 ## 🏗️ System Architecture
