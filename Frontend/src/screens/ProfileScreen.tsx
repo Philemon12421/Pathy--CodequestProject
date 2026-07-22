@@ -398,8 +398,7 @@ export default function ProfileScreen({ navigation }: any) {
           <Text style={s.sectionLabel}>ACCOUNT</Text>
           <View style={s.card}>
             <SettingRow icon="person-outline"   label="Edit Profile"     sub="Change name and photo"    onPress={() => setEditingName(true)} />
-            <SettingRow icon="lock-closed-outline" label="Change Password" sub="Update your password"  onPress={() => navigation.navigate('ForgotPassword')} />
-            <SettingRow icon="mail-outline"     label="Verify Email"     sub="Verify your email address" onPress={() => navigation.navigate('EmailVerification', { email: user?.email })} last />
+            <SettingRow icon="lock-closed-outline" label="Change Password" sub="Update your password"  onPress={() => navigation.navigate('ForgotPassword')} last />
           </View>
         </View>
 
