@@ -957,7 +957,6 @@ export default function HomeScreen({ navigation }: any) {
           <View style={s.statsRow}>
             <View style={s.statCol}>
               <Text style={s.statBig}>{savedRoutes.length > 0 ? `${(savedRoutes.length*1.8).toFixed(1)}km` : '0 km'}</Text>
-              <Text style={s.statSub}>walked</Text>
             </View>
             <View style={s.statDivider} />
             <View style={s.statCol}>
