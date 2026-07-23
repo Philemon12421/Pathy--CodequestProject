@@ -72,6 +72,13 @@ graph TD
 - Features a visual **Rank Podium** for the top 3 users and a scrolling leaderboard list of all active participants.
 - Provides toggle filtering for **All-Time** vs. **Weekly** metrics.
 
+### 8. Email Verification & Secure OTP Password Reset
+- **EmailService Architecture**: Asynchronous, non-blocking email delivery system ([EmailService.java](file:///c:/Users/HP/Desktop/ocean2/PathyCodequestProject/backend/src/main/java/com/safetrack/api/service/EmailService.java)) supporting dual delivery channels:
+  1. **Resend HTTP API** over HTTPS (`https://api.resend.com/emails` on Port 443) for seamless cloud deployment compatibility (e.g., Railway).
+  2. **Spring Boot JavaMail SMTP** with SSL/STARTTLS support.
+- **Secure Password Reset**: Sends 6-digit OTP verification codes directly to the user's registered email inbox. Secret OTP codes are stripped from REST API JSON responses for maximum security.
+- **Non-Blocking UI Execution**: Email dispatches execute asynchronously in background worker threads (`CompletableFuture.runAsync`), returning instant API responses (<50ms) to ensure smooth, responsive frontend UI transitions.
+
 ---
 
 ## 🐘 Database Schema
@@ -79,6 +86,7 @@ graph TD
 The database utilizes PostgreSQL and is structured as follows:
 
 - **`users`**: Tracks traveler credentials, verification states (`is_verified`), and wallet funds (`balance`).
+- **`verification_codes`**: Manages 6-digit OTP codes, type tags (`password_reset`, `email_verification`), and 15-minute expiration timestamps.
 - **`incidents`**: Stores locations, types, and severity levels of reported traffic hazards.
 - **`saved_routes`**: Logs route geo-endpoints, names, and raw geo JSON coordinates.
 - **`ads`**: Stores sponsored local pins, website targets, and campaign validity dates.
@@ -97,7 +105,7 @@ PathyCodequestProject/
 │   ├── assets/               # Local logos, icons, and image resources
 │   ├── src/
 │   │   ├── config/           # Theme palettes, dark mode context (useColors)
-│   │   ├── screens/          # Application views (Home, Map, Music, Leaderboard, etc.)
+│   │   ├── screens/          # Application views (Home, Map, Music, Leaderboard, ForgotPassword, etc.)
 │   │   ├── services/         # API abstraction layer (Axios wrappers)
 │   │   └── store/            # Zustand global state (auth, music, incidents, ads)
 │   ├── App.tsx               # Main entrypoint, stack/tab navigators
@@ -105,11 +113,11 @@ PathyCodequestProject/
 │
 └── backend/                  # Java / Spring Boot Microservice
     ├── src/
-    │   ├── main/java/        # Spring boot controllers, services, repositories
+    │   ├── main/java/        # Spring Boot controllers, EmailService, Auth, etc.
     │   └── main/resources/   # Central application.yml configuration & SQL schema
     ├── Dockerfile            # Container configuration
     ├── docker-compose.yml    # Database / caching orchestrator
-    └── .env                  # Secret keys (GROQ, PAYSTACK, database credentials)
+    └── .env                  # Secret keys (GROQ, PAYSTACK, RESEND, SMTP, DB credentials)
 ```
 
 ---
@@ -137,12 +145,19 @@ docker compose up -d
 ### 2. Run the Backend API
 Create a `.env` file in the `backend` folder with the following variables:
 ```env
-DB_URL=jdbc:postgresql://localhost:5432/safetrack
-DB_USER=postgres
-DB_PASSWORD=postgres
+SPRING_DATASOURCE_URL=jdbc:postgresql://localhost:5432/safetrack
+SPRING_DATASOURCE_USERNAME=postgres
+SPRING_DATASOURCE_PASSWORD=postgres
 GROQ_API_KEY=your_groq_api_key
 PAYSTACK_SECRET_KEY=your_paystack_secret_key
 JWT_SECRET=your_super_secret_jwt_encryption_key
+
+# Email Verification & OTP Reset Configuration
+RESEND_API_KEY=re_your_resend_api_key_here
+SPRING_MAIL_HOST=smtp.gmail.com
+SPRING_MAIL_PORT=465
+SPRING_MAIL_USERNAME=your_system_email@gmail.com
+SPRING_MAIL_PASSWORD=your_app_password
 ```
 
 Run the Spring Boot application using Maven:
@@ -177,9 +192,11 @@ Scan the QR code in your console using the **Expo Go** application on your iOS o
 |----------|--------|-------------|:-------------:|
 | `/api/auth/register` | `POST` | Create a new traveler account | No |
 | `/api/auth/login` | `POST` | Authenticate credentials and return JWT token | No |
-| `/api/auth/forgot-password` | `POST` | Trigger password reset verification email | No |
-| `/api/auth/verify-reset` | `POST` | Confirm OTP validation code | No |
-| `/api/auth/reset-password` | `POST` | Apply new secure credentials | No |
+| `/api/auth/forgot-password` | `POST` | Send OTP reset verification code to user email | No |
+| `/api/auth/verify-reset-code` | `POST` | Confirm 6-digit OTP validation code | No |
+| `/api/auth/reset-password` | `POST` | Apply new password credentials | No |
+| `/api/auth/verify-email` | `POST` | Verify user email account with 6-digit OTP | No |
+| `/api/auth/resend-verification` | `POST` | Resend email verification code via EmailService | No |
 | `/api/incidents` | `GET`/`POST` | Retrieve and post real-time hazards | Yes |
 | `/api/routes` | `GET`/`POST` | Retrieve and save recorded route paths | Yes |
 | `/api/routes/leaderboard` | `GET` | Get all-time user rankings by route distance | Yes |
@@ -190,4 +207,5 @@ Scan the QR code in your console using the **Expo Go** application on your iOS o
 | `/api/ai/chat` | `POST` | Query the Pathy AI Assistant | Yes |
 | `/api/ads` | `GET`/`POST` | Retrieve and launch sponsored campaigns | Yes |
 | `/api/ads/{id}/activate` | `POST` | Deduct balance and activate merchant pin | Yes |
+
 
