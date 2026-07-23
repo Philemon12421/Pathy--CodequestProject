@@ -15,6 +15,17 @@ spring:
     multipart:
       max-file-size: 50MB
       max-request-size: 55MB
+  mail:
+    host: ${SPRING_MAIL_HOST:smtp.gmail.com}
+    port: ${SPRING_MAIL_PORT:587}
+    username: ${SPRING_MAIL_USERNAME:}
+    password: ${SPRING_MAIL_PASSWORD:}
+    properties:
+      mail:
+        smtp:
+          auth: true
+          starttls:
+            enable: true
 
 app:
   jwt-secret: ${JWT_SECRET:change-me-to-a-long-random-secret}

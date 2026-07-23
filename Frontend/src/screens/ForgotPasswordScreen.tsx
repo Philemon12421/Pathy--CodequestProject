@@ -47,10 +47,9 @@ export default function ForgotPasswordScreen({ navigation }: any) {
     if (!email.trim() || !email.includes('@')) { Alert.alert('Invalid email', 'Enter a valid email address.'); return; }
     setLoading(true);
     try {
-      const res = await authAPI.requestPasswordReset(email);
+      await authAPI.requestPasswordReset(email);
       setLoading(false);
-      const devTip = res.code ? `\n\n(Developer Tip: Verification Code is ${res.code})` : '';
-      Alert.alert('Code Sent', 'A verification code has been sent to your email.' + devTip, [
+      Alert.alert('Code Sent', 'A verification code has been sent to your email address.', [
         { text: 'OK', onPress: () => goTo('code') }
       ]);
     } catch (e: any) {
