@@ -6,6 +6,8 @@ import org.springframework.mail.SimpleMailMessage;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.stereotype.Service;
 
+import java.util.concurrent.CompletableFuture;
+
 @Service
 public class EmailService {
 
@@ -26,7 +28,7 @@ public class EmailService {
         + "This code will expire in 15 minutes. If you did not request a password reset, please ignore this email.\n\n"
         + "Best regards,\nThe SafeTrack Team";
 
-    sendEmail(toEmail, subject, body);
+    CompletableFuture.runAsync(() -> sendEmail(toEmail, subject, body));
   }
 
   public void sendEmailVerificationOtp(String toEmail, String code) {
@@ -36,7 +38,7 @@ public class EmailService {
         + "This code will expire in 15 minutes.\n\n"
         + "Best regards,\nThe SafeTrack Team";
 
-    sendEmail(toEmail, subject, body);
+    CompletableFuture.runAsync(() -> sendEmail(toEmail, subject, body));
   }
 
   private void sendEmail(String toEmail, String subject, String body) {
@@ -52,6 +54,7 @@ public class EmailService {
         return;
       } catch (Exception e) {
         System.err.println("⚠️ Failed to send email to " + toEmail + " via SMTP: " + e.getMessage());
+        e.printStackTrace();
       }
     }
 
