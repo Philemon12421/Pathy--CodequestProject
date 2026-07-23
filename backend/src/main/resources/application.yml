@@ -26,6 +26,9 @@ spring:
           auth: true
           starttls:
             enable: true
+          connectiontimeout: 5000
+          timeout: 5000
+          writetimeout: 5000
 
 app:
   jwt-secret: ${JWT_SECRET:change-me-to-a-long-random-secret}
