@@ -44,7 +44,9 @@ yarn-error.*
 **/uploads/
 **/target/
 .env
-.env.local
+.env.*
+**/.env
+**/.env.*
 *.m4a
 *.mp3
 
