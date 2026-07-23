@@ -1,6 +1,7 @@
 package com.safetrack.api.controller;
 
 import com.safetrack.api.auth.JwtService;
+import com.safetrack.api.service.EmailService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
@@ -15,11 +16,13 @@ import java.util.UUID;
 public class AuthController {
   private final JdbcClient jdbc;
   private final JwtService jwtService;
+  private final EmailService emailService;
   private final BCryptPasswordEncoder encoder = new BCryptPasswordEncoder(10);
 
-  public AuthController(JdbcClient jdbc, JwtService jwtService) {
+  public AuthController(JdbcClient jdbc, JwtService jwtService, EmailService emailService) {
     this.jdbc = jdbc;
     this.jwtService = jwtService;
+    this.emailService = emailService;
   }
 
   @PostMapping("/register")
@@ -91,14 +94,11 @@ public class AuthController {
     jdbc.sql("INSERT INTO verification_codes (email, code, type, expires_at) VALUES (:email, :code, 'password_reset', NOW() + INTERVAL '15 minutes')")
         .param("email", email).param("code", code).update();
 
-    // In production, send via email. For now, log to console.
-    System.out.println("══════════════════════════════════════════════");
-    System.out.println("  PASSWORD RESET CODE for " + email + ": " + code);
-    System.out.println("══════════════════════════════════════════════");
+    // Send code to user's email via EmailService
+    emailService.sendPasswordResetOtp(email, code);
 
     return ResponseEntity.ok(Map.of(
-        "message", "If that email is registered, a code has been sent.",
-        "code", code
+        "message", "If that email is registered, a code has been sent."
     ));
   }
 
@@ -167,13 +167,11 @@ public class AuthController {
     jdbc.sql("INSERT INTO verification_codes (email, code, type, expires_at) VALUES (:email, :code, 'email_verification', NOW() + INTERVAL '15 minutes')")
         .param("email", email).param("code", code).update();
 
-    System.out.println("══════════════════════════════════════════════");
-    System.out.println("  EMAIL VERIFICATION CODE for " + email + ": " + code);
-    System.out.println("══════════════════════════════════════════════");
+    // Send verification code to user's email via EmailService
+    emailService.sendEmailVerificationOtp(email, code);
 
     return ResponseEntity.ok(Map.of(
-        "message", "Verification code sent",
-        "code", code
+        "message", "Verification code sent"
     ));
   }
 
