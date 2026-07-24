@@ -1,7 +1,6 @@
-import React, { useState, useRef } from 'react';
+import React from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
-  Animated, LayoutAnimation,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { BlurView } from 'expo-blur';
@@ -57,50 +56,88 @@ const SECTIONS = [
   },
 ];
 
-function AccordionItem({ section }: { section: typeof SECTIONS[0] }) {
+function TermsContentBlock() {
   const C = useColors();
-  const a = makeAccordionStyles(C);
-  const [open, setOpen] = useState(false);
-  const rotate = useRef(new Animated.Value(0)).current;
-
-  const toggle = () => {
-    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
-    setOpen(o => !o);
-    Animated.timing(rotate, { toValue: open ? 0 : 1, duration: 220, useNativeDriver: true }).start();
-  };
-
-  const spin = rotate.interpolate({ inputRange: [0, 1], outputRange: ['0deg', '90deg'] });
+  const s = makeContentStyles(C);
 
   return (
-    <View style={[a.item, open && a.itemOpen]}>
-      <TouchableOpacity style={a.row} onPress={toggle} activeOpacity={0.8}>
-        <View style={a.iconWrap}>
-          <Ionicons name={section.icon as any} size={16} color="#006c44" />
+    <View style={s.card}>
+      <Text style={s.summaryTitle}>Summary</Text>
+      <Text style={s.summaryText}>
+        Pathy is a community safety app for recording routes, sharing incidents, and helping other users stay informed. By using the app, you agree to use it responsibly, keep your information accurate, and respect the rights of other users.
+      </Text>
+
+      {SECTIONS.map(section => (
+        <View key={section.title} style={s.sectionBlock}>
+          <View style={s.sectionHeader}>
+            <View style={s.iconWrap}>
+              <Ionicons name={section.icon as any} size={16} color="#006c44" />
+            </View>
+            <Text style={s.sectionTitle}>{section.title}</Text>
+          </View>
+          <Text style={s.sectionBody}>{section.body}</Text>
         </View>
-        <Text style={a.title}>{section.title}</Text>
-        <Animated.View style={{ transform: [{ rotate: spin }] }}>
-          <Ionicons name="chevron-forward" size={16} color={C.textMuted} />
-        </Animated.View>
-      </TouchableOpacity>
-      {open && (
-        <View style={a.body}>
-          <Text style={a.bodyText}>{section.body}</Text>
-        </View>
-      )}
+      ))}
     </View>
   );
 }
 
-function makeAccordionStyles(C: any) {
+function makeContentStyles(C: any) {
   return StyleSheet.create({
-  item: { backgroundColor: C.surface, borderRadius: RADIUS.xl, overflow: 'hidden', borderWidth: 1, borderColor: C.border, ...SHADOW.xs },
-  itemOpen: { borderColor: 'rgba(0,108,68,0.25)', borderLeftWidth: 4, borderLeftColor: '#006c44' },
-  row: { flexDirection: 'row', alignItems: 'center', padding: SPACING.lg, gap: SPACING.md },
-  iconWrap: { width: 32, height: 32, borderRadius: RADIUS.md, backgroundColor: '#e1f9eb', alignItems: 'center', justifyContent: 'center' },
-  title: { flex: 1, fontSize: FONTS.sizes.md, fontWeight: '600', color: C.text },
-  body: { paddingHorizontal: SPACING.lg, paddingBottom: SPACING.lg },
-  bodyText: { fontSize: FONTS.sizes.sm, color: C.textSecondary, lineHeight: 22 },
-});
+    card: {
+      backgroundColor: C.surface,
+      borderRadius: RADIUS.xl,
+      borderWidth: 1,
+      borderColor: C.border,
+      padding: SPACING.lg,
+      ...SHADOW.xs,
+    },
+    summaryTitle: {
+      fontSize: FONTS.sizes.md,
+      fontWeight: '700',
+      color: C.text,
+      marginBottom: SPACING.xs,
+    },
+    summaryText: {
+      fontSize: FONTS.sizes.sm,
+      color: C.textSecondary,
+      lineHeight: 22,
+      marginBottom: SPACING.lg,
+    },
+    sectionBlock: {
+      paddingTop: SPACING.md,
+      borderTopWidth: 1,
+      borderTopColor: C.border,
+      marginBottom: SPACING.md,
+    },
+    sectionHeader: {
+      flexDirection: 'row',
+      alignItems: 'flex-start',
+      gap: SPACING.md,
+      marginBottom: SPACING.sm,
+    },
+    iconWrap: {
+      width: 32,
+      height: 32,
+      borderRadius: RADIUS.md,
+      backgroundColor: '#e1f9eb',
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    sectionTitle: {
+      flex: 1,
+      fontSize: FONTS.sizes.md,
+      fontWeight: '700',
+      color: C.text,
+      lineHeight: 22,
+    },
+    sectionBody: {
+      fontSize: FONTS.sizes.sm,
+      color: C.textSecondary,
+      lineHeight: 22,
+      marginLeft: 44,
+    },
+  });
 }
 
 export default function TermsScreen({ navigation, route }: any) {
@@ -129,8 +166,8 @@ export default function TermsScreen({ navigation, route }: any) {
           <Text style={s.updated}>Last updated: June 2025</Text>
         </BlurView>
 
-        <Text style={s.sectionLabel}>TAP A SECTION TO EXPAND</Text>
-        {SECTIONS.map(sec => <AccordionItem key={sec.title} section={sec} />)}
+        <Text style={s.sectionLabel}>SUMMARY & DETAILS</Text>
+        <TermsContentBlock />
 
         {/* Accept / Decline — only shown from Sign Up flow */}
         {showActions && (
