@@ -843,7 +843,7 @@ export default function HomeScreen({ navigation }: any) {
   const C = useColors();
   const { user, incidents, setIncidents, userLocation, savedRoutes, setSavedRoutes,
           routePosts, addRouteFeedPost, likeRouteFeedPost,
-          addCommentToFeedPost, addRoute, avatarUri } = useStore();
+          addCommentToFeedPost, addRoute, avatarUri, theme, toggleTheme } = useStore();
   const [refreshing, setRefreshing]       = useState(false);
   const [fabOpen, setFabOpen]             = useState(false);
   const [commentPost, setCommentPost]     = useState<FeedPost | null>(null);
@@ -946,6 +946,20 @@ export default function HomeScreen({ navigation }: any) {
             <Text style={s.greeting}>{greeting()},</Text>
             <Text style={s.heroName}>{user?.name?.split(' ')[0] || 'Explorer'} 👋</Text>
           </View>
+          <TouchableOpacity
+            style={[s.themeBtn, theme === 'dark' && s.themeBtnActive]}
+            onPress={toggleTheme}
+            activeOpacity={0.85}
+          >
+            <Ionicons
+              name={theme === 'dark' ? 'moon' : 'sunny-outline'}
+              size={16}
+              color={theme === 'dark' ? '#fff' : '#006c44'}
+            />
+            <Text style={[s.themeBtnText, theme === 'dark' && s.themeBtnTextActive]}>
+              {theme === 'dark' ? 'Dark' : 'Light'}
+            </Text>
+          </TouchableOpacity>
           <TouchableOpacity onPress={() => navigation.navigate('Profile')} style={s.settingsBtn}>
             <Ionicons name="settings-outline" size={22} color={C.text} />
           </TouchableOpacity>
@@ -1115,6 +1129,16 @@ function makeStyles(C: ReturnType<typeof useColors>) { return StyleSheet.create(
   greeting:   { fontSize:FONTS.sizes.xs, color:C.textSecondary },
   heroName:   { fontSize:FONTS.sizes.lg, fontWeight:'800', color:C.text },
   settingsBtn:{ width:40, height:40, borderRadius:RADIUS.full, backgroundColor:C.surfaceGlass, alignItems:'center', justifyContent:'center' },
+  themeBtn: {
+    flexDirection:'row', alignItems:'center', gap:6,
+    paddingHorizontal:10, paddingVertical:8,
+    borderRadius:RADIUS.full, borderWidth:1,
+    borderColor:C.border, backgroundColor:C.surfaceGlass,
+    marginRight:SPACING.sm,
+  },
+  themeBtnActive: { backgroundColor:'#006c44', borderColor:'#006c44' },
+  themeBtnText: { fontSize:FONTS.sizes.xs, fontWeight:'700', color:C.text },
+  themeBtnTextActive: { color:'#fff' },
 
   statsCard:   { backgroundColor:C.surface, borderRadius:RADIUS.xl, marginHorizontal:SPACING.xl, padding:SPACING.xl, marginBottom:SPACING.xl, ...SHADOW.xs },
   statsLabel:  { fontSize:10, fontWeight:'700', color:C.textMuted, letterSpacing:0.8, marginBottom:SPACING.md },
