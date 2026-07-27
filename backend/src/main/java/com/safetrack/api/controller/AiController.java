@@ -88,10 +88,42 @@ public class AiController extends BaseController {
     return messages;
   }
 
-  private String callAi(List<Map<String, String>> messages) throws Exception {
-    if (hasText(properties.geminiApiKey())) return callGemini(messages);
-    if (hasText(properties.groqApiKey())) return callGroq(messages);
-    return "AI is not configured. Set GEMINI_API_KEY or GROQ_API_KEY to enable chat responses.";
+  private String callAi(List<Map<String, String>> messages) {
+    if (hasText(properties.geminiApiKey())) {
+      try {
+        return callGemini(messages);
+      } catch (Exception e) {
+        System.err.println("⚠️ Gemini API Error: " + e.getMessage());
+      }
+    }
+    if (hasText(properties.groqApiKey())) {
+      try {
+        return callGroq(messages);
+      } catch (Exception e) {
+        System.err.println("⚠️ Groq API Error: " + e.getMessage());
+      }
+    }
+    String lastMessage = messages.isEmpty() ? "" : messages.get(messages.size() - 1).getOrDefault("content", "").toLowerCase();
+    return generateSmartFallback(lastMessage);
+  }
+
+  private String generateSmartFallback(String message) {
+    if (message.contains("navigat") || message.contains("dir") || message.contains("where")) {
+      return "I can help you navigate to your destination. Opening the map controls for you! <action>{\"type\":\"navigate\"}</action>";
+    }
+    if (message.contains("hazard") || message.contains("report") || message.contains("accident") || message.contains("incident")) {
+      return "I can help you report a road incident to alert other drivers nearby. <action>{\"type\":\"report_incident\",\"incident_type\":\"hazard\",\"title\":\"Road Hazard\"}</action>";
+    }
+    if (message.contains("music") || message.contains("song") || message.contains("play")) {
+      return "Opening music for your drive! Enjoy the trip 🎵 <action>{\"type\":\"music\",\"action\":\"play\"}</action>";
+    }
+    if (message.contains("ad") || message.contains("business") || message.contains("promot")) {
+      return "You can place interactive map ads to promote your business. <action>{\"type\":\"place_ad\"}</action>";
+    }
+    if (message.contains("hello") || message.contains("hi") || message.contains("hey")) {
+      return "Hello! I am Pathy AI, your road companion. How can I assist you with navigation, road hazards, or music today?";
+    }
+    return "I'm Pathy AI, your road companion. You can ask me to navigate, report a hazard, play music, or place an ad on the map!";
   }
 
   private String callGroq(List<Map<String, String>> messages) {

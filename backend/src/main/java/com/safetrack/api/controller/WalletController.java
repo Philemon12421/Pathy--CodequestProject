@@ -46,6 +46,23 @@ public class WalletController extends BaseController {
     return ResponseEntity.ok(rows.get(0));
   }
 
+  @PatchMapping("/profile")
+  public ResponseEntity<?> updateProfile(HttpServletRequest request, @RequestBody Map<String, String> body) {
+    UUID userId = user(request).id();
+    String name = body.get("name");
+    if (name == null || name.isBlank()) {
+      return ResponseEntity.badRequest().body(Map.of("error", "Name cannot be empty"));
+    }
+    jdbc.sql("UPDATE users SET name=:name WHERE id=:id")
+        .param("name", name.trim())
+        .param("id", userId)
+        .update();
+    // Return updated user
+    List<Map<String, Object>> rows = jdbc.sql("SELECT id, name, email, avatar_url, balance FROM users WHERE id=:id")
+        .param("id", userId).query().listOfRows();
+    return ResponseEntity.ok(rows.get(0));
+  }
+
   @PostMapping("/deposit")
   public ResponseEntity<?> deposit(HttpServletRequest request, @RequestBody Map<String, Object> body) {
     if (body.get("amount") == null) {

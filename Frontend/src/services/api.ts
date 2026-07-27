@@ -45,7 +45,16 @@ export const authAPI = {
 // Incidents
 export const incidentsAPI = {
   getAll: () => api.get('/incidents'),
-  create: (formData: any) => api.post('/incidents', formData, { headers: { 'Content-Type': 'multipart/form-data' } }),
+  create: async (formData: any) => {
+    const headers: any = {};
+    if (authToken) headers['Authorization'] = `Bearer ${authToken}`;
+    const res = await fetch(`${BASE_URL}/incidents`, { method: 'POST', headers, body: formData });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw err;
+    }
+    return await res.json();
+  },
   update: (id: string | number, data: any) => api.patch(`/incidents/${id}`, data),
   delete: (id: string | number) => api.delete(`/incidents/${id}`),
 };
@@ -71,7 +80,16 @@ export const aiAPI = {
 // Music
 export const musicAPI = {
   getTracks: () => api.get('/music/tracks'),
-  uploadTrack: (formData: any) => api.post('/music/tracks', formData, { headers: { 'Content-Type': 'multipart/form-data' } }),
+  uploadTrack: async (formData: any) => {
+    const headers: any = {};
+    if (authToken) headers['Authorization'] = `Bearer ${authToken}`;
+    const res = await fetch(`${BASE_URL}/music/tracks`, { method: 'POST', headers, body: formData });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw err;
+    }
+    return await res.json();
+  },
   deleteTrack: (id: string | number) => api.delete(`/music/tracks/${id}`),
   getPlaylists: () => api.get('/music/playlists'),
   createPlaylist: (data: any) => api.post('/music/playlists', data),
@@ -95,6 +113,7 @@ export const walletAPI = {
   getMe: () => api.get('/wallet/me'),
   deposit: (amount: number) => api.post('/wallet/deposit', { amount }),
   verify: (reference: string) => api.post('/wallet/verify', { reference }),
+  updateProfile: (data: { name: string }) => api.patch('/wallet/profile', data),
 };
 
 // Notifications
