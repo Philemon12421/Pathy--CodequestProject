@@ -57,6 +57,7 @@ export default function ProfileScreen({ navigation }: any) {
   const [refreshing, setRefreshing] = useState(false);
   const [editingName, setEditingName] = useState(false);
   const [nameValue, setNameValue] = useState(user?.name || '');
+  const [savingName, setSavingName] = useState(false);
   const avatarAnim = useRef(new Animated.Value(1)).current;
 
   // Deposit states
@@ -155,10 +156,18 @@ export default function ProfileScreen({ navigation }: any) {
     }
   };
 
-  const saveName = () => {
+  const saveName = async () => {
     if (!nameValue.trim()) { Alert.alert('Invalid', 'Name cannot be empty.'); return; }
-    setAuth(useStore.getState().token, { ...user, name: nameValue.trim() });
-    setEditingName(false);
+    setSavingName(true);
+    try {
+      const updatedUser = await walletAPI.updateProfile({ name: nameValue.trim() });
+      setAuth(useStore.getState().token, { ...user, ...updatedUser });
+      setEditingName(false);
+    } catch (e: any) {
+      Alert.alert('Error', e?.error || 'Failed to update name. Please try again.');
+    } finally {
+      setSavingName(false);
+    }
   };
 
   const confirmLogout = () => Alert.alert('Log Out', 'Are you sure?', [
@@ -223,8 +232,10 @@ export default function ProfileScreen({ navigation }: any) {
                 returnKeyType="done"
                 onSubmitEditing={saveName}
               />
-              <TouchableOpacity onPress={saveName} style={s.nameSaveBtn}>
-                <Ionicons name="checkmark" size={18} color="#fff" />
+              <TouchableOpacity onPress={saveName} style={s.nameSaveBtn} disabled={savingName}>
+                {savingName
+                  ? <ActivityIndicator size="small" color="#fff" />
+                  : <Ionicons name="checkmark" size={18} color="#fff" />}
               </TouchableOpacity>
               <TouchableOpacity onPress={() => setEditingName(false)} style={s.nameCancelBtn}>
                 <Ionicons name="close" size={18} color={C.textMuted} />

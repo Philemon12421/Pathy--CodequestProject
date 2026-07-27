@@ -249,19 +249,26 @@ export default function MusicScreen({ navigation }: any) {
       const file = result.assets[0];
       setUploading(true);
       const formData = new FormData();
-      formData.append('audio', { uri: file.uri, name: file.name, type: file.mimeType || 'audio/mpeg' } as any);
-      formData.append('title', file.name.replace(/\.[^/.]+$/, ''));
+      const filename = file.name || 'audio.mp3';
+      const fileType = file.mimeType || (filename.endsWith('.mp3') ? 'audio/mpeg' : filename.endsWith('.m4a') ? 'audio/m4a' : 'audio/mpeg');
+      formData.append('audio', {
+        uri: file.uri,
+        name: filename,
+        type: fileType,
+      } as any);
+      formData.append('title', filename.replace(/\.[^/.]+$/, ''));
       formData.append('artist', 'Unknown');
       const track = await musicAPI.uploadTrack(formData);
       const withSource = { ...track, source: 'library' as const };
       setTracks([withSource, ...tracks]);
       setQueue([withSource, ...tracks]);
       Alert.alert('Uploaded', `"${track.title}" added to your library`);
-     } catch (e) { 
+     } catch (e: any) { 
       console.log('UPLOAD ERROR:', e);
-      Alert.alert('Error', 'Upload failed'); 
-      }    finally { setUploading(false); }
-      };
+      const msg = typeof e === 'string' ? e : e?.error || e?.message || 'Upload failed';
+      Alert.alert('Upload Error', msg); 
+     } finally { setUploading(false); }
+  };
 
      const spin = albumRotate.interpolate({ inputRange: [0, 1], outputRange: ['0deg', '360deg'] });
      const progress = duration ? (position / duration) : 0;
