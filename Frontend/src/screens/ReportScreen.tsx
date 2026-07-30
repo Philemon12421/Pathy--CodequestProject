@@ -29,18 +29,26 @@ const SEVERITIES = [
   { key: 'critical', label: 'Critical', color: '#DC2626' },
 ];
 
-export default function ReportScreen({ navigation }: any) {
+export default function ReportScreen({ route, navigation }: any) {
   const C = useColors();
   const s = makeStyles(C);
   const { userLocation, addIncident } = useStore();
 
-  const [form, setForm] = useState({ type: 'accident', title: '', description: '', severity: 'medium' });
+  const initial = route?.params || {};
+  const [form, setForm] = useState({
+    type: initial.type || 'accident',
+    title: initial.title || '',
+    description: initial.description || '',
+    severity: initial.severity || 'medium',
+  });
   const [media, setMedia] = useState<any>(null);
   const [loading, setLoading] = useState(false);
 
   // Location state — defaults to user's GPS, can be overridden via map picker
   const [selectedLocation, setSelectedLocation] = useState<{ latitude: number; longitude: number } | null>(
-    userLocation ? { latitude: userLocation.latitude, longitude: userLocation.longitude } : null
+    initial.latitude && initial.longitude
+      ? { latitude: Number(initial.latitude), longitude: Number(initial.longitude) }
+      : userLocation ? { latitude: userLocation.latitude, longitude: userLocation.longitude } : null
   );
   const [showMapModal, setShowMapModal] = useState(false);
   // Temporary location used inside the picker modal before confirming

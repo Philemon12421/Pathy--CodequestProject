@@ -1,211 +1,174 @@
-# 🚀 Pathy (formerly SafeTrack)
+# 🚀 Pathy (AI-Powered Navigation & Safety Explorer)
 
 <p align="center">
-  <img src="https://readme-typing-svg.herokuapp.com?font=Inter&size=28&pause=1000&color=006c44&center=true&vCenter=true&width=700&lines=Navigate+Smarter.;Travel+Together.;AI-Powered+Navigation.;Community+Driven+Routes.;Welcome+to+Pathy." />
+  <img src="https://readme-typing-svg.herokuapp.com?font=Inter&size=28&pause=1000&color=006c44&center=true&vCenter=true&width=700&lines=Navigate+Smarter.;AI+Voice+%26+App+Automation.;Real-Time+Hazard+Alerts.;Merchant+Map+Ads.;Welcome+to+Pathy." />
 </p>
 
-An AI-powered navigation, safety tracking, and community explorer platform. Users can discover and record routes, report real-time hazards or incidents on a live map, consult an intelligent AI travel assistant, play synchronized music, run localized business campaigns, and track travel achievements.
-
+**Pathy** is a full-stack, AI-powered navigation, traffic safety tracking, and merchant exploration platform. Built with **React Native (Expo)** on the frontend and **Java (Spring Boot 3)** on the backend, Pathy empowers users to navigate safely, report hazards, stream music, run localized proximity ads, and interact with a voice-enabled AI travel assistant that can automatically control and populate forms across the application.
 
 ---
 
-## 🏗️ System Architecture
-
-Pathy uses a modern, modular client-server structure:
+## 📐 System Architecture
 
 ```mermaid
 graph TD
     Client[📱 React Native / Expo Client]
     OSRM[🌐 OSRM Routing Engine]
-    Nominatim[🗺️ Nominatim OpenStreetMap Geocoder]
-    Backend[☕ Spring Boot 3.3 API Server]
+    Nominatim[🗺️ Nominatim OpenStreetMap]
+    Backend[☕ Spring Boot 3 API Server]
     Postgres[(🐘 PostgreSQL Database)]
-    Groq[🧠 GROQ LLM API]
+    LLM[🧠 GROQ / Gemini LLM API]
     Paystack[💳 Paystack Payment Gateway]
     Audius[🎵 Audius Music API]
+    Resend[✉️ Resend / SMTP Email API]
 
-    Client -->|1. Route Requests| OSRM
-    Client -->|2. Search Coordinates| Nominatim
-    Client -->|3. Save Routes / Auth / Incidents| Backend
-    Client -->|4. Play Audio Streams| Audius
-    Backend -->|5. Persist Data| Postgres
-    Backend -->|6. AI Chat Recommendations| Groq
-    Backend -->|7. Wallet Deposits & Ad Purchases| Paystack
+    Client -->|1. Route Calculation| OSRM
+    Client -->|2. Geocoding / Search| Nominatim
+    Client -->|3. REST API / Auth / Voice AI| Backend
+    Client -->|4. Audio Streams| Audius
+    Backend -->|5. SQL Queries / Spatial Distance| Postgres
+    Backend -->|6. Speech & AI Action Inference| LLM
+    Backend -->|7. Wallet & Ad Transactions| Paystack
+    Backend -->|8. Async OTP Email Dispatch| Resend
 ```
 
 ---
 
-## 🌟 Key Functional Features
+## 🔐 1. Authentication Architecture
 
-### 1. Saved Routes & Feed
-- **Your Routes**: A horizontal, swipeable gallery directly on the Home screen displaying personal saved route metrics (distance in km, duration, activity category, and quick-post buttons).
-- **Interactive Map Picker**: Seamlessly select destinations using the in-app map search bar or by long-pressing anywhere on the map grid. The path is automatically generated via the OpenStreetMap routing API, displaying time/distance info.
-- **Community Feed**: Post public routes with customizable captions, descriptions, and live mini-maps displaying start and end markers. Fellow users can like, review, and comment on routes in real-time.
+Pathy implements a stateless **JWT (JSON Web Token)** security flow engineered via Spring MVC Interceptors:
 
-### 2. Live Incident Map & Alerts
-- Real-time reporting of safety issues: **Accidents, Hazards, Crimes, Weather, and Custom alerts**.
-- Interactive map markers colored dynamically by severity (Low, Medium, High, Critical) with automatic expiration countdowns.
-- Detailed overlay sheets containing images, description metadata, and quick directions/navigation shortcuts.
-
-### 3. Pathy AI Travel Companion
-- AI Chat screen powered by the **GROQ API** using LLM completions.
-- Provides tailored navigation tips, route safety suggestions, local warnings, and answers travel questions.
-- Preserves a clean history of your messages locally and on the server database.
-
-### 4. Global Music Player & Streaming
-- Synchronized music playback powered by **Zustand global state**. Plays audio streams seamlessly in the background across all tabs and screens.
-- **Discover**: Stream trending music tracks directly from the Audius API (no API key required).
-- **Library**: Upload personal audio files (MP3/M4A) via Spring Boot's multipart upload endpoint. Handles cached playback offline. Preserves file formats correctly to ensure high-fidelity playback.
-
-### 5. Merchant Ad Portal (Proximity Ads)
-- Businesses can set up active advertisement zones with custom radiuses (in kilometers) on the map.
-- Automatic device proximity alerts: alerts users when they approach a business's coordinates.
-- Fully integrated with the user's **Internal Wallet** system.
-
-### 6. Wallet & Deposit System
-- **Deposits**: Users can top up their wallet balance using **Paystack Payment Gateway** payments.
-- **Ad Campaigns**: Merchant ads can be purchased and activated instantly by deducting fees directly from the traveler/business wallet balance.
-
-### 7. Competitive Leaderboard
-- Displays user rankings based on route distances.
-- **Haversine Formula Calculation**: Backend calculates exact distance dynamically in SQL using spatial spherical trigonometry over coordinates (`origin_lat`/`lng` to `destination_lat`/`lng`).
-- Features a visual **Rank Podium** for the top 3 users and a scrolling leaderboard list of all active participants.
-- Provides toggle filtering for **All-Time** vs. **Weekly** metrics.
-
-### 8. Email Verification & Secure OTP Password Reset
-- **EmailService Architecture**: Asynchronous, non-blocking email delivery system ([EmailService.java](file:///c:/Users/HP/Desktop/ocean2/PathyCodequestProject/backend/src/main/java/com/safetrack/api/service/EmailService.java)) supporting dual delivery channels:
-  1. **Resend HTTP API** over HTTPS (`https://api.resend.com/emails` on Port 443) for seamless cloud deployment compatibility (e.g., Railway).
-  2. **Spring Boot JavaMail SMTP** with SSL/STARTTLS support.
-- **Secure Password Reset**: Sends 6-digit OTP verification codes directly to the user's registered email inbox. Secret OTP codes are stripped from REST API JSON responses for maximum security.
-- **Non-Blocking UI Execution**: Email dispatches execute asynchronously in background worker threads (`CompletableFuture.runAsync`), returning instant API responses (<50ms) to ensure smooth, responsive frontend UI transitions.
+- **Password Encryption**: Users' credentials are hashed using `BCryptPasswordEncoder` (cost factor 10).
+- **Stateless Authorization**: Protected REST endpoints inspect the `Authorization: Bearer <token>` HTTP header using a custom Spring `AuthInterceptor`.
+- **JWT Claim Structure**: Tokens are signed with an **HMAC-SHA256** secret key (`JWT_SECRET`) and carry `id` (UUID) and `email` claims with a 7-day expiration.
+- **Whitelisted Public Endpoints**:
+  - `/api/auth/**` (Register, Login, Password Reset, Email Verification)
+  - `/api/health`
+  - `GET /api/incidents`
+  - `GET /api/ads`
+- **Email Verification & OTP Flow**:
+  - Sends a 6-digit numeric OTP code (expires in 15 minutes) saved in the `verification_codes` database table.
+  - Dual delivery pipeline: Uses **Resend HTTP API** (`https://api.resend.com/emails` on Port 443) as primary to bypass cloud firewall restrictions (e.g. Railway/Render), falling back to JavaMail SMTP.
+  - Asynchronous background execution (`CompletableFuture.runAsync`) returns instant HTTP 200 responses to frontend callers.
 
 ---
 
-## 🐘 Database Schema
+## 🐘 2. Database Architecture & Schema
 
-The database utilizes PostgreSQL and is structured as follows:
+The backend uses **PostgreSQL 15+** with relational schema management enabled via `schema.sql`.
 
-- **`users`**: Tracks traveler credentials, verification states (`is_verified`), and wallet funds (`balance`).
-- **`verification_codes`**: Manages 6-digit OTP codes, type tags (`password_reset`, `email_verification`), and 15-minute expiration timestamps.
-- **`incidents`**: Stores locations, types, and severity levels of reported traffic hazards.
-- **`saved_routes`**: Logs route geo-endpoints, names, and raw geo JSON coordinates.
-- **`ads`**: Stores sponsored local pins, website targets, and campaign validity dates.
-- **`chat_messages`**: Saves persistent histories of AI travel dialogs.
-- **`music_tracks`**: Stores music metadata and file upload links.
-- **`playlists`** & **`playlist_tracks`**: Defines user playlist relationships.
-- **`deposits`**: Logs wallet transaction top-ups via Paystack.
+### Key Tables & Relations
 
----
+1. `users`: Stores user identity, bcrypt hash, avatar link, verification state (`is_verified`), and internal wallet balance (`balance`).
+2. `incidents`: Real-time traffic hazard alerts (`type`, `title`, `description`, `latitude`, `longitude`, `severity`, `status`, `media_url`).
+3. `saved_routes`: User-saved navigation routes containing JSONB route geometries and favorite status.
+4. `ads`: Proximity merchant ad campaigns with geo-coordinates, target radius in km (`radius_km`), payment state, and expiry timestamps.
+5. `chat_messages`: Persistent history of Pathy AI conversations.
+6. `music_tracks` & `playlists`: User-uploaded music library metadata and playlist relationships.
+7. `deposits`: Wallet top-up transactions verified against Paystack payment references.
+8. `verification_codes`: Temporary 6-digit OTP tokens for password resets and account verification.
 
-## 📂 Project Structure
+### Spherical Spatial Calculations (Haversine Formula)
 
-```bash
-PathyCodequestProject/
-├── Frontend/                 # React Native / Expo Client
-│   ├── assets/               # Local logos, icons, and image resources
-│   ├── src/
-│   │   ├── config/           # Theme palettes, dark mode context (useColors)
-│   │   ├── screens/          # Application views (Home, Map, Music, Leaderboard, ForgotPassword, etc.)
-│   │   ├── services/         # API abstraction layer (Axios wrappers)
-│   │   └── store/            # Zustand global state (auth, music, incidents, ads)
-│   ├── App.tsx               # Main entrypoint, stack/tab navigators
-│   └── .env                  # Client-side environment variables
-│
-└── backend/                  # Java / Spring Boot Microservice
-    ├── src/
-    │   ├── main/java/        # Spring Boot controllers, EmailService, Auth, etc.
-    │   └── main/resources/   # Central application.yml configuration & SQL schema
-    ├── Dockerfile            # Container configuration
-    ├── docker-compose.yml    # Database / caching orchestrator
-    └── .env                  # Secret keys (GROQ, PAYSTACK, RESEND, SMTP, DB credentials)
+Leaderboards and proximity queries execute spherical trigonometry directly in PostgreSQL for maximum performance:
+```sql
+SELECT id, business_name,
+  (6371 * acos(
+    cos(radians(:lat)) * cos(radians(latitude)) *
+    cos(radians(longitude) - radians(:lng)) +
+    sin(radians(:lat)) * sin(radians(latitude))
+  )) AS distance_km
+FROM ads
+WHERE payment_status='paid' AND active=true
+HAVING distance_km <= radius_km
+ORDER BY distance_km ASC;
 ```
 
 ---
 
-## 🚀 Getting Started
+## 🎙️ 3. Voice Input & AI Automation Engine
 
-### Prerequisites
-Make sure you have the following installed locally:
-- **Node.js** (v18+) & npm
-- **Java JDK 21** & **Maven**
-- **Docker Desktop** (optional, for database containerization)
+Pathy AI features a voice input interface and app action automation capability:
 
----
-
-### 1. Database Setup
-You can spin up the PostgreSQL database instantly using Docker Compose inside the `backend` folder:
-```bash
-cd backend
-docker compose up -d
-```
-*Alternatively, configure a local PostgreSQL database matching the credentials in `backend/src/main/resources/application.yml`.*
+- **Voice Input System**:
+  - **Web Speech Recognition**: Uses browser-native `SpeechRecognition` / `webkitSpeechRecognition` for real-time speech-to-text transcriptions.
+  - **Mobile Recording & Visualizer**: Uses `expo-av` audio recording with visual pulsing wave overlays and quick voice preset options.
+- **Cross-App Action Parsing**:
+  - The AI prompt parses structured actions via `<action>{"type":"..."}</action>`.
+  - **Auto-Filling Incident Reports**: When users say *"Report a fallen tree blocking traffic on 3rd Avenue"*, AI extracts `type: hazard`, `title`, `severity`, and `description`, rendering an interactive Action Card in chat.
+  - **Direct Auto-Submit & Edit**: Users can tap **"Submit Report Now"** to auto-post the report directly using GPS, or tap **"Edit in Form"** to open `ReportScreen` with all fields prefilled.
+  - **Map Navigation & Ad Campaigns**: Auto-fills navigation destinations and merchant ad forms.
 
 ---
 
-### 2. Run the Backend API
-Create a `.env` file in the `backend` folder with the following variables:
-```env
-SPRING_DATASOURCE_URL=jdbc:postgresql://localhost:5432/safetrack
-SPRING_DATASOURCE_USERNAME=postgres
-SPRING_DATASOURCE_PASSWORD=postgres
-GROQ_API_KEY=your_groq_api_key
-PAYSTACK_SECRET_KEY=your_paystack_secret_key
-JWT_SECRET=your_super_secret_jwt_encryption_key
+## 💳 4. Wallet & Payments (Paystack Integration)
 
-# Email Verification & OTP Reset Configuration
-RESEND_API_KEY=re_your_resend_api_key_here
-SPRING_MAIL_HOST=smtp.gmail.com
-SPRING_MAIL_PORT=465
-SPRING_MAIL_USERNAME=your_system_email@gmail.com
-SPRING_MAIL_PASSWORD=your_app_password
-```
-
-Run the Spring Boot application using Maven:
-```bash
-mvn clean install
-mvn spring-boot:run
-```
-The server will start listening at `http://localhost:4000`.
+- **Internal Wallet**: Every traveler has a wallet balance (`balance NUMERIC(12,2)`).
+- **Paystack Deposit Flow**:
+  1. Frontend calls `/api/wallet/deposit` with amount in GHS.
+  2. Backend initializes a Paystack transaction (`https://api.paystack.co/transaction/initialize`) and returns authorization URL.
+  3. Upon user payment completion, frontend calls `/api/wallet/verify` with reference.
+  4. Backend verifies with Paystack REST API, updates deposit status, and credits user wallet balance.
+- **Merchant Ads**: Business owners can activate map ads by deducting fees directly from their internal wallet balance or paying via Paystack.
 
 ---
 
-### 3. Run the Mobile Frontend
-Create a `.env` file in the `Frontend` folder pointing to your backend address:
-```env
-EXPO_PUBLIC_API_URL=http://localhost:4000/api
-```
-*(If testing on a physical mobile device, replace `localhost` with your computer's local IP address e.g., `192.168.1.100` or use an active `ngrok` tunnel).*
+## 🚢 5. Backend Deployment & Hosting
 
-Install packages and run the Expo development bundler:
-```bash
-cd Frontend
-npm install
-npm run start
-```
-Scan the QR code in your console using the **Expo Go** application on your iOS or Android device.
+The backend is packaged as a lightweight Docker container ready for deployment on platforms like **Railway**, **Render**, **AWS EC2**, or **Heroku**.
+
+### Docker Production Setup
+
+1. **Build Container Image**:
+   ```bash
+   cd backend
+   docker build -t pathy-api .
+   ```
+
+2. **Environment Variables Configured in Production**:
+   ```env
+   PORT=4000
+   SPRING_DATASOURCE_URL=jdbc:postgresql://<db-host>:5432/<db-name>?sslmode=require
+   SPRING_DATASOURCE_USERNAME=<db-user>
+   SPRING_DATASOURCE_PASSWORD=<db-password>
+   JWT_SECRET=your_production_super_secret_key_min_32_chars
+   GROQ_API_KEY=your_groq_api_key
+   GEMINI_API_KEY=your_gemini_api_key
+   PAYSTACK_SECRET_KEY=sk_live_your_paystack_key
+   RESEND_API_KEY=re_your_resend_api_key
+   ```
+
+3. **Deploy on Railway / Render**:
+   - Point Railway or Render to the `backend/Dockerfile`.
+   - Add the Environment Variables in the platform dashboard.
+   - The application automatically initializes SQL tables via `schema.sql` on launch.
 
 ---
 
-## ⚙️ Backend REST API Specification
+## 📱 6. Mobile & Frontend Architecture
 
-| Endpoint | Method | Description | Auth Required |
-|----------|--------|-------------|:-------------:|
-| `/api/auth/register` | `POST` | Create a new traveler account | No |
-| `/api/auth/login` | `POST` | Authenticate credentials and return JWT token | No |
-| `/api/auth/forgot-password` | `POST` | Send OTP reset verification code to user email | No |
-| `/api/auth/verify-reset-code` | `POST` | Confirm 6-digit OTP validation code | No |
-| `/api/auth/reset-password` | `POST` | Apply new password credentials | No |
-| `/api/auth/verify-email` | `POST` | Verify user email account with 6-digit OTP | No |
-| `/api/auth/resend-verification` | `POST` | Resend email verification code via EmailService | No |
-| `/api/incidents` | `GET`/`POST` | Retrieve and post real-time hazards | Yes |
-| `/api/routes` | `GET`/`POST` | Retrieve and save recorded route paths | Yes |
-| `/api/routes/leaderboard` | `GET` | Get all-time user rankings by route distance | Yes |
-| `/api/routes/leaderboard/weekly` | `GET` | Get current week user rankings | Yes |
-| `/api/wallet/deposit` | `POST` | Log and verify a Paystack deposit reference | Yes |
-| `/api/music/tracks` | `GET`/`POST`/`DELETE` | Retrieve, upload, and remove personal library tracks | Yes |
-| `/api/music/playlists` | `GET`/`POST` | Create and retrieve playlists | Yes |
-| `/api/ai/chat` | `POST` | Query the Pathy AI Assistant | Yes |
-| `/api/ads` | `GET`/`POST` | Retrieve and launch sponsored campaigns | Yes |
-| `/api/ads/{id}/activate` | `POST` | Deduct balance and activate merchant pin | Yes |
+- **Framework**: React Native 0.81 with Expo SDK 54.
+- **State Management**: **Zustand** store (`useStore.ts`) managing auth tokens, music playback queue, live incidents, nearby ads, and push notifications.
+- **Theme System**: Dynamic Light/Dark mode context (`ThemeContext.tsx`) with cohesive design tokens (`theme.ts`).
+- **Global Music Player**: Audio engine (`expo-av`) capable of streaming from **Audius API** and caching uploaded MP3 files locally via `expo-file-system`.
 
+---
 
+## 🛠️ REST API Reference
+
+| Endpoint | Method | Description | Auth |
+|---|---|---|:---:|
+| `/api/auth/register` | `POST` | Register user & return JWT | ❌ |
+| `/api/auth/login` | `POST` | Login & return JWT | ❌ |
+| `/api/auth/forgot-password` | `POST` | Send 6-digit OTP code to email | ❌ |
+| `/api/auth/reset-password` | `POST` | Reset password with OTP | ❌ |
+| `/api/ai/chat` | `POST` | Query AI with text/voice prompt | ✅ |
+| `/api/incidents` | `GET`/`POST` | List active hazards / Create incident | ✅ (GET is public) |
+| `/api/incidents/{id}` | `DELETE` | Delete incident (with safety delay logic) | ✅ |
+| `/api/routes` | `GET`/`POST` | Retrieve / save custom navigation routes | ✅ |
+| `/api/routes/leaderboard` | `GET` | Calculate user distance rankings via Haversine | ✅ |
+| `/api/ads` | `GET`/`POST` | Query sponsored pins / Create campaign | ✅ |
+| `/api/ads/{id}/activate` | `POST` | Deduct wallet balance & activate map ad | ✅ |
+| `/api/wallet/deposit` | `POST` | Initialize Paystack wallet deposit | ✅ |
+| `/api/wallet/verify` | `POST` | Verify Paystack deposit reference | ✅ |
+| `/api/music/tracks` | `GET`/`POST` | Fetch or upload MP3 tracks | ✅ |
