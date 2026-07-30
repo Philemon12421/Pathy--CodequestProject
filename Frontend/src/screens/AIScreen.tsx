@@ -80,10 +80,31 @@ export default function AIScreen({ navigation }: any) {
 
   // ── Voice Input Trigger ─────────────────────────────────────────────────────
   const startVoiceInput = async () => {
+    // If already listening, tapping mic again closes the session
+    if (isListening) {
+      stopVoiceInputAndSend();
+      return;
+    }
+
     setVoiceText('');
+
+    // Always tear down any existing recording before creating a new one
+    if (recognitionRef.current) {
+      try { recognitionRef.current.stop(); } catch {}
+      recognitionRef.current = null;
+    }
+    if (recordingRef.current) {
+      try {
+        const status = await recordingRef.current.getStatusAsync();
+        if (status.isRecording) await recordingRef.current.stopAndUnloadAsync();
+        else await recordingRef.current.stopAndUnloadAsync();
+      } catch {}
+      recordingRef.current = null;
+    }
+
     setIsListening(true);
 
-    // 1. Try Web Speech Recognition if available (Browser environment)
+    // 1. Try Web Speech Recognition if available (Browser/Web environment)
     const SpeechRecognition = typeof window !== 'undefined' &&
       ((window as any).SpeechRecognition || (window as any).webkitSpeechRecognition);
 
@@ -121,18 +142,23 @@ export default function AIScreen({ navigation }: any) {
     // 2. Fallback to Expo AV audio recording session
     try {
       const permission = await Audio.requestPermissionsAsync();
-      if (permission.granted) {
-        await Audio.setAudioModeAsync({
-          allowsRecordingIOS: true,
-          playsInSilentModeIOS: true,
-        });
-        const recording = new Audio.Recording();
-        await recording.prepareToRecordAsync(Audio.RecordingOptionsPresets.HIGH_QUALITY);
-        await recording.startAsync();
-        recordingRef.current = recording;
+      if (!permission.granted) {
+        setIsListening(false);
+        return;
       }
+
+      await Audio.setAudioModeAsync({
+        allowsRecordingIOS: true,
+        playsInSilentModeIOS: true,
+      });
+
+      const recording = new Audio.Recording();
+      await recording.prepareToRecordAsync(Audio.RecordingOptionsPresets.HIGH_QUALITY);
+      await recording.startAsync();
+      recordingRef.current = recording;
     } catch (e) {
       console.log('Expo Audio recording init error:', e);
+      setIsListening(false);
     }
   };
 
