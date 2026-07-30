@@ -19,12 +19,12 @@ import java.util.regex.Pattern;
 @RequestMapping("/api/ai")
 public class AiController extends BaseController {
   private static final String SYSTEM_PROMPT = """
-      You are RouteFlow AI - a smart, friendly assistant built into the RouteFlow app. You can help users with:
-      1. Navigation: when user wants to go somewhere: <action>{\"type\":\"navigate\",\"destination\":\"Place Name\"}</action>
-      2. Incidents: <action>{\"type\":\"report_incident\",\"incident_type\":\"accident|hazard|crime|weather|other\",\"title\":\"Short title\",\"severity\":\"low|medium|high|critical\"}</action>
-      3. Music: <action>{\"type\":\"music\",\"action\":\"play\"}</action>
-      4. Ads: <action>{\"type\":\"place_ad\",\"business_name\":\"name\"}</action>
-      Keep responses under 150 words.
+      You are Pathy AI - a smart, friendly assistant built into the Pathy app. You can help users perform actions in the app automatically:
+      1. Navigation: when user wants to go somewhere: <action>{"type":"navigate","destination":"Place Name"}</action>
+      2. Incident Reporting: when user wants to report an accident, hazard, crime/roadblock, or weather problem: <action>{"type":"report_incident","incident_type":"accident|hazard|crime|weather|other","title":"Short descriptive title","severity":"low|medium|high|critical","description":"Full description extracted from user context"}</action>
+      3. Music: <action>{"type":"music","action":"play","track_name":"optional track name"}</action>
+      4. Ads: <action>{"type":"place_ad","business_name":"Business Name","description":"Campaign details","radius_km":2.0}</action>
+      Keep responses concise (under 150 words). Always include the <action> tag with extracted details whenever the user wants to perform an app action.
       """;
   private static final Pattern ACTION = Pattern.compile("<a?action>(.*?)</a?action>", Pattern.DOTALL);
 
@@ -108,20 +108,24 @@ public class AiController extends BaseController {
   }
 
   private String generateSmartFallback(String message) {
-    if (message.contains("navigat") || message.contains("dir") || message.contains("where")) {
-      return "I can help you navigate to your destination. Opening the map controls for you! <action>{\"type\":\"navigate\"}</action>";
+    if (message.contains("navigat") || message.contains("dir") || message.contains("where") || message.contains("take me")) {
+      String dest = message.replaceAll("(?i).*(?:navigate to|take me to|where is|directions to)", "").trim();
+      if (dest.isBlank()) dest = "Destination";
+      return "I can help you navigate to " + dest + ". Opening map navigation for you! <action>{\"type\":\"navigate\",\"destination\":\"" + dest + "\"}</action>";
     }
-    if (message.contains("hazard") || message.contains("report") || message.contains("accident") || message.contains("incident")) {
-      return "I can help you report a road incident to alert other drivers nearby. <action>{\"type\":\"report_incident\",\"incident_type\":\"hazard\",\"title\":\"Road Hazard\"}</action>";
+    if (message.contains("hazard") || message.contains("report") || message.contains("accident") || message.contains("incident") || message.contains("crash") || message.contains("crime")) {
+      String type = message.contains("accident") || message.contains("crash") ? "accident" : message.contains("crime") || message.contains("block") ? "crime" : message.contains("weather") || message.contains("rain") ? "weather" : "hazard";
+      String title = message.length() > 40 ? message.substring(0, 37) + "..." : message;
+      return "I have extracted the incident details for your report. You can review and confirm below: <action>{\"type\":\"report_incident\",\"incident_type\":\"" + type + "\",\"title\":\"" + title.replace("\"", "'") + "\",\"severity\":\"high\",\"description\":\"" + message.replace("\"", "'") + "\"}</action>";
     }
     if (message.contains("music") || message.contains("song") || message.contains("play")) {
       return "Opening music for your drive! Enjoy the trip 🎵 <action>{\"type\":\"music\",\"action\":\"play\"}</action>";
     }
     if (message.contains("ad") || message.contains("business") || message.contains("promot")) {
-      return "You can place interactive map ads to promote your business. <action>{\"type\":\"place_ad\"}</action>";
+      return "You can place interactive map ads to promote your business. <action>{\"type\":\"place_ad\",\"business_name\":\"My Business\"}</action>";
     }
     if (message.contains("hello") || message.contains("hi") || message.contains("hey")) {
-      return "Hello! I am Pathy AI, your road companion. How can I assist you with navigation, road hazards, or music today?";
+      return "Hello! I am Pathy AI, your road companion. How can I assist you with navigation, reporting road hazards, or playing music today?";
     }
     return "I'm Pathy AI, your road companion. You can ask me to navigate, report a hazard, play music, or place an ad on the map!";
   }

@@ -141,15 +141,20 @@ function makeMyCardStyles(COLORS: any) {
 }
 
 // ─── Main Screen ──────────────────────────────────────────────────────────────
-export default function AdPortalScreen() {
+export default function AdPortalScreen({ route }: any) {
   const COLORS = useColors();
   const s = makeStyles(COLORS);
   const { userLocation, myAds, setMyAds, addAd, user, setAuth, token } = useStore();
 
-  // Form / flow state
-  const [creating, setCreating] = useState(false);
+  const initialParams = route?.params || {};
+  const [creating, setCreating] = useState(Boolean(initialParams.business_name || initialParams.create));
   const [step, setStep] = useState(0);
-  const [form, setForm] = useState({ business_name: '', description: '', website_url: '', radius_km: '2' });
+  const [form, setForm] = useState({
+    business_name: initialParams.business_name || '',
+    description: initialParams.description || '',
+    website_url: initialParams.website_url || '',
+    radius_km: String(initialParams.radius_km || '2'),
+  });
   const [pin, setPin] = useState(userLocation || { latitude: 6.6885, longitude: -1.6244 });
   const [adId, setAdId] = useState(null);
   const [submitting, setSubmitting] = useState(false);
