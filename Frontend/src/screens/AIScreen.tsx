@@ -172,8 +172,8 @@ export default function AIScreen({ navigation }: any) {
         description: msg,
       };
     }
-    if (/\b(navigate|directions|where is|take me)\b/.test(lower)) {
-      const dest = msg.replace(/(?i).*(?:navigate to|take me to|where is|directions to)/, '').trim() || 'Destination';
+    if (/\b(navigate|directions|where is|take me)\b/i.test(lower)) {
+      const dest = msg.replace(/.*(?:navigate to|take me to|where is|directions to)/i, '').trim() || 'Destination';
       return { type: 'navigate', destination: dest };
     }
     if (/\b(ad|advertise|business|promote)\b/.test(lower)) {
