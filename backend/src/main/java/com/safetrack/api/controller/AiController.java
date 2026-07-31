@@ -7,8 +7,11 @@ import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.jdbc.core.simple.JdbcClient;
+import org.springframework.util.LinkedMultiValueMap;
+import org.springframework.util.MultiValueMap;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.client.RestClient;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -38,6 +41,32 @@ public class AiController extends BaseController {
     this.jdbc = jdbc;
     this.properties = properties;
     this.mapper = mapper;
+  }
+
+  @PostMapping(value = "/transcribe", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+  public ResponseEntity<?> transcribe(@RequestParam("file") MultipartFile file) {
+    if (!hasText(properties.groqApiKey()) || file.isEmpty()) {
+      return ResponseEntity.ok(Map.of("text", ""));
+    }
+    try {
+      MultiValueMap<String, Object> form = new LinkedMultiValueMap<>();
+      form.add("file", file.getResource());
+      form.add("model", "whisper-large-v3-turbo");
+
+      JsonNode response = groqClient.post()
+          .uri("/audio/transcriptions")
+          .header("Authorization", "Bearer " + properties.groqApiKey())
+          .contentType(MediaType.MULTIPART_FORM_DATA)
+          .body(form)
+          .retrieve()
+          .body(JsonNode.class);
+
+      String text = response != null && response.has("text") ? response.path("text").asText("") : "";
+      return ResponseEntity.ok(Map.of("text", text));
+    } catch (Exception e) {
+      System.err.println("⚠️ Groq Whisper Transcription Error: " + e.getMessage());
+      return ResponseEntity.ok(Map.of("text", ""));
+    }
   }
 
   @PostMapping("/chat")

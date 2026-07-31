@@ -75,6 +75,13 @@ export const aiAPI = {
   chat: (message: string, history: any[]) => api.post('/ai/chat', { message, history }),
   getHistory: () => api.get('/ai/history'),
   clearHistory: () => api.delete('/ai/history'),
+  transcribe: async (formData: any) => {
+    const headers: any = {};
+    if (authToken) headers['Authorization'] = `Bearer ${authToken}`;
+    const res = await fetch(`${BASE_URL}/ai/transcribe`, { method: 'POST', headers, body: formData });
+    if (!res.ok) return { text: '' };
+    return await res.json().catch(() => ({ text: '' }));
+  },
 };
 
 // Music

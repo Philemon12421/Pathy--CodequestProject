@@ -27,6 +27,8 @@
     "expo-file-system": "~19.0.23",
     "expo-image-picker": "~17.0.11",
     "expo-location": "~19.0.8",
+    "expo-speech": "~14.0.8",
+    "expo-speech-recognition": "^56.0.1",
     "expo-status-bar": "~3.0.9",
     "lucide-react-native": "^1.21.0",
     "react": "19.1.0",

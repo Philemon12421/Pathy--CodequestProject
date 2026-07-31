@@ -284,7 +284,7 @@ function RouteDetailModal({ visible, post, onClose, navigation }: {
 
         {/* Thumbnail */}
         <View style={rd.thumb}>
-          {post.originLat && post.destinationLat ? (
+          {post.originLat != null && post.destinationLat != null && post.originLng != null && post.destinationLng != null ? (
             <MapView
               style={StyleSheet.absoluteFillObject}
               initialRegion={{
@@ -546,7 +546,7 @@ function FeedCard({ post, currentUserId, onLike, onOpenComments, onOpenDetail, o
 
       {/* Route thumbnail — tappable to open detail */}
       <TouchableOpacity style={fc.thumb} onPress={() => onOpenDetail(post)} activeOpacity={0.9}>
-        {post.originLat && post.destinationLat ? (
+        {post.originLat != null && post.destinationLat != null && post.originLng != null && post.destinationLng != null ? (
           <MapView
             style={StyleSheet.absoluteFillObject}
             initialRegion={{
