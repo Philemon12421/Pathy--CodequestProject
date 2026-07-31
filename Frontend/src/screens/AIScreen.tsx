@@ -307,21 +307,24 @@ export default function AIScreen({ navigation }: any) {
 
   // ── Voice Input Trigger ─────────────────────────────────────────────────────
   const startVoiceInput = async () => {
-    if (isListening) {
-      stopVoiceInputAndSend();
-      return;
+    // Clean up any ongoing timer or previous recording first
+    if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
+    if (recordingRef.current) {
+      try { await recordingRef.current.stopAndUnloadAsync(); } catch {}
+      recordingRef.current = null;
     }
 
     setVoiceText('');
     setVoiceStatus('listening');
+    setIsListening(true);
+    setIsSpeaking(false);
     transcriptTallyRef.current = '';
     voiceModeActiveRef.current = true;
 
     // Stop any active TTS out-loud speech
-    try { if (SpeechModule && SpeechModule.stop) SpeechModule.stop(); } catch {}
+    stopCurrentSpeech();
 
     // Schedule 5-second silence auto-respond timer
-    if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
     silenceTimerRef.current = setTimeout(() => {
       stopVoiceInputAndSend();
     }, 5000);
@@ -351,7 +354,6 @@ export default function AIScreen({ navigation }: any) {
           recognition.onerror = (e: any) => console.log('Web STT error:', e);
           recognition.start();
           webRecognitionRef.current = recognition;
-          setIsListening(true);
         } catch (err) {
           console.log('Web Speech API error:', err);
           Alert.alert('Not supported', 'Voice input is not supported in this browser.');
@@ -380,7 +382,6 @@ export default function AIScreen({ navigation }: any) {
           continuous: false,
           maxAlternatives: 1,
         });
-        setIsListening(true);
         return;
       } catch (e) {
         console.log('Speech recognition start error:', e);
@@ -404,15 +405,14 @@ export default function AIScreen({ navigation }: any) {
       await recording.prepareToRecordAsync(Audio.RecordingOptionsPresets.HIGH_QUALITY);
       await recording.startAsync();
       recordingRef.current = recording;
-      setIsListening(true);
     } catch (e) {
       console.log('Expo Audio fallback error:', e);
-      setIsListening(true);
     }
   };
 
   const stopVoiceInputAndSend = async (customText?: string) => {
     if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
+    setIsListening(false);
     let finalQuery = (customText || voiceText || transcriptTallyRef.current).trim();
 
     // Stop web recognition if active
@@ -447,7 +447,9 @@ export default function AIScreen({ navigation }: any) {
           name: `speech_${Date.now()}.${Platform.OS === 'ios' ? 'm4a' : '3gp'}`,
         } as any);
 
+        console.log('[VoiceMode] Transcribing audio with Whisper API...');
         const res = await aiAPI.transcribe(formData);
+        console.log('[VoiceMode] Whisper result:', res);
         if (typeof res?.text === 'string' && res.text.trim().length > 0) {
           finalQuery = res.text.trim();
           setVoiceText(finalQuery);
@@ -458,16 +460,17 @@ export default function AIScreen({ navigation }: any) {
     }
 
     if (finalQuery) {
+      console.log('[VoiceMode] Processing query:', finalQuery);
       setVoiceStatus('thinking');
       send(finalQuery, true);
     } else {
-      // If no speech captured, quietly stay in listening mode without repeating speech prompt over and over
+      console.log('[VoiceMode] No query detected. Re-starting listening...');
       setVoiceStatus('listening');
       setIsSpeaking(false);
       if (voiceModeActiveRef.current) {
-        startVoiceInput();
-      } else {
-        setIsListening(false);
+        setTimeout(() => {
+          if (voiceModeActiveRef.current) startVoiceInput();
+        }, 300);
       }
     }
   };
