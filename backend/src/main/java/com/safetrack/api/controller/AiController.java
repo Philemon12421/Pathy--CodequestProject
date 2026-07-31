@@ -187,7 +187,9 @@ public class AiController extends BaseController {
       }
     }
 
-    return ResponseEntity.ok(Map.of("text", ""));
+    String lastError = "No valid AI API Key configured for STT. Please set GROQ_API_KEY or GEMINI_API_KEY.";
+    System.err.println("⚠️ STT Error: " + lastError);
+    return ResponseEntity.ok(Map.of("text", "", "error", lastError));
   }
 
   private List<Map<String, String>> buildMessages(String message, Object history) {

@@ -487,6 +487,11 @@ export default function AIScreen({ navigation }: any) {
         if (typeof res?.text === 'string' && res.text.trim().length > 0) {
           finalQuery = res.text.trim();
           setVoiceText(finalQuery);
+        } else if (res?.error) {
+          Alert.alert(
+            'Backend API Key Required',
+            'Voice STT requires a valid GROQ_API_KEY or GEMINI_API_KEY in your Railway environment variables. You can also type your message or select a preset prompt below.'
+          );
         }
       } catch (err) {
         console.log('Voice transcription error:', err);
