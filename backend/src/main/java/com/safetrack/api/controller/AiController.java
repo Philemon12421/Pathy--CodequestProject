@@ -111,6 +111,8 @@ public class AiController extends BaseController {
     if (file == null || file.isEmpty()) {
       return ResponseEntity.ok(Map.of("text", ""));
     }
+
+    // Option 1: Try Groq Whisper STT API
     if (hasText(properties.groqApiKey())) {
       try {
         var headers = new HttpHeaders();
@@ -132,20 +134,59 @@ public class AiController extends BaseController {
 
         var body = new LinkedMultiValueMap<String, Object>();
         body.add("file", contentsAsResource);
-        body.add("model", "whisper-large-v3-turbo");
+        body.add("model", "whisper-large-v3");
 
         var requestEntity = new HttpEntity<>(body, headers);
         var restTemplate = new RestTemplate();
         var response = restTemplate.postForEntity("https://api.groq.com/openai/v1/audio/transcriptions", requestEntity, JsonNode.class);
         if (response.getStatusCode().is2xxSuccessful() && response.getBody() != null) {
           String text = response.getBody().path("text").asText("");
-          System.out.println("✅ Whisper Transcribe Success: " + text);
+          if (hasText(text)) {
+            System.out.println("✅ Groq Whisper Transcribe Success: " + text);
+            return ResponseEntity.ok(Map.of("text", text.trim()));
+          }
+        }
+      } catch (Exception e) {
+        System.err.println("⚠️ Groq Whisper Transcribe Error: " + e.getMessage());
+      }
+    }
+
+    // Option 2: Fallback to Gemini 1.5 Flash Audio Transcription
+    if (hasText(properties.geminiApiKey())) {
+      try {
+        String base64Audio = java.util.Base64.getEncoder().encodeToString(file.getBytes());
+        String mimeType = file.getContentType();
+        if (mimeType == null || mimeType.isBlank()) mimeType = "audio/m4a";
+
+        Map<String, Object> requestBody = Map.of(
+            "contents", List.of(
+                Map.of("parts", List.of(
+                    Map.of("text", "Transcribe this audio recording into plain text. Return ONLY the transcribed text."),
+                    Map.of("inline_data", Map.of(
+                        "mime_type", mimeType,
+                        "data", base64Audio
+                    ))
+                ))
+            )
+        );
+
+        JsonNode response = geminiClient.post()
+            .uri("/models/gemini-1.5-flash:generateContent?key={key}", properties.geminiApiKey())
+            .contentType(MediaType.APPLICATION_JSON)
+            .body(requestBody)
+            .retrieve().body(JsonNode.class);
+
+        JsonNode textNode = response.path("candidates").path(0).path("content").path("parts").path(0).path("text");
+        if (!textNode.isMissingNode() && hasText(textNode.asText())) {
+          String text = textNode.asText().trim();
+          System.out.println("✅ Gemini Transcribe Success: " + text);
           return ResponseEntity.ok(Map.of("text", text));
         }
       } catch (Exception e) {
-        System.err.println("⚠️ Whisper Transcribe Error: " + e.getMessage());
+        System.err.println("⚠️ Gemini Transcribe Error: " + e.getMessage());
       }
     }
+
     return ResponseEntity.ok(Map.of("text", ""));
   }
 
