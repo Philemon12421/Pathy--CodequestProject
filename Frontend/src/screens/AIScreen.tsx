@@ -324,10 +324,10 @@ export default function AIScreen({ navigation }: any) {
     // Stop any active TTS out-loud speech
     stopCurrentSpeech();
 
-    // Schedule 5-second silence auto-respond timer
+    // Schedule 8-second silence auto-respond timer (gives user time to start speaking)
     silenceTimerRef.current = setTimeout(() => {
       stopVoiceInputAndSend();
-    }, 5000);
+    }, 8000);
 
     // ── Web (Expo Web) path ────────────────────────────────────────────────
     if (Platform.OS === 'web') {
@@ -402,9 +402,36 @@ export default function AIScreen({ navigation }: any) {
       });
 
       const recording = new Audio.Recording();
-      await recording.prepareToRecordAsync(Audio.RecordingOptionsPresets.HIGH_QUALITY);
+      await recording.prepareToRecordAsync({
+        ...Audio.RecordingOptionsPresets.HIGH_QUALITY,
+        isMeteringEnabled: true,
+      });
       await recording.startAsync();
       recordingRef.current = recording;
+
+      // Monitor audio levels: reset the silence timer whenever we detect speech
+      const meteringInterval = setInterval(async () => {
+        if (!recordingRef.current) {
+          clearInterval(meteringInterval);
+          return;
+        }
+        try {
+          const status = await recordingRef.current.getStatusAsync();
+          // metering dB: -160 = silence, -40+ = speech
+          const metering = (status as any)?.metering ?? -160;
+          if (metering > -45) {
+            console.log('[VoiceMode] Speech detected! Level:', metering.toFixed(1), 'dB');
+            // Reset silence timer — user is speaking
+            if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
+            silenceTimerRef.current = setTimeout(() => {
+              stopVoiceInputAndSend();
+            }, 5000);
+          }
+        } catch {}
+      }, 500);
+
+      // Store interval ref for cleanup
+      (recordingRef as any)._meteringInterval = meteringInterval;
     } catch (e) {
       console.log('Expo Audio fallback error:', e);
     }
@@ -429,9 +456,15 @@ export default function AIScreen({ navigation }: any) {
     // Stop audio recording fallback if active and capture recording URI
     let recordedUri: string | null = null;
     if (recordingRef.current) {
+      // Clean up metering interval
+      if ((recordingRef as any)._meteringInterval) {
+        clearInterval((recordingRef as any)._meteringInterval);
+        (recordingRef as any)._meteringInterval = null;
+      }
       try {
         await recordingRef.current.stopAndUnloadAsync();
         recordedUri = recordingRef.current.getURI();
+        console.log('[VoiceMode] Recording stopped. URI:', recordedUri);
       } catch {}
       recordingRef.current = null;
     }
@@ -441,10 +474,11 @@ export default function AIScreen({ navigation }: any) {
       setVoiceStatus('thinking');
       try {
         const formData = new FormData();
+        // expo-av HIGH_QUALITY records as m4a (AAC) on both platforms
         formData.append('file', {
           uri: recordedUri,
-          type: Platform.OS === 'ios' ? 'audio/m4a' : 'audio/3gp',
-          name: `speech_${Date.now()}.${Platform.OS === 'ios' ? 'm4a' : '3gp'}`,
+          type: 'audio/m4a',
+          name: `speech_${Date.now()}.m4a`,
         } as any);
 
         console.log('[VoiceMode] Transcribing audio with Whisper API...');
