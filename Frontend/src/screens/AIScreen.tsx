@@ -461,20 +461,14 @@ export default function AIScreen({ navigation }: any) {
       setVoiceStatus('thinking');
       send(finalQuery, true);
     } else {
-      // Always speak back out loud so AI voice is 100% responsive even if no text captured!
-      const promptText = "I'm listening! You can tell me to navigate, report a road hazard, or play music.";
-      setVoiceStatus('speaking');
-      setIsSpeaking(true);
-      speakOutLoud(promptText, () => {
-        setIsSpeaking(false);
-        if (voiceModeActiveRef.current) {
-          setTimeout(() => {
-            if (voiceModeActiveRef.current) startVoiceInput();
-          }, 400);
-        } else {
-          setIsListening(false);
-        }
-      });
+      // If no speech captured, quietly stay in listening mode without repeating speech prompt over and over
+      setVoiceStatus('listening');
+      setIsSpeaking(false);
+      if (voiceModeActiveRef.current) {
+        startVoiceInput();
+      } else {
+        setIsListening(false);
+      }
     }
   };
 
@@ -546,11 +540,21 @@ export default function AIScreen({ navigation }: any) {
       speakOutLoud(replyText, () => {
         setIsSpeaking(false);
 
-        // Auto execute navigation actions
+        // Auto execute navigation & app actions
         if (action?.type === 'navigate') {
           voiceModeActiveRef.current = false;
           setIsListening(false);
-          navigation.navigate('Tabs', { screen: 'Map' });
+          navigation.navigate('Tabs', { screen: 'Map', params: { destination: action.destination } });
+          return;
+        } else if (action?.type === 'report_incident') {
+          voiceModeActiveRef.current = false;
+          setIsListening(false);
+          navigation.navigate('Report', {
+            type: action.incident_type || 'hazard',
+            title: action.title || '',
+            description: action.description || '',
+            severity: action.severity || 'high',
+          });
           return;
         } else if (action?.type === 'music') {
           voiceModeActiveRef.current = false;

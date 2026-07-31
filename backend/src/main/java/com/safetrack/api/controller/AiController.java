@@ -11,6 +11,9 @@ import org.springframework.util.LinkedMultiValueMap;
 import org.springframework.util.MultiValueMap;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.client.RestClient;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpEntity;
+import org.springframework.web.client.RestTemplate;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.util.ArrayList;
@@ -100,6 +103,35 @@ public class AiController extends BaseController {
   public Object clear(HttpServletRequest request) {
     jdbc.sql("DELETE FROM chat_messages WHERE user_id=:user_id").param("user_id", user(request).id()).update();
     return Map.of("success", true);
+  }
+
+  @PostMapping(value = "/transcribe", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+  public ResponseEntity<?> transcribe(@RequestParam("file") MultipartFile file) {
+    if (file == null || file.isEmpty()) {
+      return ResponseEntity.ok(Map.of("text", ""));
+    }
+    if (hasText(properties.groqApiKey())) {
+      try {
+        var headers = new HttpHeaders();
+        headers.setContentType(MediaType.MULTIPART_FORM_DATA);
+        headers.setBearerAuth(properties.groqApiKey());
+
+        var body = new LinkedMultiValueMap<String, Object>();
+        body.add("file", file.getResource());
+        body.add("model", "whisper-large-v3-turbo");
+
+        var requestEntity = new HttpEntity<>(body, headers);
+        var restTemplate = new RestTemplate();
+        var response = restTemplate.postForEntity("https://api.groq.com/openai/v1/audio/transcriptions", requestEntity, JsonNode.class);
+        if (response.getStatusCode().is2xxSuccessful() && response.getBody() != null) {
+          String text = response.getBody().path("text").asText("");
+          return ResponseEntity.ok(Map.of("text", text));
+        }
+      } catch (Exception e) {
+        System.err.println("⚠️ Whisper Transcribe Error: " + e.getMessage());
+      }
+    }
+    return ResponseEntity.ok(Map.of("text", ""));
   }
 
   private List<Map<String, String>> buildMessages(String message, Object history) {
