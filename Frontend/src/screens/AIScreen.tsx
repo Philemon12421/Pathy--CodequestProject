@@ -34,6 +34,19 @@ try {
   // Expo Go sandbox environment
 }
 
+let activeSound: Audio.Sound | null = null;
+
+const stopCurrentSpeech = async () => {
+  try { if (SpeechModule) SpeechModule.stop(); } catch {}
+  if (activeSound) {
+    try {
+      await activeSound.stopAsync();
+      await activeSound.unloadAsync();
+    } catch {}
+    activeSound = null;
+  }
+};
+
 const speakOutLoud = async (text: string, onDone?: () => void) => {
   if (!text) {
     if (onDone) onDone();
@@ -50,6 +63,8 @@ const speakOutLoud = async (text: string, onDone?: () => void) => {
     return;
   }
 
+  await stopCurrentSpeech();
+
   // Ensure Audio mode is set to Speaker Playback mode (fixes silent output after recording)
   try {
     await Audio.setAudioModeAsync({
@@ -64,7 +79,7 @@ const speakOutLoud = async (text: string, onDone?: () => void) => {
   }
 
   // Small delay to ensure audio mode switch is complete
-  await new Promise(resolve => setTimeout(resolve, 300));
+  await new Promise(resolve => setTimeout(resolve, 200));
 
   // Web Speech API
   if (Platform.OS === 'web' && typeof window !== 'undefined' && (window as any).speechSynthesis) {
@@ -80,13 +95,35 @@ const speakOutLoud = async (text: string, onDone?: () => void) => {
     } catch {}
   }
 
-  // Native expo-speech
+  // Primary Failsafe: High Quality Natural Audio Stream via Audio.Sound
+  try {
+    const encodedText = encodeURIComponent(cleanText.substring(0, 200));
+    const soundUrl = `https://translate.google.com/translate_tts?ie=UTF-8&q=${encodedText}&tl=en&client=tw-ob`;
+    console.log('[TTS] Playing natural voice audio stream...');
+
+    const { sound } = await Audio.Sound.createAsync(
+      { uri: soundUrl },
+      { shouldPlay: true, volume: 1.0 }
+    );
+    activeSound = sound;
+
+    sound.setOnPlaybackStatusUpdate((status) => {
+      if (status.isLoaded && status.didJustFinish) {
+        sound.unloadAsync().catch(() => {});
+        if (activeSound === sound) activeSound = null;
+        console.log('[TTS] Audio playback finished successfully');
+        if (onDone) onDone();
+      }
+    });
+    return;
+  } catch (streamErr) {
+    console.log('[TTS] Stream playback error, falling back to native TTS:', streamErr);
+  }
+
+  // Native expo-speech fallback
   if (SpeechModule && typeof SpeechModule.speak === 'function') {
     try {
-      try { SpeechModule.stop(); } catch {}
-      // Small delay after stop to prevent race conditions
-      await new Promise(resolve => setTimeout(resolve, 100));
-      console.log('[TTS] Speaking:', cleanText.substring(0, 50) + '...');
+      console.log('[TTS] Speaking via native SpeechModule:', cleanText.substring(0, 50) + '...');
       SpeechModule.speak(cleanText, {
         rate: Platform.OS === 'ios' ? 0.5 : 0.9,
         pitch: 1.0,
@@ -110,7 +147,7 @@ const speakOutLoud = async (text: string, onDone?: () => void) => {
       if (onDone) onDone();
     }
   } else {
-    console.log('[TTS] No speech engine available! SpeechModule:', !!SpeechModule);
+    console.log('[TTS] No speech engine available!');
     if (onDone) onDone();
   }
 };
@@ -1009,7 +1046,7 @@ export default function AIScreen({ navigation }: any) {
                   setIsSpeaking(false);
                   setVoiceText('');
                   setVoiceStatus('listening');
-                  try { if (SpeechModule) SpeechModule.stop(); } catch {}
+                  stopCurrentSpeech();
                   try { if (ExpoSpeechRecognitionModule) ExpoSpeechRecognitionModule.stop(); } catch {}
                   if (webRecognitionRef.current) {
                     try { webRecognitionRef.current.stop(); } catch {}
