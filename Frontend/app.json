@@ -52,7 +52,14 @@
       "expo-location",
       "expo-av",
       "expo-image-picker",
-      "expo-document-picker"
+      "expo-document-picker",
+      [
+        "expo-speech-recognition",
+        {
+          "microphonePermission": "Allow Pathy to access your microphone for voice commands.",
+          "speechRecognitionPermission": "Allow Pathy to use speech recognition for voice input."
+        }
+      ]
     ],
     "extra": {
       "eas": {

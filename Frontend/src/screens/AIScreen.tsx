@@ -11,6 +11,105 @@ import { FONTS, RADIUS, SPACING, SHADOW } from '../config/theme';
 import { aiAPI, incidentsAPI } from '../services/api';
 import useStore from '../store/useStore';
 
+// Safe native module resolution for Expo Go sandbox compatibility
+let ExpoSpeechRecognitionModule: any = null;
+let useSpeechRecognitionEventHook: any = (_event: string, _callback: any) => {};
+let SpeechModule: any = null;
+
+try {
+  const _speechMod = require('expo-speech');
+  // Handle both default export and named exports
+  SpeechModule = _speechMod?.default || _speechMod;
+} catch {}
+
+try {
+  const RecModule = require('expo-speech-recognition');
+  if (RecModule?.ExpoSpeechRecognitionModule) {
+    ExpoSpeechRecognitionModule = RecModule.ExpoSpeechRecognitionModule;
+  }
+  if (typeof RecModule?.useSpeechRecognitionEvent === 'function') {
+    useSpeechRecognitionEventHook = RecModule.useSpeechRecognitionEvent;
+  }
+} catch {
+  // Expo Go sandbox environment
+}
+
+const speakOutLoud = async (text: string, onDone?: () => void) => {
+  if (!text) {
+    if (onDone) onDone();
+    return;
+  }
+  // Clean markdown symbols & emojis for clean TTS out-loud speech
+  const cleanText = text
+    .replace(/[\u{1F600}-\u{1F64F}\u{1F300}-\u{1F5FF}\u{1F680}-\u{1F6FF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}]/gu, '')
+    .replace(/[*_#`~🎵✅]/g, '')
+    .trim();
+
+  if (!cleanText) {
+    if (onDone) onDone();
+    return;
+  }
+
+  // Ensure Audio mode is set to Speaker Playback mode (fixes silent output after recording)
+  try {
+    await Audio.setAudioModeAsync({
+      allowsRecordingIOS: false,
+      playsInSilentModeIOS: true,
+      staysActiveInBackground: false,
+      shouldDuckAndroid: true,
+    });
+  } catch {}
+
+  // Small delay to ensure audio mode switch is complete
+  await new Promise(resolve => setTimeout(resolve, 300));
+
+  // Web Speech API
+  if (Platform.OS === 'web' && typeof window !== 'undefined' && (window as any).speechSynthesis) {
+    try {
+      (window as any).speechSynthesis.cancel();
+      const utterance = new SpeechSynthesisUtterance(cleanText);
+      utterance.rate = 1.0;
+      utterance.pitch = 1.0;
+      if (onDone) utterance.onend = onDone;
+      (window as any).speechSynthesis.speak(utterance);
+      return;
+    } catch {}
+  }
+
+  // Native expo-speech
+  if (SpeechModule && typeof SpeechModule.speak === 'function') {
+    try {
+      try { SpeechModule.stop(); } catch {}
+      // Small delay after stop to prevent race conditions
+      await new Promise(resolve => setTimeout(resolve, 100));
+      console.log('[TTS] Speaking:', cleanText.substring(0, 50) + '...');
+      SpeechModule.speak(cleanText, {
+        rate: Platform.OS === 'ios' ? 0.5 : 1.0,
+        pitch: 1.0,
+        language: 'en-US',
+        onDone: () => {
+          console.log('[TTS] Done speaking');
+          if (onDone) onDone();
+        },
+        onStopped: () => {
+          console.log('[TTS] Stopped');
+          if (onDone) onDone();
+        },
+        onError: (e: any) => {
+          console.log('[TTS] Error:', e);
+          if (onDone) onDone();
+        },
+      });
+    } catch (err) {
+      console.log('[TTS] Exception:', err);
+      if (onDone) onDone();
+    }
+  } else {
+    console.log('[TTS] No speech engine available! SpeechModule:', !!SpeechModule);
+    if (onDone) onDone();
+  }
+};
+
 const QUICK_PROMPTS = [
   { icon: 'navigate',         label: 'Navigate',      text: 'Navigate me to Accra Central' },
   { icon: 'warning',          label: 'Report hazard', text: 'Report a serious accident blocking traffic on Main Street' },
@@ -39,28 +138,114 @@ export default function AIScreen({ navigation }: any) {
   const [histLoading, setHistLoading] = useState(true);
   const [submittingActionId, setSubmittingActionId] = useState<string | null>(null);
 
-  // ── Voice Recording & Recognition State ─────────────────────────────────────
   const [isListening, setIsListening] = useState(false);
+  const [isSpeaking, setIsSpeaking] = useState(false);
+  const [voiceStatus, setVoiceStatus] = useState<'listening' | 'thinking' | 'speaking'>('listening');
   const [voiceText, setVoiceText] = useState('');
-  const recognitionRef = useRef<any>(null);
+  const [voiceInputText, setVoiceInputText] = useState('');
+  const webRecognitionRef = useRef<any>(null);
   const recordingRef = useRef<Audio.Recording | null>(null);
-  const pulseAnim = useRef(new Animated.Value(1)).current;
+  const silenceTimerRef = useRef<any>(null);
+  const voiceModeActiveRef = useRef(false); // tracks if voice modal session is active
 
-  // Pulse animation for mic listening state
+  // ChatGPT Orb & Wave Visualizer Animations
+  const pulseAnim = useRef(new Animated.Value(1)).current;
+  const rotateAnim = useRef(new Animated.Value(0)).current;
+  const waveAnim = useRef(new Animated.Value(1)).current;
+  const bar1Anim = useRef(new Animated.Value(14)).current;
+  const bar2Anim = useRef(new Animated.Value(28)).current;
+  const bar3Anim = useRef(new Animated.Value(42)).current;
+  const bar4Anim = useRef(new Animated.Value(24)).current;
+  const bar5Anim = useRef(new Animated.Value(16)).current;
+  const transcriptTallyRef = useRef(''); // accumulates finalized segments
+
+  // ── Native Speech Recognition Event Handlers (expo-speech-recognition) ──────
+  // These hooks wire up the native STT results, end, and error events.
+  useSpeechRecognitionEventHook('result', (event: any) => {
+    const transcript = event?.results?.[0]?.transcript || '';
+    const isFinal = event?.isFinal ?? event?.results?.[0]?.isFinal ?? false;
+    if (isFinal) {
+      transcriptTallyRef.current = (transcriptTallyRef.current + ' ' + transcript).trim();
+      setVoiceText(transcriptTallyRef.current);
+    } else {
+      setVoiceText((transcriptTallyRef.current + ' ' + transcript).trim());
+    }
+
+    // Reset 5-second silence timer whenever user speaks
+    if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
+    silenceTimerRef.current = setTimeout(() => {
+      stopVoiceInputAndSend();
+    }, 5000);
+  });
+
+  useSpeechRecognitionEventHook('end', () => {
+    // Native recognition ended — auto-send if we have text
+    const finalText = (voiceText || transcriptTallyRef.current).trim();
+    stopVoiceInputAndSend(finalText);
+  });
+
+  useSpeechRecognitionEventHook('error', (event: any) => {
+    console.log('Speech recognition error:', event?.error, event?.message);
+  });
+
+  // Continuous fluid movement & Soundwave Equalizer for ChatGPT Orb
   useEffect(() => {
-    if (isListening) {
-      const loop = Animated.loop(
+    if (isListening || isSpeaking) {
+      // 1. Organic Breathing Pulse
+      const pulseLoop = Animated.loop(
         Animated.sequence([
-          Animated.timing(pulseAnim, { toValue: 1.35, duration: 600, useNativeDriver: true }),
-          Animated.timing(pulseAnim, { toValue: 1, duration: 600, useNativeDriver: true }),
+          Animated.timing(pulseAnim, { toValue: 1.15, duration: 1200, useNativeDriver: false }),
+          Animated.timing(pulseAnim, { toValue: 0.95, duration: 1200, useNativeDriver: false }),
+          Animated.timing(pulseAnim, { toValue: 1.08, duration: 900, useNativeDriver: false }),
+          Animated.timing(pulseAnim, { toValue: 1.0, duration: 900, useNativeDriver: false }),
         ])
       );
-      loop.start();
-      return () => loop.stop();
+
+      // 2. Dynamic Rotation
+      const rotateLoop = Animated.loop(
+        Animated.timing(rotateAnim, { toValue: 1, duration: 8000, useNativeDriver: false })
+      );
+
+      // 3. Reactive Soundwave Bars Loop
+      const barLoop = Animated.loop(
+        Animated.sequence([
+          Animated.parallel([
+            Animated.timing(bar1Anim, { toValue: 36, duration: 300, useNativeDriver: false }),
+            Animated.timing(bar2Anim, { toValue: 18, duration: 250, useNativeDriver: false }),
+            Animated.timing(bar3Anim, { toValue: 48, duration: 350, useNativeDriver: false }),
+            Animated.timing(bar4Anim, { toValue: 16, duration: 280, useNativeDriver: false }),
+            Animated.timing(bar5Anim, { toValue: 32, duration: 320, useNativeDriver: false }),
+          ]),
+          Animated.parallel([
+            Animated.timing(bar1Anim, { toValue: 12, duration: 320, useNativeDriver: false }),
+            Animated.timing(bar2Anim, { toValue: 44, duration: 300, useNativeDriver: false }),
+            Animated.timing(bar3Anim, { toValue: 20, duration: 280, useNativeDriver: false }),
+            Animated.timing(bar4Anim, { toValue: 40, duration: 350, useNativeDriver: false }),
+            Animated.timing(bar5Anim, { toValue: 14, duration: 290, useNativeDriver: false }),
+          ]),
+        ])
+      );
+
+      pulseLoop.start();
+      rotateLoop.start();
+      barLoop.start();
+
+      return () => {
+        pulseLoop.stop();
+        rotateLoop.stop();
+        barLoop.stop();
+      };
     } else {
       pulseAnim.setValue(1);
+      rotateAnim.setValue(0);
+      waveAnim.setValue(1);
+      bar1Anim.setValue(14);
+      bar2Anim.setValue(28);
+      bar3Anim.setValue(42);
+      bar4Anim.setValue(24);
+      bar5Anim.setValue(16);
     }
-  }, [isListening, pulseAnim]);
+  }, [isListening, isSpeaking, voiceStatus]);
 
   useEffect(() => {
     aiAPI.getHistory()
@@ -80,70 +265,91 @@ export default function AIScreen({ navigation }: any) {
 
   // ── Voice Input Trigger ─────────────────────────────────────────────────────
   const startVoiceInput = async () => {
-    // If already listening, tapping mic again closes the session
     if (isListening) {
       stopVoiceInputAndSend();
       return;
     }
 
     setVoiceText('');
+    setVoiceStatus('listening');
+    transcriptTallyRef.current = '';
+    voiceModeActiveRef.current = true;
 
-    // Always tear down any existing recording before creating a new one
-    if (recognitionRef.current) {
-      try { recognitionRef.current.stop(); } catch {}
-      recognitionRef.current = null;
+    // Stop any active TTS out-loud speech
+    try { if (SpeechModule && SpeechModule.stop) SpeechModule.stop(); } catch {}
+
+    // Schedule 5-second silence auto-respond timer
+    if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
+    silenceTimerRef.current = setTimeout(() => {
+      stopVoiceInputAndSend();
+    }, 5000);
+
+    // ── Web (Expo Web) path ────────────────────────────────────────────────
+    if (Platform.OS === 'web') {
+      const SpeechRecognition = typeof window !== 'undefined' &&
+        ((window as any).SpeechRecognition || (window as any).webkitSpeechRecognition);
+      if (SpeechRecognition) {
+        try {
+          const recognition = new SpeechRecognition();
+          recognition.continuous = true;
+          recognition.interimResults = true;
+          recognition.lang = 'en-US';
+          recognition.onresult = (event: any) => {
+            let transcript = '';
+            for (let i = 0; i < event.results.length; i++) {
+              transcript += event.results[i][0].transcript;
+            }
+            setVoiceText(transcript);
+
+            if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
+            silenceTimerRef.current = setTimeout(() => {
+              stopVoiceInputAndSend();
+            }, 5000);
+          };
+          recognition.onerror = (e: any) => console.log('Web STT error:', e);
+          recognition.start();
+          webRecognitionRef.current = recognition;
+          setIsListening(true);
+        } catch (err) {
+          console.log('Web Speech API error:', err);
+          Alert.alert('Not supported', 'Voice input is not supported in this browser.');
+        }
+      } else {
+        Alert.alert('Not supported', 'Your browser does not support speech recognition.');
+      }
+      return;
     }
-    if (recordingRef.current) {
+
+    // ── Native (Android / iOS) path ─────────────────────────────────────────
+    if (ExpoSpeechRecognitionModule) {
       try {
-        const status = await recordingRef.current.getStatusAsync();
-        if (status.isRecording) await recordingRef.current.stopAndUnloadAsync();
-        else await recordingRef.current.stopAndUnloadAsync();
-      } catch {}
-      recordingRef.current = null;
-    }
+        const { status } = await ExpoSpeechRecognitionModule.requestPermissionsAsync();
+        if (status !== 'granted') {
+          Alert.alert(
+            'Microphone permission required',
+            'Please allow microphone access in Settings to use voice input.',
+          );
+          return;
+        }
 
-    setIsListening(true);
-
-    // 1. Try Web Speech Recognition if available (Browser/Web environment)
-    const SpeechRecognition = typeof window !== 'undefined' &&
-      ((window as any).SpeechRecognition || (window as any).webkitSpeechRecognition);
-
-    if (SpeechRecognition) {
-      try {
-        const recognition = new SpeechRecognition();
-        recognition.continuous = false;
-        recognition.interimResults = true;
-        recognition.lang = 'en-US';
-
-        recognition.onresult = (event: any) => {
-          let transcript = '';
-          for (let i = event.resultIndex; i < event.results.length; i++) {
-            transcript += event.results[i][0].transcript;
-          }
-          setVoiceText(transcript);
-        };
-
-        recognition.onerror = (e: any) => {
-          console.log('Speech recognition error:', e);
-        };
-
-        recognition.onend = () => {
-          // Keep active until user closes or submits
-        };
-
-        recognition.start();
-        recognitionRef.current = recognition;
+        ExpoSpeechRecognitionModule.start({
+          lang: 'en-US',
+          interimResults: true,
+          continuous: false,
+          maxAlternatives: 1,
+        });
+        setIsListening(true);
         return;
-      } catch (err) {
-        console.log('Web Speech API error:', err);
+      } catch (e) {
+        console.log('Speech recognition start error:', e);
       }
     }
 
-    // 2. Fallback to Expo AV audio recording session
+    // Fallback: Audio recording mode (for Expo Go environment)
     try {
       const permission = await Audio.requestPermissionsAsync();
       if (!permission.granted) {
-        setIsListening(false);
+        Alert.alert('Microphone required', 'Permission to access microphone was denied.');
         return;
       }
 
@@ -156,30 +362,77 @@ export default function AIScreen({ navigation }: any) {
       await recording.prepareToRecordAsync(Audio.RecordingOptionsPresets.HIGH_QUALITY);
       await recording.startAsync();
       recordingRef.current = recording;
+      setIsListening(true);
     } catch (e) {
-      console.log('Expo Audio recording init error:', e);
-      setIsListening(false);
+      console.log('Expo Audio fallback error:', e);
+      setIsListening(true);
     }
   };
 
   const stopVoiceInputAndSend = async (customText?: string) => {
-    const finalQuery = (customText || voiceText).trim();
+    if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
+    let finalQuery = (customText || voiceText || transcriptTallyRef.current).trim();
 
-    // Clean up recognition
-    if (recognitionRef.current) {
-      try { recognitionRef.current.stop(); } catch {}
-      recognitionRef.current = null;
+    // Stop web recognition if active
+    if (webRecognitionRef.current) {
+      try { webRecognitionRef.current.stop(); } catch {}
+      webRecognitionRef.current = null;
     }
+
+    // Stop native speech recognition if active
+    if (ExpoSpeechRecognitionModule) {
+      try { ExpoSpeechRecognitionModule.stop(); } catch {}
+    }
+
+    // Stop audio recording fallback if active and capture recording URI
+    let recordedUri: string | null = null;
     if (recordingRef.current) {
-      try { await recordingRef.current.stopAndUnloadAsync(); } catch {}
+      try {
+        await recordingRef.current.stopAndUnloadAsync();
+        recordedUri = recordingRef.current.getURI();
+      } catch {}
       recordingRef.current = null;
     }
 
-    setIsListening(false);
-    setVoiceText('');
+    // If no text captured yet but audio was recorded (e.g. Expo Go mode), transcribe audio via Whisper API!
+    if (!finalQuery && recordedUri) {
+      setVoiceStatus('thinking');
+      try {
+        const formData = new FormData();
+        formData.append('file', {
+          uri: recordedUri,
+          type: Platform.OS === 'ios' ? 'audio/m4a' : 'audio/3gp',
+          name: `speech_${Date.now()}.${Platform.OS === 'ios' ? 'm4a' : '3gp'}`,
+        } as any);
+
+        const res = await aiAPI.transcribe(formData);
+        if (typeof res?.text === 'string' && res.text.trim().length > 0) {
+          finalQuery = res.text.trim();
+          setVoiceText(finalQuery);
+        }
+      } catch (err) {
+        console.log('Voice transcription error:', err);
+      }
+    }
 
     if (finalQuery) {
-      send(finalQuery);
+      setVoiceStatus('thinking');
+      send(finalQuery, true);
+    } else {
+      // Always speak back out loud so AI voice is 100% responsive even if no text captured!
+      const promptText = "I'm listening! You can tell me to navigate, report a road hazard, or play music.";
+      setVoiceStatus('speaking');
+      setIsSpeaking(true);
+      speakOutLoud(promptText, () => {
+        setIsSpeaking(false);
+        if (voiceModeActiveRef.current) {
+          setTimeout(() => {
+            if (voiceModeActiveRef.current) startVoiceInput();
+          }, 400);
+        } else {
+          setIsListening(false);
+        }
+      });
     }
   };
 
@@ -209,7 +462,7 @@ export default function AIScreen({ navigation }: any) {
     return null;
   };
 
-  const send = async (text?: string) => {
+  const send = async (text?: string, isVoiceCall: boolean = false) => {
     const msg = (text ?? input).trim();
     if (!msg || loading) return;
     setInput('');
@@ -244,13 +497,70 @@ export default function AIScreen({ navigation }: any) {
       }
 
       addChatMessage({ role: 'assistant', content: replyText, id: `a-${Date.now()}`, action });
+
+      // ChatGPT-style: speak response, then auto-restart listening
+      setVoiceStatus('speaking');
+      setIsSpeaking(true);
+      speakOutLoud(replyText, () => {
+        setIsSpeaking(false);
+
+        // Auto execute navigation actions
+        if (action?.type === 'navigate') {
+          voiceModeActiveRef.current = false;
+          setIsListening(false);
+          navigation.navigate('Tabs', { screen: 'Map' });
+          return;
+        } else if (action?.type === 'music') {
+          voiceModeActiveRef.current = false;
+          setIsListening(false);
+          navigation.navigate('Music');
+          return;
+        } else if (action?.type === 'place_ad') {
+          voiceModeActiveRef.current = false;
+          setIsListening(false);
+          navigation.navigate('Ads', {
+            business_name: action.business_name || '',
+            description: action.description || '',
+            radius_km: action.radius_km || 2,
+          });
+          return;
+        }
+
+        // ChatGPT loop: auto-restart listening if voice mode is still active
+        if (voiceModeActiveRef.current) {
+          setTimeout(() => {
+            if (voiceModeActiveRef.current) {
+              startVoiceInput();
+            }
+          }, 400);
+        } else {
+          setIsListening(false);
+        }
+      });
     } catch {
       const fallbackAction = detectKeywordAction(msg);
+      const reply = fallbackAction ? 'Here is the requested action card:' : FALLBACK_REPLY;
       addChatMessage({
         role: 'assistant',
-        content: fallbackAction ? 'Here is the requested action card:' : FALLBACK_REPLY,
+        content: reply,
         id: `a-${Date.now()}`,
         action: fallbackAction || undefined,
+      });
+
+      setVoiceStatus('speaking');
+      setIsSpeaking(true);
+      speakOutLoud(reply, () => {
+        setIsSpeaking(false);
+        // ChatGPT loop: auto-restart listening if voice mode still active
+        if (voiceModeActiveRef.current) {
+          setTimeout(() => {
+            if (voiceModeActiveRef.current) {
+              startVoiceInput();
+            }
+          }, 400);
+        } else {
+          setIsListening(false);
+        }
       });
     } finally {
       setLoading(false);
@@ -540,62 +850,177 @@ export default function AIScreen({ navigation }: any) {
         </View>
       </KeyboardAvoidingView>
 
-      {/* ─── Voice Input Modal ───────────────────────────────────────────────── */}
-      <Modal visible={isListening} transparent animationType="fade" onRequestClose={() => setIsListening(false)}>
-        <View style={s.voiceModalOverlay}>
-          <View style={s.voiceModalCard}>
-            <TouchableOpacity style={s.voiceModalClose} onPress={() => setIsListening(false)}>
-              <Ionicons name="close" size={20} color={COLORS.textMuted} />
+      {/* ─── ChatGPT Advanced Voice UI Modal ────────────────────────────────────── */}
+      <Modal visible={isListening || isSpeaking} transparent animationType="fade" onRequestClose={() => { voiceModeActiveRef.current = false; setIsListening(false); setIsSpeaking(false); try { if (SpeechModule) SpeechModule.stop(); } catch {} try { if (ExpoSpeechRecognitionModule) ExpoSpeechRecognitionModule.stop(); } catch {} }}>
+        <SafeAreaView style={s.chatGptContainer}>
+          {/* Top Bar: Menu | ChatGPT Status Pill | Settings */}
+          <View style={s.chatGptTopBar}>
+            <TouchableOpacity style={s.chatGptIconBtn} onPress={() => { voiceModeActiveRef.current = false; setIsListening(false); setIsSpeaking(false); try { if (SpeechModule) SpeechModule.stop(); } catch {} try { if (ExpoSpeechRecognitionModule) ExpoSpeechRecognitionModule.stop(); } catch {} }}>
+              <Ionicons name="close" size={22} color="#fff" />
             </TouchableOpacity>
 
-            <Animated.View style={[s.voicePulseRing, { transform: [{ scale: pulseAnim }] }]}>
-              <View style={s.voiceMicCircle}>
-                <Ionicons name="mic" size={36} color="#fff" />
-              </View>
+            <TouchableOpacity style={s.chatGptPillBtn}>
+              <View style={[
+                s.chatGptStatusDot,
+                voiceStatus === 'thinking' && s.dotThinking,
+                voiceStatus === 'speaking' && s.dotSpeaking,
+              ]} />
+              <Text style={s.chatGptPillText}>Pathy Advanced Voice</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity style={s.chatGptIconBtn} onPress={() => Alert.alert('Voice Assistant', 'Connected live to Pathy AI with continuous out-loud speech.')}>
+              <Ionicons name="sparkles-outline" size={20} color="#A8C0FF" />
+            </TouchableOpacity>
+          </View>
+
+          {/* Center Stage: Realistic ChatGPT Fluid Gradient Orb & Soundwave */}
+          <View style={s.chatGptCenterStage}>
+            {/* Outer Glowing Aura Rings */}
+            <Animated.View
+              style={[
+                s.chatGptAuraRing,
+                {
+                  transform: [{ scale: pulseAnim }],
+                  opacity: voiceStatus === 'speaking' ? 0.6 : 0.35,
+                },
+              ]}
+            />
+
+            <Animated.View
+              style={[
+                s.chatGptAuraRingInner,
+                {
+                  transform: [{ scale: pulseAnim }],
+                  opacity: 0.45,
+                },
+              ]}
+            />
+
+            {/* Main Fluid Gradient Orb */}
+            <Animated.View
+              style={[
+                s.chatGptOrb,
+                {
+                  transform: [
+                    { scale: pulseAnim },
+                    {
+                      rotate: rotateAnim.interpolate({
+                        inputRange: [0, 1],
+                        outputRange: ['0deg', '360deg'],
+                      }),
+                    },
+                  ],
+                },
+              ]}
+            >
+              {/* Inner Cloud Gradient Shimmer layers */}
+              <View style={s.orbCloudLayer1} />
+              <View style={s.orbCloudLayer2} />
+              <View style={s.orbCloudCore} />
             </Animated.View>
 
-            <Text style={s.voiceTitle}>Listening to your voice...</Text>
-            <Text style={s.voiceSub}>Speak naturally (e.g. "Report an accident on 5th Street")</Text>
+            {/* Soundwave Equalizer Bars */}
+            <View style={s.soundwaveWrap}>
+              <Animated.View style={[s.soundwaveBar, { height: bar1Anim, backgroundColor: '#38BDF8' }]} />
+              <Animated.View style={[s.soundwaveBar, { height: bar2Anim, backgroundColor: '#6366F1' }]} />
+              <Animated.View style={[s.soundwaveBar, { height: bar3Anim, backgroundColor: '#A855F7' }]} />
+              <Animated.View style={[s.soundwaveBar, { height: bar4Anim, backgroundColor: '#EC4899' }]} />
+              <Animated.View style={[s.soundwaveBar, { height: bar5Anim, backgroundColor: '#10B981' }]} />
+            </View>
+
+            {/* Voice Status Badge & Live Transcript */}
+            <Text style={s.chatGptStatusText}>
+              {voiceStatus === 'thinking'
+                ? 'Thinking...'
+                : voiceStatus === 'speaking'
+                ? 'Pathy AI is Speaking'
+                : 'Listening...'}
+            </Text>
 
             {voiceText ? (
-              <View style={s.voiceTranscriptBox}>
-                <Text style={s.voiceTranscriptText}>{voiceText}</Text>
+              <View style={s.chatGptTranscriptCard}>
+                <Ionicons name="chatbubble-ellipses-outline" size={14} color="#8E8E93" style={{ marginTop: 1 }} />
+                <Text style={s.chatGptTranscriptText}>{voiceText}</Text>
               </View>
             ) : null}
 
-            {/* Quick Voice Demo Presets */}
-            <Text style={s.voicePresetHeading}>TAP A VOICE PRESET TO TEST:</Text>
-            <View style={s.voicePresetWrap}>
-              {SAMPLE_VOICE_PRESETS.map((preset, idx) => (
-                <TouchableOpacity
-                  key={idx}
-                  style={s.voicePresetChip}
-                  onPress={() => stopVoiceInputAndSend(preset)}
-                >
-                  <Ionicons name="chatbubble-ellipses-outline" size={13} color={COLORS.primary} />
-                  <Text style={s.voicePresetText} numberOfLines={1}>{preset}</Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-
-            <View style={s.voiceActionRow}>
-              <TouchableOpacity
-                style={s.voiceCancelBtn}
-                onPress={() => { setIsListening(false); setVoiceText(''); }}
-              >
-                <Text style={s.voiceCancelText}>Cancel</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={s.voiceDoneBtn}
-                onPress={() => stopVoiceInputAndSend()}
-              >
-                <Ionicons name="checkmark" size={16} color="#fff" />
-                <Text style={s.voiceDoneText}>Send Speech</Text>
-              </TouchableOpacity>
-            </View>
+            {/* Quick Demo Voice Presets */}
+            {voiceStatus === 'listening' && (
+              <View style={s.chatGptPresetsWrap}>
+                {SAMPLE_VOICE_PRESETS.map((preset, idx) => (
+                  <TouchableOpacity
+                    key={idx}
+                    style={s.chatGptPresetChip}
+                    onPress={() => stopVoiceInputAndSend(preset)}
+                    activeOpacity={0.7}
+                  >
+                    <Ionicons name="mic-outline" size={12} color="#A8C0FF" />
+                    <Text style={s.chatGptPresetText} numberOfLines={1}>{preset}</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            )}
           </View>
-        </View>
+
+          {/* Bottom Bar: Ask Pathy Input | Mic | Close Button */}
+          <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+            <View style={s.chatGptBottomBar}>
+              <View style={s.chatGptInputWrap}>
+                <Ionicons name="chatbox-outline" size={18} color="#8E8E93" />
+                <TextInput
+                  style={s.chatGptInput}
+                  placeholder="Type to talk with Pathy..."
+                  placeholderTextColor="#8E8E93"
+                  value={voiceInputText}
+                  onChangeText={setVoiceInputText}
+                  onSubmitEditing={() => {
+                    if (voiceInputText.trim()) {
+                      const text = voiceInputText;
+                      setVoiceInputText('');
+                      stopVoiceInputAndSend(text);
+                    }
+                  }}
+                />
+                {voiceInputText.trim().length > 0 && (
+                  <TouchableOpacity
+                    onPress={() => {
+                      const text = voiceInputText;
+                      setVoiceInputText('');
+                      stopVoiceInputAndSend(text);
+                    }}
+                  >
+                    <Ionicons name="arrow-up-circle" size={26} color="#6366F1" />
+                  </TouchableOpacity>
+                )}
+              </View>
+
+              <TouchableOpacity
+                style={[s.chatGptBottomBtn, { backgroundColor: '#EF4444', borderColor: '#DC2626' }]}
+                onPress={() => {
+                  // Stop button exits voice mode entirely
+                  if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
+                  voiceModeActiveRef.current = false;
+                  setIsListening(false);
+                  setIsSpeaking(false);
+                  setVoiceText('');
+                  setVoiceStatus('listening');
+                  try { if (SpeechModule) SpeechModule.stop(); } catch {}
+                  try { if (ExpoSpeechRecognitionModule) ExpoSpeechRecognitionModule.stop(); } catch {}
+                  if (webRecognitionRef.current) {
+                    try { webRecognitionRef.current.stop(); } catch {}
+                    webRecognitionRef.current = null;
+                  }
+                  if (recordingRef.current) {
+                    try { recordingRef.current.stopAndUnloadAsync(); } catch {}
+                    recordingRef.current = null;
+                  }
+                }}
+              >
+                <Ionicons name="stop" size={20} color="#fff" />
+              </TouchableOpacity>
+            </View>
+          </KeyboardAvoidingView>
+        </SafeAreaView>
       </Modal>
     </SafeAreaView>
   );
@@ -860,43 +1285,119 @@ function makeStyles(COLORS: any) {
     typingDots: { flexDirection: 'row', gap: 5 },
     dot: { width: 8, height: 8, borderRadius: 4, backgroundColor: COLORS.textMuted },
 
-    // ── Voice Input Modal ────────────────────────────────────────────────────
-    voiceModalOverlay: {
-      flex: 1, backgroundColor: 'rgba(0,0,0,0.65)',
-      justify: 'center', alignItems: 'center', padding: SPACING.xl,
+    // ── ChatGPT Advanced Voice UI Styles ─────────────────────────────────────
+    chatGptContainer: {
+      flex: 1, backgroundColor: '#0A0A0C', justifyContent: 'space-between',
     },
-    voiceModalCard: {
-      width: '100%', maxWidth: 360, backgroundColor: COLORS.surface,
-      borderRadius: RADIUS.xxl, padding: SPACING.xl, alignItems: 'center',
-      borderWidth: 1, borderColor: COLORS.border, ...SHADOW.lg,
+    chatGptTopBar: {
+      flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
+      paddingHorizontal: SPACING.lg, paddingTop: Platform.OS === 'android' ? 16 : 8,
+      paddingBottom: 10,
     },
-    voiceModalClose: { position: 'absolute', top: 16, right: 16, padding: 4 },
-    voicePulseRing: {
-      width: 90, height: 90, borderRadius: 45, backgroundColor: 'rgba(239,68,68,0.2)',
-      alignItems: 'center', justifyContent: 'center', marginVertical: SPACING.md,
+    chatGptIconBtn: {
+      width: 42, height: 42, borderRadius: 21,
+      backgroundColor: 'rgba(255,255,255,0.08)', alignItems: 'center', justifyContent: 'center',
+      borderWidth: 1, borderColor: 'rgba(255,255,255,0.12)',
     },
-    voiceMicCircle: {
-      width: 66, height: 66, borderRadius: 33, backgroundColor: '#EF4444',
-      alignItems: 'center', justifyContent: 'center', ...SHADOW.md,
+    chatGptPillBtn: {
+      flexDirection: 'row', alignItems: 'center', gap: 8,
+      backgroundColor: 'rgba(255,255,255,0.08)', paddingHorizontal: 16, paddingVertical: 8,
+      borderRadius: RADIUS.full, borderWidth: 1, borderColor: 'rgba(255,255,255,0.15)',
     },
-    voiceTitle: { fontSize: FONTS.sizes.lg, fontWeight: FONTS.weights.bold, color: COLORS.text, marginTop: 4 },
-    voiceSub: { fontSize: FONTS.sizes.xs, color: COLORS.textMuted, textAlign: 'center', marginTop: 2 },
-    voiceTranscriptBox: {
-      width: '100%', backgroundColor: COLORS.surfaceElevated, borderRadius: RADIUS.md,
-      padding: SPACING.md, marginVertical: SPACING.md, borderWidth: 1, borderColor: COLORS.border,
+    chatGptStatusDot: {
+      width: 8, height: 8, borderRadius: 4, backgroundColor: '#10B981',
     },
-    voiceTranscriptText: { fontSize: FONTS.sizes.sm, color: COLORS.text, fontStyle: 'italic', textAlign: 'center' },
-    voicePresetHeading: { fontSize: 10, fontWeight: '800', color: COLORS.textMuted, letterSpacing: 0.8, marginTop: 10, marginBottom: 6, alignSelf: 'flex-start' },
-    voicePresetWrap: { width: '100%', gap: 6 },
-    voicePresetChip: {
-      flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: COLORS.surfaceElevated,
-      borderRadius: RADIUS.md, paddingHorizontal: 10, paddingVertical: 8, borderWidth: 1, borderColor: COLORS.border,
+    dotThinking: { backgroundColor: '#F59E0B' },
+    dotSpeaking: { backgroundColor: '#6366F1' },
+    chatGptPillText: { color: '#F3F4F6', fontWeight: FONTS.weights.bold, fontSize: 13, letterSpacing: 0.3 },
+
+    chatGptCenterStage: {
+      flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: SPACING.xl,
     },
-    voicePresetText: { fontSize: FONTS.sizes.xs, color: COLORS.text, flex: 1 },
-    voiceActionRow: { flexDirection: 'row', gap: SPACING.md, marginTop: SPACING.xl, width: '100%' },
-    voiceCancelBtn: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingVertical: 12, borderRadius: RADIUS.full, borderWidth: 1, borderColor: COLORS.border },
-    voiceCancelText: { color: COLORS.textSecondary, fontWeight: FONTS.weights.semibold },
-    voiceDoneBtn: { flex: 1.4, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, backgroundColor: COLORS.primary, paddingVertical: 12, borderRadius: RADIUS.full, ...SHADOW.sm },
-    voiceDoneText: { color: '#fff', fontWeight: FONTS.weights.bold },
+    chatGptAuraRing: {
+      position: 'absolute', width: 330, height: 330, borderRadius: 165,
+      backgroundColor: 'rgba(99,102,241,0.25)',
+    },
+    chatGptAuraRingInner: {
+      position: 'absolute', width: 270, height: 270, borderRadius: 135,
+      backgroundColor: 'rgba(168,85,247,0.3)',
+    },
+
+    // Main ChatGPT Fluid Gradient Orb
+    chatGptOrb: {
+      width: 230, height: 230, borderRadius: 115,
+      backgroundColor: '#6366F1', overflow: 'hidden',
+      alignItems: 'center', justifyContent: 'center',
+      shadowColor: '#818CF8', shadowOffset: { width: 0, height: 0 },
+      shadowOpacity: 0.9, shadowRadius: 40, elevation: 25,
+    },
+    orbCloudLayer1: {
+      position: 'absolute', width: 210, height: 210, borderRadius: 105,
+      backgroundColor: '#A855F7', top: -35, left: -25, opacity: 0.85,
+    },
+    orbCloudLayer2: {
+      position: 'absolute', width: 190, height: 190, borderRadius: 95,
+      backgroundColor: '#38BDF8', bottom: -35, right: -25, opacity: 0.85,
+    },
+    orbCloudCore: {
+      position: 'absolute', width: 130, height: 130, borderRadius: 65,
+      backgroundColor: '#FFFFFF', opacity: 0.92,
+      shadowColor: '#FFFFFF', shadowOffset: { width: 0, height: 0 },
+      shadowOpacity: 0.95, shadowRadius: 28,
+    },
+
+    // Soundwave Visualizer Equalizer
+    soundwaveWrap: {
+      flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+      gap: 6, height: 50, marginTop: 24,
+    },
+    soundwaveBar: {
+      width: 4, borderRadius: 2,
+    },
+
+    chatGptStatusText: {
+      fontSize: 15, color: '#9CA3AF', fontWeight: FONTS.weights.semibold,
+      marginTop: 12, letterSpacing: 0.6,
+    },
+    chatGptTranscriptCard: {
+      flexDirection: 'row', alignItems: 'center', gap: 8,
+      backgroundColor: 'rgba(255,255,255,0.07)', borderRadius: RADIUS.lg,
+      paddingHorizontal: 16, paddingVertical: 12, marginTop: 14,
+      maxWidth: '92%', borderWidth: 1, borderColor: 'rgba(255,255,255,0.12)',
+    },
+    chatGptTranscriptText: { color: '#F9FAFB', fontSize: FONTS.sizes.sm, textAlign: 'center', flex: 1 },
+
+    chatGptPresetsWrap: {
+      flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center',
+      gap: 8, marginTop: 18, maxWidth: '94%',
+    },
+    chatGptPresetChip: {
+      flexDirection: 'row', alignItems: 'center', gap: 6,
+      backgroundColor: 'rgba(255,255,255,0.06)', borderRadius: RADIUS.full,
+      paddingHorizontal: 14, paddingVertical: 8,
+      borderWidth: 1, borderColor: 'rgba(255,255,255,0.12)',
+    },
+    chatGptPresetText: { color: '#E5E7EB', fontSize: 12, fontWeight: FONTS.weights.medium },
+
+    // Bottom Bar
+    chatGptBottomBar: {
+      flexDirection: 'row', alignItems: 'center', gap: 12,
+      paddingHorizontal: 18, paddingBottom: Platform.OS === 'ios' ? 16 : 24, paddingTop: 10,
+    },
+    chatGptInputWrap: {
+      flex: 1, flexDirection: 'row', alignItems: 'center', gap: 10,
+      backgroundColor: 'rgba(255,255,255,0.08)', borderRadius: 26, paddingHorizontal: 16, height: 50,
+      borderWidth: 1, borderColor: 'rgba(255,255,255,0.14)',
+    },
+    chatGptInput: { flex: 1, color: '#fff', fontSize: FONTS.sizes.md },
+    chatGptBottomBtn: {
+      width: 50, height: 50, borderRadius: 25,
+      backgroundColor: 'rgba(255,255,255,0.1)', alignItems: 'center', justifyContent: 'center',
+      borderWidth: 1, borderColor: 'rgba(255,255,255,0.15)',
+    },
+    chatGptCloseBtn: {
+      width: 48, height: 48, borderRadius: 24,
+      backgroundColor: '#FFFFFF', alignItems: 'center', justifyContent: 'center',
+    },
   });
 }
