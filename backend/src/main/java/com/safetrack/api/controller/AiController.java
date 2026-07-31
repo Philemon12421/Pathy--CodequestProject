@@ -14,6 +14,7 @@ import org.springframework.web.client.RestClient;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpEntity;
 import org.springframework.web.client.RestTemplate;
+import org.springframework.core.io.ByteArrayResource;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.util.ArrayList;
@@ -116,8 +117,21 @@ public class AiController extends BaseController {
         headers.setContentType(MediaType.MULTIPART_FORM_DATA);
         headers.setBearerAuth(properties.groqApiKey());
 
+        String filename = file.getOriginalFilename();
+        if (filename == null || filename.isBlank() || filename.endsWith(".3gp")) {
+          filename = "speech_" + System.currentTimeMillis() + ".m4a";
+        }
+
+        final String finalFilename = filename;
+        ByteArrayResource contentsAsResource = new ByteArrayResource(file.getBytes()) {
+          @Override
+          public String getFilename() {
+            return finalFilename;
+          }
+        };
+
         var body = new LinkedMultiValueMap<String, Object>();
-        body.add("file", file.getResource());
+        body.add("file", contentsAsResource);
         body.add("model", "whisper-large-v3-turbo");
 
         var requestEntity = new HttpEntity<>(body, headers);
@@ -125,6 +139,7 @@ public class AiController extends BaseController {
         var response = restTemplate.postForEntity("https://api.groq.com/openai/v1/audio/transcriptions", requestEntity, JsonNode.class);
         if (response.getStatusCode().is2xxSuccessful() && response.getBody() != null) {
           String text = response.getBody().path("text").asText("");
+          System.out.println("✅ Whisper Transcribe Success: " + text);
           return ResponseEntity.ok(Map.of("text", text));
         }
       } catch (Exception e) {
