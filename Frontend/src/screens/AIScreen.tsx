@@ -1077,6 +1077,15 @@ export default function AIScreen({ navigation }: any) {
                 )}
               </View>
 
+              {/* Manual Send button — stops recording and sends to AI */}
+              <TouchableOpacity
+                style={[s.chatGptBottomBtn, { backgroundColor: '#6366F1', borderColor: '#4F46E5' }]}
+                onPress={() => stopVoiceInputAndSend()}
+              >
+                <Ionicons name="send" size={18} color="#fff" />
+              </TouchableOpacity>
+
+              {/* Exit voice mode button */}
               <TouchableOpacity
                 style={[s.chatGptBottomBtn, { backgroundColor: '#EF4444', borderColor: '#DC2626' }]}
                 onPress={() => {
@@ -1094,12 +1103,15 @@ export default function AIScreen({ navigation }: any) {
                     webRecognitionRef.current = null;
                   }
                   if (recordingRef.current) {
+                    if ((recordingRef as any)._meteringInterval) {
+                      clearInterval((recordingRef as any)._meteringInterval);
+                    }
                     try { recordingRef.current.stopAndUnloadAsync(); } catch {}
                     recordingRef.current = null;
                   }
                 }}
               >
-                <Ionicons name="stop" size={20} color="#fff" />
+                <Ionicons name="close" size={20} color="#fff" />
               </TouchableOpacity>
             </View>
           </KeyboardAvoidingView>
