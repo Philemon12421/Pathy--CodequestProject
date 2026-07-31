@@ -56,9 +56,12 @@ const speakOutLoud = async (text: string, onDone?: () => void) => {
       allowsRecordingIOS: false,
       playsInSilentModeIOS: true,
       staysActiveInBackground: false,
-      shouldDuckAndroid: true,
+      shouldDuckAndroid: false,
+      playThroughEarpieceAndroid: false,
     });
-  } catch {}
+  } catch (err) {
+    console.log('[TTS] Audio mode error:', err);
+  }
 
   // Small delay to ensure audio mode switch is complete
   await new Promise(resolve => setTimeout(resolve, 300));
@@ -70,6 +73,7 @@ const speakOutLoud = async (text: string, onDone?: () => void) => {
       const utterance = new SpeechSynthesisUtterance(cleanText);
       utterance.rate = 1.0;
       utterance.pitch = 1.0;
+      utterance.volume = 1.0;
       if (onDone) utterance.onend = onDone;
       (window as any).speechSynthesis.speak(utterance);
       return;
@@ -84,8 +88,9 @@ const speakOutLoud = async (text: string, onDone?: () => void) => {
       await new Promise(resolve => setTimeout(resolve, 100));
       console.log('[TTS] Speaking:', cleanText.substring(0, 50) + '...');
       SpeechModule.speak(cleanText, {
-        rate: Platform.OS === 'ios' ? 0.5 : 1.0,
+        rate: Platform.OS === 'ios' ? 0.5 : 0.9,
         pitch: 1.0,
+        volume: 1.0,
         language: 'en-US',
         onDone: () => {
           console.log('[TTS] Done speaking');
