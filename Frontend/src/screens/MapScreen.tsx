@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity, TextInput,
-  ActivityIndicator, Alert, ScrollView, Dimensions, Image
+  ActivityIndicator, Alert, ScrollView, Dimensions, Image, Platform
 } from 'react-native';
 import MapView, { Marker, Polyline, Callout, Circle } from 'react-native-maps';
 import * as Location from 'expo-location';
@@ -15,6 +15,43 @@ const { width } = Dimensions.get('window');
 
 const SEVERITY_COLORS: Record<string, string> = { low: '#10B981', medium: '#F59E0B', high: '#EF4444', critical: '#DC2626' };
 const TYPE_ICONS: Record<string, string> = { accident: '🚗', hazard: '⚠️', crime: '🚨', weather: '🌩️', other: '📍' };
+
+// ── Category chips for quick nearby searches ─────────────────────────────
+const CATEGORY_CHIPS = [
+  { label: 'Hotels', icon: 'bed-outline' as const, query: 'hotel' },
+  { label: 'Restaurants', icon: 'restaurant-outline' as const, query: 'restaurant' },
+  { label: 'Groceries', icon: 'cart-outline' as const, query: 'supermarket' },
+  { label: 'Gas', icon: 'car-outline' as const, query: 'fuel station' },
+  { label: 'ATMs', icon: 'cash-outline' as const, query: 'atm' },
+  { label: 'Pharmacy', icon: 'medkit-outline' as const, query: 'pharmacy' },
+];
+
+// ── Google Maps Night-style dark map tiles ────────────────────────────────
+const DARK_MAP_STYLE = [
+  { elementType: 'geometry', stylers: [{ color: '#1a2138' }] },
+  { elementType: 'labels.text.fill', stylers: [{ color: '#8899aa' }] },
+  { elementType: 'labels.text.stroke', stylers: [{ color: '#1a2138' }] },
+  { featureType: 'administrative.country', elementType: 'geometry.stroke', stylers: [{ color: '#3a4a6a' }] },
+  { featureType: 'administrative.land_parcel', elementType: 'labels.text.fill', stylers: [{ color: '#5a6a8a' }] },
+  { featureType: 'administrative.province', elementType: 'geometry.stroke', stylers: [{ color: '#3a4a6a' }] },
+  { featureType: 'landscape.man_made', elementType: 'geometry.stroke', stylers: [{ color: '#2a3a5a' }] },
+  { featureType: 'landscape.natural', elementType: 'geometry', stylers: [{ color: '#1a2840' }] },
+  { featureType: 'poi', elementType: 'geometry', stylers: [{ color: '#1e2d48' }] },
+  { featureType: 'poi', elementType: 'labels.text.fill', stylers: [{ color: '#6a7a9a' }] },
+  { featureType: 'poi.park', elementType: 'geometry.fill', stylers: [{ color: '#142a20' }] },
+  { featureType: 'poi.park', elementType: 'labels.text.fill', stylers: [{ color: '#3a8a5a' }] },
+  { featureType: 'road', elementType: 'geometry', stylers: [{ color: '#253252' }] },
+  { featureType: 'road', elementType: 'geometry.stroke', stylers: [{ color: '#1a2540' }] },
+  { featureType: 'road', elementType: 'labels.text.fill', stylers: [{ color: '#7a8aaa' }] },
+  { featureType: 'road.highway', elementType: 'geometry', stylers: [{ color: '#2a3e62' }] },
+  { featureType: 'road.highway', elementType: 'geometry.stroke', stylers: [{ color: '#1a2a48' }] },
+  { featureType: 'road.highway', elementType: 'labels.text.fill', stylers: [{ color: '#9aaacc' }] },
+  { featureType: 'transit', elementType: 'geometry', stylers: [{ color: '#1e2d48' }] },
+  { featureType: 'transit.station', elementType: 'labels.text.fill', stylers: [{ color: '#6a7a9a' }] },
+  { featureType: 'water', elementType: 'geometry', stylers: [{ color: '#0e1a2e' }] },
+  { featureType: 'water', elementType: 'labels.text.fill', stylers: [{ color: '#3a5a7a' }] },
+];
+
 
 // Haversine formula in km
 function getDistance(lat1: number, lon1: number, lat2: number, lon2: number) {
@@ -32,7 +69,8 @@ export default function MapScreen({ navigation, route }: any) {
   const COLORS = useColors();
   const s = makeStyles(COLORS);
   const mapRef = useRef<any>(null);
-  const { user, userLocation, setUserLocation, incidents, setIncidents, myAds, ads, setAds } = useStore();
+  const { user, userLocation, setUserLocation, incidents, setIncidents, myAds, ads, setAds, theme } = useStore();
+  const isDark = theme === 'dark';
   const [search, setSearch] = useState('');
   const [directions, setDirections] = useState<any>(null);
   const [selectedMarker, setSelectedMarker] = useState<any>(null);
@@ -294,6 +332,12 @@ export default function MapScreen({ navigation, route }: any) {
     }
   };
 
+  // Search for nearby places by category chip
+  const searchCategory = (query: string) => {
+    setSearch(query);
+    searchDestination();
+  };
+
   const saveCurrentRoute = async () => {
     if (!directions) return;
     try {
@@ -409,11 +453,12 @@ export default function MapScreen({ navigation, route }: any) {
         style={s.map}
         initialRegion={defaultRegion}
         mapType={mapMode}
+        customMapStyle={isDark ? DARK_MAP_STYLE : []}
         showsUserLocation
         showsMyLocationButton={false}
-        showsCompass
-        showsScale
-        showsTraffic
+        showsCompass={false}
+        showsScale={false}
+        showsTraffic={false}
         onLongPress={handleLongPress}
       >
         {/* Incident markers */}
@@ -478,35 +523,69 @@ export default function MapScreen({ navigation, route }: any) {
         )}
       </MapView>
 
-      {/* Search bar */}
+      {/* ── Google Maps-style Search Bar ───────────────────────────────── */}
       {!isNavigating && (
-        <View style={s.searchBar}>
-          {isPickerMode && (
-            <TouchableOpacity 
-              onPress={() => navigation.goBack()} 
-              style={{ marginRight: 6, padding: 4 }}
-              activeOpacity={0.7}
+        <View style={s.searchContainer}>
+          <View style={s.searchBar}>
+            {isPickerMode ? (
+              <TouchableOpacity 
+                onPress={() => navigation.goBack()} 
+                style={s.searchIconBtn}
+                activeOpacity={0.7}
+              >
+                <Ionicons name="arrow-back" size={20} color={isDark ? '#ccc' : '#555'} />
+              </TouchableOpacity>
+            ) : (
+              <View style={s.searchPinIcon}>
+                <Ionicons name="location" size={20} color="#4caf7d" />
+              </View>
+            )}
+            <TextInput
+              style={s.searchInput}
+              placeholder="Search here"
+              placeholderTextColor={isDark ? '#8899aa' : '#999'}
+              value={search}
+              onChangeText={setSearch}
+              onSubmitEditing={searchDestination}
+              returnKeyType="search"
+            />
+            {loading ? (
+              <ActivityIndicator size="small" color="#4caf7d" style={{ marginRight: 8 }} />
+            ) : (
+              <TouchableOpacity onPress={searchDestination} style={s.searchIconBtn}>
+                <Ionicons name="mic" size={20} color={isDark ? '#8899aa' : '#888'} />
+              </TouchableOpacity>
+            )}
+            <TouchableOpacity
+              style={s.searchAvatar}
+              onPress={() => navigation.navigate('Profile')}
             >
-              <Ionicons name="arrow-back" size={22} color={COLORS.text} />
+              <Ionicons name="person-circle" size={30} color={isDark ? '#6EE7A0' : '#4caf7d'} />
             </TouchableOpacity>
-          )}
-          <Ionicons name="search" size={18} color={COLORS.textMuted} />
-          <TextInput
-            style={s.searchInput}
-            placeholder="Search destination..."
-            placeholderTextColor={COLORS.textMuted}
-            value={search}
-            onChangeText={setSearch}
-            onSubmitEditing={searchDestination}
-            returnKeyType="search"
-          />
-          {loading ? (
-            <ActivityIndicator size="small" color={COLORS.primary} />
-          ) : (
-            <TouchableOpacity onPress={searchDestination}>
-              <Ionicons name="arrow-forward-circle" size={24} color={COLORS.primary} />
-            </TouchableOpacity>
-          )}
+          </View>
+
+          {/* ── Category Chips ─────────────────────────────────────────── */}
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={s.chipsRow}
+          >
+            {CATEGORY_CHIPS.map((chip) => (
+              <TouchableOpacity
+                key={chip.label}
+                style={s.chip}
+                onPress={() => {
+                  setSearch(chip.query);
+                  // Tiny delay so the state updates before search fires
+                  setTimeout(() => searchDestination(), 50);
+                }}
+                activeOpacity={0.7}
+              >
+                <Ionicons name={chip.icon as any} size={14} color={isDark ? '#bcc8d6' : '#555'} />
+                <Text style={s.chipText}>{chip.label}</Text>
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
         </View>
       )}
 
@@ -518,27 +597,49 @@ export default function MapScreen({ navigation, route }: any) {
         </View>
       )}
 
-      {/* Map controls */}
+      {/* ── Floating Map Controls (Google Maps style) ──────────────────── */}
       {!isNavigating && (
-        <View style={s.controls}>
-          <TouchableOpacity style={s.ctrl} onPress={goToMyLocation}>
-            <Ionicons name="locate" size={22} color={COLORS.primary} />
+        <>
+          {/* Layers / Map toggle button (right side, upper) */}
+          <TouchableOpacity
+            style={[s.floatingBtn, { top: 175, right: 16 }]}
+            onPress={() => setMapMode(mapMode === 'standard' ? 'satellite' : 'standard')}
+          >
+            <Ionicons name={mapMode === 'standard' ? 'layers-outline' : 'map-outline'} size={22} color={isDark ? '#ccc' : '#555'} />
           </TouchableOpacity>
-          <TouchableOpacity style={s.ctrl} onPress={() => setMapMode(mapMode === 'standard' ? 'satellite' : 'standard')}>
-            <Ionicons name={mapMode === 'standard' ? 'globe' : 'map'} size={22} color={COLORS.text} />
+
+          {/* My Location button (right side, mid) */}
+          <TouchableOpacity
+            style={[s.floatingBtn, { bottom: 180, right: 16 }]}
+            onPress={goToMyLocation}
+          >
+            <Ionicons name="locate" size={22} color={isDark ? '#ccc' : '#555'} />
           </TouchableOpacity>
+
+          {/* Report incident (right side, above directions FAB) */}
           {!isPickerMode && (
-            <>
-              <TouchableOpacity style={s.ctrl} onPress={() => navigation.navigate('Report')}>
-                <Ionicons name="warning" size={22} color={COLORS.danger} />
-              </TouchableOpacity>
-              <TouchableOpacity style={[s.ctrl, { backgroundColor: COLORS.accent + '22' }]}
-                onPress={() => navigation.navigate('Ads')}>
-                <Ionicons name="megaphone" size={22} color={COLORS.accent} />
-              </TouchableOpacity>
-            </>
+            <TouchableOpacity
+              style={[s.floatingBtn, { bottom: 130, right: 16 }]}
+              onPress={() => navigation.navigate('Report')}
+            >
+              <Ionicons name="warning-outline" size={22} color="#F59E0B" />
+            </TouchableOpacity>
           )}
-        </View>
+
+          {/* Teal Directions FAB (bottom-right, Google Maps style) */}
+          <TouchableOpacity
+            style={s.directionsFab}
+            onPress={() => {
+              if (directions && navSteps.length > 0) {
+                startNavigation();
+              } else if (!isPickerMode) {
+                navigation.navigate('Ads');
+              }
+            }}
+          >
+            <Ionicons name="navigate" size={24} color="#fff" />
+          </TouchableOpacity>
+        </>
       )}
 
       {/* Navigation Banner */}
@@ -722,28 +823,63 @@ export default function MapScreen({ navigation, route }: any) {
 
 function makeStyles(COLORS: any) {
   return StyleSheet.create({
-    container: { flex: 1 },
+    container: { flex: 1, backgroundColor: COLORS.background },
     pickerBanner: {
-      position: 'absolute', top: 120, left: SPACING.lg, right: SPACING.lg,
+      position: 'absolute', top: 165, left: SPACING.lg, right: SPACING.lg,
       flexDirection: 'row', alignItems: 'center', backgroundColor: '#006c44',
       borderRadius: RADIUS.lg, padding: SPACING.md, gap: SPACING.sm,
       ...SHADOW.md, zIndex: 10,
     },
     pickerBannerText: { color: '#fff', fontSize: FONTS.sizes.sm, fontWeight: '600', flex: 1 },
     map: { flex: 1 },
+    searchContainer: {
+      position: 'absolute', top: Platform.OS === 'ios' ? 50 : 40,
+      left: 0, right: 0, zIndex: 20,
+    },
     searchBar: {
-      position: 'absolute', top: 55, left: SPACING.lg, right: SPACING.lg,
-      flexDirection: 'row', alignItems: 'center', backgroundColor: COLORS.surfaceGlass,
-      borderRadius: RADIUS.full, paddingHorizontal: SPACING.md, gap: SPACING.sm,
-      ...SHADOW.md, borderWidth: 1, borderColor: COLORS.border,
+      flexDirection: 'row', alignItems: 'center',
+      backgroundColor: COLORS.surfaceGlass,
+      marginHorizontal: SPACING.md, borderRadius: RADIUS.full,
+      paddingHorizontal: SPACING.md, height: 50,
+      borderWidth: 1, borderColor: COLORS.border,
+      ...SHADOW.md,
     },
-    searchInput: { flex: 1, color: COLORS.text, fontSize: FONTS.sizes.md, paddingVertical: 14 },
-    controls: {
-      position: 'absolute', right: SPACING.md, top: 130,
-      backgroundColor: COLORS.surfaceGlass, borderRadius: RADIUS.lg,
-      borderWidth: 1, borderColor: COLORS.border, ...SHADOW.sm, overflow: 'hidden',
+    searchPinIcon: { marginRight: 8 },
+    searchIconBtn: { padding: 4, marginRight: 4 },
+    searchInput: {
+      flex: 1, color: COLORS.text, fontSize: FONTS.sizes.md,
+      fontWeight: '500', paddingVertical: 8,
     },
-    ctrl: { padding: 14, alignItems: 'center', borderBottomWidth: 1, borderBottomColor: COLORS.border },
+    searchAvatar: { marginLeft: 6 },
+    chipsRow: {
+      paddingHorizontal: SPACING.md, paddingTop: 10,
+      paddingBottom: 6, gap: 8,
+    },
+    chip: {
+      flexDirection: 'row', alignItems: 'center',
+      backgroundColor: COLORS.surfaceGlass,
+      paddingHorizontal: 14, paddingVertical: 8,
+      borderRadius: RADIUS.full, borderWidth: 1,
+      borderColor: COLORS.border, gap: 6,
+      ...SHADOW.xs,
+    },
+    chipText: {
+      color: COLORS.text, fontSize: FONTS.sizes.xs + 1,
+      fontWeight: '600',
+    },
+    floatingBtn: {
+      position: 'absolute', width: 44, height: 44,
+      borderRadius: 22, backgroundColor: COLORS.surfaceGlass,
+      alignItems: 'center', justifyContent: 'center',
+      borderWidth: 1, borderColor: COLORS.border,
+      ...SHADOW.md, zIndex: 15,
+    },
+    directionsFab: {
+      position: 'absolute', bottom: 100, right: 16,
+      width: 52, height: 52, borderRadius: 26,
+      backgroundColor: '#38BDF8', alignItems: 'center', justifyContent: 'center',
+      ...SHADOW.lg, zIndex: 15,
+    },
     incMarker: {
       width: 34, height: 34, borderRadius: RADIUS.full,
       alignItems: 'center', justifyContent: 'center',
@@ -771,7 +907,7 @@ function makeStyles(COLORS: any) {
       position: 'absolute', bottom: 90, left: SPACING.lg, right: SPACING.lg,
       flexDirection: 'row', alignItems: 'center', backgroundColor: COLORS.surfaceGlass,
       borderRadius: RADIUS.xl, padding: SPACING.md, gap: SPACING.md,
-      ...SHADOW.md, borderWidth: 1, borderColor: COLORS.border,
+      ...SHADOW.md, borderWidth: 1, borderColor: COLORS.border, zIndex: 25,
     },
     routeTitle: { color: COLORS.text, fontWeight: FONTS.weights.bold, fontSize: FONTS.sizes.md },
     routeSub: { color: COLORS.accent, fontSize: FONTS.sizes.xs, marginTop: 2 },
@@ -789,7 +925,7 @@ function makeStyles(COLORS: any) {
       position: 'absolute', top: 55, left: SPACING.lg, right: SPACING.lg,
       backgroundColor: COLORS.surfaceGlass, borderRadius: RADIUS.xl,
       padding: SPACING.md, flexDirection: 'row', alignItems: 'center', gap: SPACING.md,
-      ...SHADOW.lg, borderWidth: 1, borderColor: COLORS.border,
+      ...SHADOW.lg, borderWidth: 1, borderColor: COLORS.border, zIndex: 30,
     },
     navIconBox: {
       backgroundColor: COLORS.primary, width: 50, height: 50,
@@ -805,7 +941,7 @@ function makeStyles(COLORS: any) {
       position: 'absolute', bottom: 168, left: SPACING.lg, right: SPACING.lg,
       flexDirection: 'row', alignItems: 'center', backgroundColor: COLORS.surfaceGlass,
       borderRadius: RADIUS.xl, padding: SPACING.md, gap: SPACING.md,
-      borderWidth: 1, borderColor: COLORS.border, ...SHADOW.sm,
+      borderWidth: 1, borderColor: COLORS.border, ...SHADOW.sm, zIndex: 22,
     },
     adBannerTitle: { color: COLORS.text, fontWeight: FONTS.weights.bold, fontSize: FONTS.sizes.md },
     adBannerThumb: { width: 44, height: 44, borderRadius: RADIUS.md },
@@ -813,7 +949,7 @@ function makeStyles(COLORS: any) {
     detailSheet: {
       position: 'absolute', bottom: 90, left: SPACING.lg, right: SPACING.lg,
       backgroundColor: COLORS.surface, borderRadius: RADIUS.xl, padding: SPACING.lg,
-      maxHeight: 340, borderWidth: 1, borderColor: COLORS.border, ...SHADOW.lg,
+      maxHeight: 340, borderWidth: 1, borderColor: COLORS.border, ...SHADOW.lg, zIndex: 30,
     },
     detailSheetHeader: {
       flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start',
