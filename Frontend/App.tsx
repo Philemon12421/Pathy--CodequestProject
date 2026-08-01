@@ -44,8 +44,8 @@ const ONBOARDING_KEY = 'pathy_has_onboarded';
 
 // ─── Elegant frosted-glass bottom navbar ─────────────────────────────────────
 const TABS = [
-  { name: 'Home',        icon: 'home-outline',     iconActive: 'home',     label: 'Home' },
   { name: 'Map',         icon: 'navigate-outline', iconActive: 'navigate', label: 'Map' },
+  { name: 'Home',        icon: 'home-outline',     iconActive: 'home',     label: 'Home' },
   { name: 'Leaderboard', icon: 'trophy-outline',   iconActive: 'trophy',   label: 'Board' },
   { name: 'Chat',        icon: 'chatbox-outline',  iconActive: 'chatbox',  label: 'AI Chat' },
 ];
@@ -132,8 +132,8 @@ const makeStyles = (C: any) => StyleSheet.create({
 function MainTabs() {
   return (
     <Tab.Navigator tabBar={p => <CustomTabBar {...p} />} screenOptions={{ headerShown: false }}>
-      <Tab.Screen name="Home"        component={HomeScreen} />
       <Tab.Screen name="Map"         component={MapScreen} />
+      <Tab.Screen name="Home"        component={HomeScreen} />
       <Tab.Screen name="Leaderboard" component={LeaderboardScreen} />
       <Tab.Screen name="Chat"        component={AIScreen} />
     </Tab.Navigator>
