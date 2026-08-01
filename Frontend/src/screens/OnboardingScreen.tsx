@@ -127,7 +127,7 @@ export default function OnboardingScreen({ onDone }: Props) {
               <Animated.View
                 style={[
                   s.iconCard,
-                  { backgroundColor: item.iconBg },
+                  { backgroundColor: item.iconBg, borderColor: item.iconColor },
                   { transform: [{ scale: iconScale }], opacity },
                 ]}
               >
@@ -209,6 +209,7 @@ function makeStyles(C: any) {
     iconCard: {
       width: 180, height: 180,
       borderRadius: 48,
+      borderWidth: 2,
       alignItems: 'center', justifyContent: 'center',
       marginBottom: 40,
       shadowColor: '#000',
