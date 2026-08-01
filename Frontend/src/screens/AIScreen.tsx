@@ -515,30 +515,40 @@ export default function AIScreen({ navigation }: any) {
   };
 
   // ── Keyword detection fallback ─────────────────────────────────────────────
-  const detectKeywordAction = (msg: string): { type: string; [key: string]: any } | null => {
-    const lower = msg.toLowerCase();
-    if (/\b(incident|report|accident|hazard|crash|roadblock|crime|weather)\b/.test(lower)) {
-      const type = lower.includes('accident') || lower.includes('crash') ? 'accident'
-        : lower.includes('crime') || lower.includes('block') ? 'crime'
-        : lower.includes('weather') || lower.includes('rain') ? 'weather' : 'hazard';
-      return {
-        type: 'report_incident',
-        incident_type: type,
-        title: msg.length > 35 ? msg.substring(0, 32) + '...' : msg,
-        severity: 'high',
-        description: msg,
-      };
-    }
-    if (/\b(navigate|directions|where is|take me)\b/i.test(lower)) {
-      const dest = msg.replace(/.*(?:navigate to|take me to|where is|directions to)/i, '').trim() || 'Destination';
-      return { type: 'navigate', destination: dest };
-    }
-    if (/\b(ad|advertise|business|promote)\b/.test(lower)) {
-      return { type: 'place_ad', business_name: 'My Business', description: msg };
-    }
-    if (/\bmusic\b/.test(lower)) return { type: 'music', action: 'play' };
-    return null;
-  };
+const extractIncidentDetails = (raw: string): string => {
+  return raw
+    .replace(/^(please\s+)?report\s+(an|a)?\s*(incident|hazard|accident|crash|crime|weather)?\s*/i, '')
+    .replace(/^[,]?\s*(for|about|that|regarding|there'?s?|is)\s*/i, '')
+    .trim();
+};
+
+const detectKeywordAction = (msg: string): { type: string; [key: string]: any } | null => {
+  const lower = msg.toLowerCase();
+  if (/\b(incident|report|accident|hazard|crash|roadblock|crime|weather)\b/.test(lower)) {
+    const type = lower.includes('accident') || lower.includes('crash') ? 'accident'
+      : lower.includes('crime') || lower.includes('block') ? 'crime'
+      : lower.includes('weather') || lower.includes('rain') ? 'weather' : 'hazard';
+
+    const extracted = extractIncidentDetails(msg) || msg;
+
+    return {
+      type: 'report_incident',
+      incident_type: type,
+      title: extracted.length > 35 ? extracted.substring(0, 32) + '...' : extracted,
+      severity: 'high',
+      description: extracted,
+    };
+  }
+  if (/\b(navigate|directions|where is|take me)\b/i.test(lower)) {
+    const dest = msg.replace(/.*(?:navigate to|take me to|where is|directions to)/i, '').trim() || 'Destination';
+    return { type: 'navigate', destination: dest };
+  }
+  if (/\b(ad|advertise|business|promote)\b/.test(lower)) {
+    return { type: 'place_ad', business_name: 'My Business', description: msg };
+  }
+  if (/\bmusic\b/.test(lower)) return { type: 'music', action: 'play' };
+  return null;
+};
 
   const send = async (text?: string, isVoiceCall: boolean = false) => {
     const msg = (text ?? input).trim();
