@@ -409,13 +409,18 @@ export default function MapScreen({ navigation, route }: any) {
         style={s.map}
         initialRegion={defaultRegion}
         mapType={mapMode}
-        showsUserLocation
         showsMyLocationButton={false}
         showsCompass
         showsScale
         showsTraffic
         onLongPress={handleLongPress}
       >
+        {userLocation && (
+     <Marker coordinate={userLocation} anchor={{ x: 0.5, y: 0.5 }} flat>
+     <View style={s.myLocationDot} />
+     </Marker>
+     )}
+
         {/* Incident markers */}
         {(incidents || []).map((inc: any) => (
           <Marker
@@ -723,6 +728,12 @@ export default function MapScreen({ navigation, route }: any) {
 function makeStyles(COLORS: any) {
   return StyleSheet.create({
     container: { flex: 1 },
+    myLocationDot: {
+      width: 18, height: 18, borderRadius: 9,
+      backgroundColor: '#006c44',
+      borderWidth: 3, borderColor: '#fff',
+      ...SHADOW.sm,
+    },
     pickerBanner: {
       position: 'absolute', top: 120, left: SPACING.lg, right: SPACING.lg,
       flexDirection: 'row', alignItems: 'center', backgroundColor: '#006c44',
