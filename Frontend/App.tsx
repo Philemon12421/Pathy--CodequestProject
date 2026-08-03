@@ -36,6 +36,9 @@ import NotificationsScreen     from './src/screens/NotificationsScreen';
 
 import useStore from './src/store/useStore';
 import { ThemeProvider, useColors } from './src/config/ThemeContext';
+import * as Notifications from "expo-notifications";
+import * as Device from "expo-device";
+import { authAPI } from "./src/services/api";
 
 const Tab = createBottomTabNavigator();
 const AppStack = createNativeStackNavigator();
@@ -210,6 +213,14 @@ function RootFlow({ token }: { token: string | null }) {
     </AppStack.Navigator>
   );
 }
+
+Notifications.setNotificationHandler({
+  handleNotification: async () => ({
+    shouldShowAlert: true,
+    shouldPlaySound: true,
+    shouldSetBadge: true, shouldShowBanner: true, shouldShowList: true,
+  }),
+});
 
 export default function App() {
   const { token, theme } = useStore();

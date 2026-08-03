@@ -162,3 +162,16 @@ CREATE TABLE IF NOT EXISTS notifications (
 CREATE INDEX IF NOT EXISTS idx_notifications_user ON notifications(user_id, created_at DESC);
 
 
+
+-- Contact messages
+CREATE TABLE IF NOT EXISTS contact_messages (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  name VARCHAR(100),
+  email VARCHAR(150),
+  subject VARCHAR(200),
+  message TEXT,
+  created_at TIMESTAMP DEFAULT NOW()
+);
+
+-- Add push_token column to users for Expo Push Notifications
+ALTER TABLE users ADD COLUMN IF NOT EXISTS push_token VARCHAR(255);

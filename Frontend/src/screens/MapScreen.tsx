@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState, useMemo } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity, TextInput,
   ActivityIndicator, Alert, ScrollView, Dimensions, Image, Platform
@@ -446,6 +446,53 @@ export default function MapScreen({ navigation, route }: any) {
     }
   };
 
+  const incidentMarkers = useMemo(() => {
+    return (incidents || []).map((inc: any) => (
+      <Marker
+        key={inc.id}
+        coordinate={{ latitude: parseFloat(inc.latitude), longitude: parseFloat(inc.longitude) }}
+        onPress={() => setSelectedMarker({ type: 'incident', data: inc })}
+      >
+        <View style={[s.incMarker, { backgroundColor: SEVERITY_COLORS[inc.severity] || COLORS.warning }]}>
+          <Text style={s.markerEmoji}>{TYPE_ICONS[inc.type] || '📍'}</Text>
+        </View>
+        <Callout tooltip>
+          <View style={s.callout}>
+            <Text style={s.calloutTitle}>{inc.title}</Text>
+            <Text style={s.calloutSub}>{inc.type} · {inc.severity}</Text>
+          </View>
+        </Callout>
+      </Marker>
+    ));
+  }, [incidents, COLORS, s]);
+
+  const adMarkers = useMemo(() => {
+    return (ads || []).map((ad: any) => {
+      const lat = typeof ad.latitude === 'number' ? ad.latitude : parseFloat(ad.latitude);
+      const lng = typeof ad.longitude === 'number' ? ad.longitude : parseFloat(ad.longitude);
+      const radius = typeof ad.radius_km === 'number' ? ad.radius_km : parseFloat(ad.radius_km);
+      if (isNaN(lat) || isNaN(lng)) return null;
+      return (
+        <React.Fragment key={ad.id}>
+          <Circle
+            center={{ latitude: lat, longitude: lng }}
+            radius={(radius || 5) * 1000}
+            strokeColor={COLORS.accent + '44'}
+            fillColor={COLORS.accent + '11'}
+          />
+          <Marker
+            coordinate={{ latitude: lat, longitude: lng }}
+            onPress={() => setShowAdBanner(ad)}
+          >
+            <View style={s.adMarker}>
+              <Ionicons name="storefront" size={16} color={COLORS.accent} />
+            </View>
+          </Marker>
+        </React.Fragment>
+      );
+    });
+  }, [ads, COLORS, s]);
+
   return (
     <View style={s.container}>
       <MapView
@@ -462,48 +509,9 @@ export default function MapScreen({ navigation, route }: any) {
         onLongPress={handleLongPress}
       >
         {/* Incident markers */}
-        {(incidents || []).map((inc: any) => (
-          <Marker
-            key={inc.id}
-            coordinate={{ latitude: parseFloat(inc.latitude), longitude: parseFloat(inc.longitude) }}
-            onPress={() => setSelectedMarker({ type: 'incident', data: inc })}
-          >
-            <View style={[s.incMarker, { backgroundColor: SEVERITY_COLORS[inc.severity] || COLORS.warning }]}>
-              <Text style={s.markerEmoji}>{TYPE_ICONS[inc.type] || '📍'}</Text>
-            </View>
-            <Callout tooltip>
-              <View style={s.callout}>
-                <Text style={s.calloutTitle}>{inc.title}</Text>
-                <Text style={s.calloutSub}>{inc.type} · {inc.severity}</Text>
-              </View>
-            </Callout>
-          </Marker>
-        ))}
+        {incidentMarkers}
 
-        {(ads || []).map((ad: any) => {
-          const lat = typeof ad.latitude === 'number' ? ad.latitude : parseFloat(ad.latitude);
-          const lng = typeof ad.longitude === 'number' ? ad.longitude : parseFloat(ad.longitude);
-          const radius = typeof ad.radius_km === 'number' ? ad.radius_km : parseFloat(ad.radius_km);
-          if (isNaN(lat) || isNaN(lng)) return null;
-          return (
-            <React.Fragment key={ad.id}>
-              <Circle
-                center={{ latitude: lat, longitude: lng }}
-                radius={(radius || 5) * 1000}
-                strokeColor={COLORS.accent + '44'}
-                fillColor={COLORS.accent + '11'}
-              />
-              <Marker
-                coordinate={{ latitude: lat, longitude: lng }}
-                onPress={() => setShowAdBanner(ad)}
-              >
-                <View style={s.adMarker}>
-                  <Ionicons name="storefront" size={16} color={COLORS.accent} />
-                </View>
-              </Marker>
-            </React.Fragment>
-          );
-        })}
+        {adMarkers}
 
         {/* Route polyline */}
         {directions && (

@@ -75,7 +75,7 @@ const speakOutLoud = async (text: string, onDone?: () => void) => {
       playThroughEarpieceAndroid: false,
     });
   } catch (err) {
-    console.log('[TTS] Audio mode error:', err);
+    console.debug('[TTS] Audio mode error:', err);
   }
 
   // Small delay to ensure audio mode switch is complete
@@ -99,7 +99,7 @@ const speakOutLoud = async (text: string, onDone?: () => void) => {
   try {
     const encodedText = encodeURIComponent(cleanText.substring(0, 200));
     const soundUrl = `https://translate.google.com/translate_tts?ie=UTF-8&q=${encodedText}&tl=en&client=tw-ob`;
-    console.log('[TTS] Playing natural voice audio stream...');
+    console.debug('[TTS] Playing natural voice audio stream...');
 
     const { sound } = await Audio.Sound.createAsync(
       { uri: soundUrl },
@@ -111,43 +111,43 @@ const speakOutLoud = async (text: string, onDone?: () => void) => {
       if (status.isLoaded && status.didJustFinish) {
         sound.unloadAsync().catch(() => {});
         if (activeSound === sound) activeSound = null;
-        console.log('[TTS] Audio playback finished successfully');
+        console.debug('[TTS] Audio playback finished successfully');
         if (onDone) onDone();
       }
     });
     return;
   } catch (streamErr) {
-    console.log('[TTS] Stream playback error, falling back to native TTS:', streamErr);
+    console.debug('[TTS] Stream playback error, falling back to native TTS:', streamErr);
   }
 
   // Native expo-speech fallback
   if (SpeechModule && typeof SpeechModule.speak === 'function') {
     try {
-      console.log('[TTS] Speaking via native SpeechModule:', cleanText.substring(0, 50) + '...');
+      console.debug('[TTS] Speaking via native SpeechModule:', cleanText.substring(0, 50) + '...');
       SpeechModule.speak(cleanText, {
         rate: Platform.OS === 'ios' ? 0.5 : 0.9,
         pitch: 1.0,
         volume: 1.0,
         language: 'en-US',
         onDone: () => {
-          console.log('[TTS] Done speaking');
+          console.debug('[TTS] Done speaking');
           if (onDone) onDone();
         },
         onStopped: () => {
-          console.log('[TTS] Stopped');
+          console.debug('[TTS] Stopped');
           if (onDone) onDone();
         },
         onError: (e: any) => {
-          console.log('[TTS] Error:', e);
+          console.debug('[TTS] Error:', e);
           if (onDone) onDone();
         },
       });
     } catch (err) {
-      console.log('[TTS] Exception:', err);
+      console.debug('[TTS] Exception:', err);
       if (onDone) onDone();
     }
   } else {
-    console.log('[TTS] No speech engine available!');
+    console.debug('[TTS] No speech engine available!');
     if (onDone) onDone();
   }
 };
@@ -227,7 +227,7 @@ export default function AIScreen({ navigation }: any) {
   });
 
   useSpeechRecognitionEventHook('error', (event: any) => {
-    console.log('Speech recognition error:', event?.error, event?.message);
+    console.debug('Speech recognition error:', event?.error, event?.message);
   });
 
   // Continuous fluid movement & Soundwave Equalizer for ChatGPT Orb
@@ -351,11 +351,11 @@ export default function AIScreen({ navigation }: any) {
               stopVoiceInputAndSend();
             }, 5000);
           };
-          recognition.onerror = (e: any) => console.log('Web STT error:', e);
+          recognition.onerror = (e: any) => console.debug('Web STT error:', e);
           recognition.start();
           webRecognitionRef.current = recognition;
         } catch (err) {
-          console.log('Web Speech API error:', err);
+          console.debug('Web Speech API error:', err);
           Alert.alert('Not supported', 'Voice input is not supported in this browser.');
         }
       } else {
@@ -384,7 +384,7 @@ export default function AIScreen({ navigation }: any) {
         });
         return;
       } catch (e) {
-        console.log('Speech recognition start error:', e);
+        console.debug('Speech recognition start error:', e);
       }
     }
 
@@ -420,7 +420,7 @@ export default function AIScreen({ navigation }: any) {
           // metering dB: -160 = silence, -40+ = speech
           const metering = (status as any)?.metering ?? -160;
           if (metering > -45) {
-            console.log('[VoiceMode] Speech detected! Level:', metering.toFixed(1), 'dB');
+            console.debug('[VoiceMode] Speech detected! Level:', metering.toFixed(1), 'dB');
             // Reset silence timer — user is speaking
             if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
             silenceTimerRef.current = setTimeout(() => {
@@ -433,7 +433,7 @@ export default function AIScreen({ navigation }: any) {
       // Store interval ref for cleanup
       (recordingRef as any)._meteringInterval = meteringInterval;
     } catch (e) {
-      console.log('Expo Audio fallback error:', e);
+      console.debug('Expo Audio fallback error:', e);
     }
   };
 
@@ -464,7 +464,7 @@ export default function AIScreen({ navigation }: any) {
       try {
         await recordingRef.current.stopAndUnloadAsync();
         recordedUri = recordingRef.current.getURI();
-        console.log('[VoiceMode] Recording stopped. URI:', recordedUri);
+        console.debug('[VoiceMode] Recording stopped. URI:', recordedUri);
       } catch {}
       recordingRef.current = null;
     }
@@ -481,9 +481,9 @@ export default function AIScreen({ navigation }: any) {
           name: `speech_${Date.now()}.m4a`,
         } as any);
 
-        console.log('[VoiceMode] Transcribing audio with Whisper API...');
+        console.debug('[VoiceMode] Transcribing audio with Whisper API...');
         const res = await aiAPI.transcribe(formData);
-        console.log('[VoiceMode] Whisper result:', res);
+        console.debug('[VoiceMode] Whisper result:', res);
         if (typeof res?.text === 'string' && res.text.trim().length > 0) {
           finalQuery = res.text.trim();
           setVoiceText(finalQuery);
@@ -494,16 +494,16 @@ export default function AIScreen({ navigation }: any) {
           );
         }
       } catch (err) {
-        console.log('Voice transcription error:', err);
+        console.debug('Voice transcription error:', err);
       }
     }
 
     if (finalQuery) {
-      console.log('[VoiceMode] Processing query:', finalQuery);
+      console.debug('[VoiceMode] Processing query:', finalQuery);
       setVoiceStatus('thinking');
       send(finalQuery, true);
     } else {
-      console.log('[VoiceMode] No query detected. Re-starting listening...');
+      console.debug('[VoiceMode] No query detected. Re-starting listening...');
       setVoiceStatus('listening');
       setIsSpeaking(false);
       if (voiceModeActiveRef.current) {

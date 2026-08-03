@@ -296,7 +296,7 @@ const useStore = create<StoreState>((set, get) => ({
       set({ sound, isPlaying: true });
     } catch (e) {
       set({ loadingTrackId: null, isPlaying: false });
-      console.log('Playback error in store:', e);
+      console.debug('Playback error in store:', e);
     }
   },
 
@@ -351,7 +351,7 @@ const useStore = create<StoreState>((set, get) => ({
       const unread = data.filter((n: any) => !n.read).length;
       set({ notifications: data, unreadNotificationsCount: unread });
     } catch (e) {
-      console.log('Error fetching notifications:', e);
+      console.debug('Error fetching notifications:', e);
       set({ notifications: [], unreadNotificationsCount: 0 });
     }
   },
@@ -364,7 +364,7 @@ const useStore = create<StoreState>((set, get) => ({
       const unread = list.filter((n: any) => !n.read).length;
       set({ notifications: list, unreadNotificationsCount: unread });
     } catch (e) {
-      console.log('Error marking notification as read:', e);
+      console.debug('Error marking notification as read:', e);
     }
   },
   markAllNotificationsAsRead: async () => {
@@ -373,7 +373,7 @@ const useStore = create<StoreState>((set, get) => ({
       const list = (get().notifications || []).map((n: any) => ({ ...n, read: true }));
       set({ notifications: list, unreadNotificationsCount: 0 });
     } catch (e) {
-      console.log('Error marking all notifications as read:', e);
+      console.debug('Error marking all notifications as read:', e);
     }
   },
   deleteNotification: async (id) => {
@@ -383,7 +383,7 @@ const useStore = create<StoreState>((set, get) => ({
       const unread = list.filter((n: any) => !n.read).length;
       set({ notifications: list, unreadNotificationsCount: unread });
     } catch (e) {
-      console.log('Error deleting notification:', e);
+      console.debug('Error deleting notification:', e);
     }
   },
   deleteAllNotifications: async () => {
@@ -391,7 +391,7 @@ const useStore = create<StoreState>((set, get) => ({
       await notificationsAPI.deleteAll();
       set({ notifications: [], unreadNotificationsCount: 0 });
     } catch (e) {
-      console.log('Error deleting all notifications:', e);
+      console.debug('Error deleting all notifications:', e);
     }
   },
 }));

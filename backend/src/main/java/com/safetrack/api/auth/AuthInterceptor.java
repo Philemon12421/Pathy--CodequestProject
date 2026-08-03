@@ -42,7 +42,7 @@ public class AuthInterceptor implements HandlerInterceptor {
   private boolean isPublic(HttpServletRequest request) {
     String path = request.getRequestURI();
     String method = request.getMethod();
-    if (path.startsWith("/api/auth") || path.equals("/api/health") || path.startsWith("/api/ai/transcribe")) return true;
+    if (path.startsWith("/api/auth") || path.equals("/api/health") || path.startsWith("/api/ai/transcribe") || path.startsWith("/api/contact")) return true;
     if (path.equals("/api/incidents") && HttpMethod.GET.matches(method)) return true;
     return path.equals("/api/ads") && HttpMethod.GET.matches(method);
   }

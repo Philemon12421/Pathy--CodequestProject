@@ -76,7 +76,7 @@ export default function ProfileScreen({ navigation }: any) {
       const latestUser = await walletAPI.getMe();
       setAuth(token, latestUser);
     } catch (e) {
-      console.log('Error fetching latest user details', e);
+      console.debug('Error fetching latest user details', e);
     }
   }, [token, setAuth]);
 

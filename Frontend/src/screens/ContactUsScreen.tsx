@@ -29,7 +29,7 @@ export default function ContactUsScreen({ navigation }: any) {
       Alert.alert('Invalid email', 'Please enter a valid email address.'); return;
     }
     setLoading(true);
-    // TODO: POST to /api/contact
+    await fetch(`${process.env.EXPO_PUBLIC_API_URL || 'http://localhost:4000/api'}/contact`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(form) });
     await new Promise(r => setTimeout(r, 1200));
     setLoading(false);
     setSent(true);

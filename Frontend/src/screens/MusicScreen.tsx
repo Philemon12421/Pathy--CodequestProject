@@ -81,7 +81,7 @@ export default function MusicScreen({ navigation }: any) {
           staysActiveInBackground: true,
         });
       } catch (e) {
-        console.log('Audio setup error:', e);
+        console.debug('Audio setup error:', e);
       }
     };
     setupAudio();
@@ -219,7 +219,7 @@ export default function MusicScreen({ navigation }: any) {
           await FileSystem.deleteAsync(fileUri, { idempotent: true });
         }
       } catch (ce) {
-        console.log('Error deleting cached file:', ce);
+        console.debug('Error deleting cached file:', ce);
       }
 
       const updated = tracks.filter((t: any) => t.id !== id);
@@ -264,7 +264,7 @@ export default function MusicScreen({ navigation }: any) {
       setQueue([withSource, ...tracks]);
       Alert.alert('Uploaded', `"${track.title}" added to your library`);
      } catch (e: any) { 
-      console.log('UPLOAD ERROR:', e);
+      console.debug('UPLOAD ERROR:', e);
       const msg = typeof e === 'string' ? e : e?.error || e?.message || 'Upload failed';
       Alert.alert('Upload Error', msg); 
      } finally { setUploading(false); }

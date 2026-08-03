@@ -40,6 +40,7 @@ export const authAPI = {
   resetPassword: (email: string, code: string, password: string) => api.post('/auth/reset-password', { email, code, password }),
   verifyEmail: (email: string, code: string) => api.post('/auth/verify-email', { email, code }),
   resendVerification: (email: string) => api.post('/auth/resend-verification', { email }),
+  registerPushToken: (token: string) => api.put('/auth/push-token', { token }),
 };
 
 // Incidents
