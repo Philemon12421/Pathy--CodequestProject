@@ -1,6 +1,6 @@
 # 🚀 Pathy (AI-Powered Navigation & Safety Explorer)
 
-<p align="center">
+<p align="center"> 
   <img src="https://readme-typing-svg.herokuapp.com?font=Inter&size=28&pause=1000&color=006c44&center=true&vCenter=true&width=700&lines=Navigate+Smarter.;AI+Voice+%26+App+Automation.;Real-Time+Hazard+Alerts.;Merchant+Map+Ads.;Welcome+to+Pathy." />
 </p>
 
