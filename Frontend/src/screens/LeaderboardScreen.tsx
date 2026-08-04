@@ -241,47 +241,54 @@ export default function LeaderboardScreen({ navigation }: any) {
               </View>
             </Animated.View>
 
-            {/* ── Your rank banner (if you're not top 3) ─────────────────── */}
-            {myRank && myRank > 3 && (
-              <View style={s.myRankBanner}>
-                <View style={s.myRankNum}>
-                  <Text style={s.myRankNumText}>#{myRank}</Text>
-                </View>
-                <View style={[s.rowAvatar, { backgroundColor: C.primary }]}>
-                  <Text style={s.rowAvatarText}>{userInits}</Text>
-                </View>
-                <View style={{ flex: 1 }}>
-                  <Text style={s.myRankName}>{userName} (You)</Text>
-                  <Text style={s.myRankKm}>{myKm} km</Text>
-                </View>
-                <Ionicons name="trophy-outline" size={22} color={C.primary} />
-              </View>
-            )}
-
-            {/* ── Rest of the list (4th onwards) ─────────────────────────── */}
-            {rest.length > 0 && (
+            {/* ── All Ranked Users (Full Leaderboard List) ────────────────────── */}
+            {board.length > 0 && (
               <View style={s.listWrap}>
-                <Text style={s.listHeader}>Full Rankings</Text>
-                {rest.map((entry, i) => {
-                  const rank = i + 4;
+                <View style={s.listHeaderRow}>
+                  <Text style={s.listHeader}>Leaderboard Rankings</Text>
+                  <Text style={s.listHeaderBadge}>{board.length} Drivers</Text>
+                </View>
+
+                {board.map((entry, index) => {
+                  const rank = index + 1;
                   const isMe = entry.user_id === user?.id;
+                  const isTop3 = rank <= 3;
+                  const medalColor = isTop3 ? MEDAL[rank - 1] : null;
+
                   return (
-                    <View key={entry.user_id} style={[s.listRow, isMe && s.listRowMe]}>
-                      <Text style={[s.listRank, isMe && { color: C.primary }]}>#{rank}</Text>
-                      <View style={[s.rowAvatar, isMe && { backgroundColor: C.primary }]}>
-                        <Text style={[s.rowAvatarText, !isMe && { color: C.text }]}>
+                    <View key={entry.user_id || index} style={[s.listRow, isMe && s.listRowMe]}>
+                      <View style={s.rankContainer}>
+                        {medalColor ? (
+                          <View style={[s.medalBadge, { backgroundColor: medalColor }]}>
+                            <Text style={s.medalBadgeText}>{rank}</Text>
+                          </View>
+                        ) : (
+                          <Text style={[s.listRank, isMe && { color: '#006c44' }]}>#{rank}</Text>
+                        )}
+                      </View>
+
+                      <View style={[s.rowAvatar, isMe ? { backgroundColor: '#006c44' } : (isTop3 ? { backgroundColor: medalColor + '33' } : {})]}>
+                        <Text style={[s.rowAvatarText, !isMe && !isTop3 && { color: C.text }]}>
                           {initials(entry.user_name)}
                         </Text>
                       </View>
+
                       <View style={{ flex: 1 }}>
-                        <Text style={[s.listName, isMe && { color: C.primary, fontWeight: '700' }]} numberOfLines={1}>
-                          {entry.user_name}{isMe ? ' (You)' : ''}
-                        </Text>
-                        <Text style={s.listRoutes}>{entry.route_count} route{entry.route_count !== 1 ? 's' : ''}</Text>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                          <Text style={[s.listName, isMe && { color: '#006c44', fontWeight: '700' }]} numberOfLines={1}>
+                            {entry.user_name}{isMe ? ' (You)' : ''}
+                          </Text>
+                          {isTop3 && <Ionicons name="ribbon" size={14} color={medalColor || undefined} />}
+                        </View>
+                        <Text style={s.listRoutes}>{entry.route_count} route{entry.route_count !== 1 ? 's' : ''} completed</Text>
                       </View>
-                      <Text style={[s.listKm, isMe && { color: C.primary }]}>
-                        {Number(entry.total_km).toFixed(1)} km
-                      </Text>
+
+                      <View style={{ alignItems: 'flex-end' }}>
+                        <Text style={[s.listKm, isMe && { color: '#006c44' }]}>
+                          {Number(entry.total_km).toFixed(1)} km
+                        </Text>
+                        {isMe && <Text style={s.youBadge}>Your Rank</Text>}
+                      </View>
                     </View>
                   );
                 })}
@@ -328,34 +335,34 @@ function makeStyles(C: any) {
     appName: { flex: 1, fontSize: FONTS.sizes.xl, fontWeight: '800', color: C.primary },
     settingsBtn: { width: 40, height: 40, borderRadius: RADIUS.full, backgroundColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(255,255,255,0.6)', alignItems: 'center', justifyContent: 'center' },
 
-    titleRow: { paddingHorizontal: SPACING.xl, marginBottom: SPACING.lg },
-    title: { fontSize: FONTS.sizes.xxxl, fontWeight: '800', color: C.text },
-    subtitle: { fontSize: FONTS.sizes.sm, color: C.textMuted, marginTop: 2 },
+    titleRow: { paddingHorizontal: SPACING.lg, marginBottom: SPACING.sm },
+    title: { fontSize: FONTS.sizes.xxl, fontWeight: '800', color: C.text },
+    subtitle: { fontSize: FONTS.sizes.xs, color: C.textMuted, marginTop: 1 },
 
     // Toggle
-    toggleWrap: { marginHorizontal: SPACING.xl, borderRadius: RADIUS.full, overflow: 'hidden', marginBottom: SPACING.xl, alignSelf: 'flex-start', borderWidth: 1, borderColor: C.border },
-    toggleRow: { flexDirection: 'row', padding: 4, backgroundColor: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(255,255,255,0.6)' },
-    toggleBtn: { paddingHorizontal: SPACING.xl, paddingVertical: SPACING.sm + 2, borderRadius: RADIUS.full },
+    toggleWrap: { marginHorizontal: SPACING.lg, borderRadius: RADIUS.full, overflow: 'hidden', marginBottom: SPACING.lg, alignSelf: 'flex-start', borderWidth: 1, borderColor: C.border },
+    toggleRow: { flexDirection: 'row', padding: 3, backgroundColor: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(255,255,255,0.6)' },
+    toggleBtn: { paddingHorizontal: 16, paddingVertical: 6, borderRadius: RADIUS.full },
     toggleBtnActive: { backgroundColor: C.surface, ...SHADOW.xs },
-    toggleText: { fontSize: FONTS.sizes.sm, color: C.textMuted, fontWeight: '500' },
-    toggleTextActive: { color: C.primary, fontWeight: '700' },
+    toggleText: { fontSize: FONTS.sizes.xs, color: C.textMuted, fontWeight: '500' },
+    toggleTextActive: { color: '#006c44', fontWeight: '700' },
 
-    // Podium
-    podium: { flexDirection: 'row', alignItems: 'flex-end', paddingHorizontal: SPACING.lg, marginBottom: SPACING.xl, gap: SPACING.sm },
-    podiumCol: { flex: 1, alignItems: 'center', gap: SPACING.xs },
+    // Podium (Compact responsive design)
+    podium: { flexDirection: 'row', alignItems: 'flex-end', paddingHorizontal: SPACING.md, marginBottom: SPACING.lg, gap: 6 },
+    podiumCol: { flex: 1, alignItems: 'center', gap: 2 },
     podiumFirst: {},
-    podiumSecond: { marginBottom: -20 },
-    podiumThird: { marginBottom: -36 },
-    podiumAvatar: { width: 68, height: 68, borderRadius: RADIUS.full, backgroundColor: C.surface, alignItems: 'center', justifyContent: 'center', borderWidth: 3, borderColor: C.border, ...SHADOW.sm },
-    podiumAvatarLg: { width: 84, height: 84, borderRadius: 42 },
-    podiumAvatarText: { fontWeight: '700', fontSize: FONTS.sizes.lg, color: C.text },
-    rankDot: { width: 22, height: 22, borderRadius: 11, alignItems: 'center', justifyContent: 'center', marginTop: -12 },
-    rankDotText: { color: '#fff', fontWeight: '800', fontSize: 11 },
-    podiumCard: { width: '100%', borderRadius: RADIUS.xl, padding: SPACING.md, alignItems: 'center', gap: 1, overflow: 'hidden', borderWidth: 1, borderColor: C.border, backgroundColor: C.surfaceGlass },
-    podiumCardFirst: { paddingVertical: SPACING.lg },
-    podiumName: { fontSize: FONTS.sizes.sm, fontWeight: '700', color: C.text },
-    podiumKm: { fontSize: FONTS.sizes.xxl, fontWeight: '800' },
-    podiumUnit: { fontSize: 10, color: C.textMuted, fontWeight: '700', letterSpacing: 1 },
+    podiumSecond: { marginBottom: -10 },
+    podiumThird: { marginBottom: -22 },
+    podiumAvatar: { width: 52, height: 52, borderRadius: 26, backgroundColor: C.surface, alignItems: 'center', justifyContent: 'center', borderWidth: 2.5, borderColor: C.border, ...SHADOW.xs },
+    podiumAvatarLg: { width: 64, height: 64, borderRadius: 32 },
+    podiumAvatarText: { fontWeight: '700', fontSize: FONTS.sizes.md, color: C.text },
+    rankDot: { width: 18, height: 18, borderRadius: 9, alignItems: 'center', justifyContent: 'center', marginTop: -10 },
+    rankDotText: { color: '#fff', fontWeight: '800', fontSize: 10 },
+    podiumCard: { width: '100%', borderRadius: RADIUS.lg, padding: 8, alignItems: 'center', gap: 1, overflow: 'hidden', borderWidth: 1, borderColor: C.border, backgroundColor: C.surfaceGlass },
+    podiumCardFirst: { paddingVertical: 12 },
+    podiumName: { fontSize: FONTS.sizes.xs, fontWeight: '700', color: C.text },
+    podiumKm: { fontSize: FONTS.sizes.lg, fontWeight: '800' },
+    podiumUnit: { fontSize: 9, color: C.textMuted, fontWeight: '700', letterSpacing: 0.8 },
 
     // My rank banner (when outside top 3)
     myRankBanner: { flexDirection: 'row', alignItems: 'center', gap: SPACING.md, marginHorizontal: SPACING.xl, marginBottom: SPACING.md, backgroundColor: isDark ? 'rgba(76,175,125,0.12)' : '#e1f9eb', borderRadius: RADIUS.xl, padding: SPACING.md, borderWidth: 1.5, borderColor: C.primary + '44', ...SHADOW.xs },
@@ -365,16 +372,22 @@ function makeStyles(C: any) {
     myRankKm: { fontSize: FONTS.sizes.xs, color: C.textSecondary },
 
     // Full list
-    listWrap: { marginHorizontal: SPACING.xl, marginBottom: SPACING.md, backgroundColor: C.surface, borderRadius: RADIUS.xl, overflow: 'hidden', borderWidth: 1, borderColor: C.border, ...SHADOW.xs },
-    listHeader: { fontSize: 11, fontWeight: '700', color: C.textMuted, letterSpacing: 0.8, paddingHorizontal: SPACING.md, paddingTop: SPACING.md, paddingBottom: SPACING.sm },
-    listRow: { flexDirection: 'row', alignItems: 'center', gap: SPACING.md, paddingHorizontal: SPACING.md, paddingVertical: SPACING.sm, borderTopWidth: 1, borderTopColor: C.border },
-    listRowMe: { backgroundColor: isDark ? 'rgba(76,175,125,0.08)' : '#f0fbf5' },
-    listRank: { width: 28, fontSize: FONTS.sizes.sm, fontWeight: '700', color: C.textMuted, textAlign: 'center' },
-    rowAvatar: { width: 38, height: 38, borderRadius: RADIUS.full, backgroundColor: isDark ? 'rgba(255,255,255,0.08)' : '#f5f5f5', alignItems: 'center', justifyContent: 'center' },
+    listWrap: { marginHorizontal: SPACING.xl, marginTop: SPACING.lg, marginBottom: SPACING.md, backgroundColor: C.surface, borderRadius: RADIUS.xl, overflow: 'hidden', borderWidth: 1, borderColor: C.border, ...SHADOW.xs },
+    listHeaderRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: SPACING.md, paddingTop: SPACING.md, paddingBottom: SPACING.sm },
+    listHeader: { fontSize: 11, fontWeight: '800', color: C.textMuted, letterSpacing: 0.9 },
+    listHeaderBadge: { fontSize: 10, fontWeight: '700', color: '#006c44', backgroundColor: isDark ? 'rgba(0,108,68,0.2)' : '#e6f4ed', paddingHorizontal: 8, paddingVertical: 3, borderRadius: RADIUS.full },
+    listRow: { flexDirection: 'row', alignItems: 'center', gap: SPACING.md, paddingHorizontal: SPACING.md, paddingVertical: 12, borderTopWidth: 1, borderTopColor: C.border },
+    listRowMe: { backgroundColor: isDark ? 'rgba(0,108,68,0.1)' : '#e6f4ed' },
+    rankContainer: { width: 28, alignItems: 'center' },
+    medalBadge: { width: 24, height: 24, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
+    medalBadgeText: { color: '#ffffff', fontSize: 11, fontWeight: '800' },
+    listRank: { fontSize: FONTS.sizes.sm, fontWeight: '700', color: C.textMuted, textAlign: 'center' },
+    rowAvatar: { width: 40, height: 40, borderRadius: 20, backgroundColor: isDark ? 'rgba(255,255,255,0.08)' : '#f1f5f9', alignItems: 'center', justifyContent: 'center' },
     rowAvatarText: { fontSize: FONTS.sizes.sm, fontWeight: '700', color: '#fff' },
     listName: { fontSize: FONTS.sizes.sm, fontWeight: '600', color: C.text },
-    listRoutes: { fontSize: FONTS.sizes.xs, color: C.textMuted },
-    listKm: { fontSize: FONTS.sizes.sm, fontWeight: '700', color: C.textSecondary },
+    listRoutes: { fontSize: FONTS.sizes.xs, color: C.textMuted, marginTop: 1 },
+    listKm: { fontSize: FONTS.sizes.sm, fontWeight: '700', color: C.text },
+    youBadge: { fontSize: 9, fontWeight: '700', color: '#006c44', letterSpacing: 0.5, marginTop: 1 },
 
     // Empty state
     emptyWrap: { alignItems: 'center', padding: SPACING.xxl, gap: SPACING.md },

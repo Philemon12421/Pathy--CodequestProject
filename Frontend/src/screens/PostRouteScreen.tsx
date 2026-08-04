@@ -98,6 +98,19 @@ export default function PostRouteScreen({ navigation, route }: any) {
           durationSeconds: routeData?.duration         || 0,
         };
         addRouteFeedPost(feedPost);
+
+        // Notify user/community
+        useStore.getState().setNotifications([
+          {
+            id: 'notif_' + Date.now(),
+            title: '🗺️ New Route Posted',
+            message: `${authorName} shared a new ${activity} route: "${name.trim()}" (${(routeData?.distance ? routeData.distance / 1000 : 0).toFixed(1)} km)`,
+            created_at: new Date().toISOString(),
+            read: false,
+            type: 'route',
+          },
+          ...(useStore.getState().notifications || [])
+        ]);
       }
 
       Alert.alert(

@@ -1058,7 +1058,11 @@ const detectKeywordAction = (msg: string): { type: string; [key: string]: any } 
         </TouchableOpacity>
       </View>
 
-      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined} keyboardVerticalOffset={90}>
+      <KeyboardAvoidingView
+        style={{ flex: 1 }}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 20}
+      >
         {histLoading ? (
           <View style={s.center}>
             <ActivityIndicator size="large" color={COLORS.accent} />
@@ -1510,17 +1514,21 @@ function makeStyles(COLORS: any) {
     },
     quickChipText: { flex: 1, fontSize: FONTS.sizes.sm, color: COLORS.text, fontWeight: FONTS.weights.semibold },
 
-    // Input bar
+    // Input bar (ChatGPT style floating pill)
     inputBar: {
-      flexDirection: 'row', alignItems: 'center', gap: SPACING.sm,
-      paddingHorizontal: SPACING.md, paddingVertical: 8,
-      backgroundColor: COLORS.surface,
-      borderRadius: RADIUS.xl,
+      flexDirection: 'row', alignItems: 'center', gap: 8,
+      paddingHorizontal: 12, paddingVertical: 6,
+      backgroundColor: COLORS.text === '#F9FAFB' ? '#1E293B' : '#FFFFFF',
+      borderRadius: 28,
       borderWidth: 1,
-      borderColor: COLORS.border,
-      marginHorizontal: 16,
-      marginBottom: 90,
-      ...SHADOW.sm,
+      borderColor: COLORS.text === '#F9FAFB' ? '#334155' : '#E2E8F0',
+      marginHorizontal: 12,
+      marginBottom: Platform.OS === 'ios' ? 85 : 75,
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 4 },
+      shadowOpacity: 0.08,
+      shadowRadius: 16,
+      elevation: 6,
     },
     inputAddBtn: {
       width: 34, height: 34, borderRadius: 17,

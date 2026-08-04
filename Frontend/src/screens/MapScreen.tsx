@@ -350,37 +350,50 @@ export default function MapScreen({ navigation, route }: any) {
     }
   };
 
-  // Search for nearby places by category chip and automatically navigate to the closest one
+  // Search for nearby places by category chip strictly within user country & closest proximity
   const searchCategory = async (categoryQuery: string, label?: string) => {
     setSearch(label || categoryQuery);
     setLoading(true);
     try {
       const origin = userLocation || { latitude: 5.6037, longitude: -0.1870 };
+
+      // Reverse geocode user location to extract country code to enforce country boundary
+      let countryCode = '';
+      try {
+        const revRes = await fetch(
+          `https://nominatim.openstreetmap.org/reverse?lat=${origin.latitude}&lon=${origin.longitude}&format=json`,
+          { headers: { 'User-Agent': 'SafeTrackApp/1.0' } }
+        );
+        const revData = await revRes.json();
+        countryCode = revData.address?.country_code || '';
+      } catch {}
+
       const delta = 0.15;
       const viewbox = `${origin.longitude - delta},${origin.latitude + delta},${origin.longitude + delta},${origin.latitude - delta}`;
 
-      // Search Nominatim with location bias and viewbox bounds to find local places around user
-      const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(categoryQuery)}&format=json&lat=${origin.latitude}&lon=${origin.longitude}&viewbox=${viewbox}&limit=15`;
-      const res = await fetch(url, { headers: { 'User-Agent': 'SafeTrackApp/1.0' } });
-      const data = await res.json();
-
-      let places = Array.isArray(data) ? data : [];
-      if (places.length === 0) {
-        // Fallback search without viewbox constraint if none nearby
-        const fallbackRes = await fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(categoryQuery)}&format=json&limit=10`, { headers: { 'User-Agent': 'SafeTrackApp/1.0' } });
-        const fallbackData = await fallbackRes.json();
-        if (Array.isArray(fallbackData) && fallbackData.length > 0) {
-          places = fallbackData;
-        }
+      let url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(categoryQuery)}&format=json&lat=${origin.latitude}&lon=${origin.longitude}&viewbox=${viewbox}&bounded=1&limit=20`;
+      if (countryCode) {
+        url += `&countrycodes=${countryCode}`;
       }
 
-      if (places.length === 0) {
-        Alert.alert('Not found', `No nearby ${label || categoryQuery} found around your location.`);
+      const res = await fetch(url, { headers: { 'User-Agent': 'SafeTrackApp/1.0' } });
+      let data = await res.json();
+
+      if (!Array.isArray(data) || data.length === 0) {
+        // Fallback without strict bounded viewbox, but still enforcing country code
+        let fallbackUrl = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(categoryQuery)}&format=json&lat=${origin.latitude}&lon=${origin.longitude}&limit=15`;
+        if (countryCode) fallbackUrl += `&countrycodes=${countryCode}`;
+        const fallbackRes = await fetch(fallbackUrl, { headers: { 'User-Agent': 'SafeTrackApp/1.0' } });
+        data = await fallbackRes.json();
+      }
+
+      if (!Array.isArray(data) || data.length === 0) {
+        Alert.alert('Not found', `No nearby ${label || categoryQuery} found in your area.`);
         return;
       }
 
-      // Calculate exact distance for each candidate and sort to find the absolute CLOSEST one
-      const sorted = places.map((place: any) => {
+      // Calculate distance for each result and sort to get the absolute CLOSEST local match
+      const sorted = data.map((place: any) => {
         const pLat = parseFloat(place.lat);
         const pLng = parseFloat(place.lon);
         const dist = getDistance(origin.latitude, origin.longitude, pLat, pLng);
@@ -391,9 +404,9 @@ export default function MapScreen({ navigation, route }: any) {
       const dest = { latitude: closest.pLat, longitude: closest.pLng };
       const destName = closest.display_name?.split(',')[0] || closest.name || label || categoryQuery;
 
-      // Plot route to the closest location
+      // Plot route to closest location using HTTPS OSRM
       try {
-        const osrmUrl = `http://router.project-osrm.org/route/v1/driving/${origin.longitude},${origin.latitude};${dest.longitude},${dest.latitude}?overview=full&geometries=geojson&steps=true`;
+        const osrmUrl = `https://router.project-osrm.org/route/v1/driving/${origin.longitude},${origin.latitude};${dest.longitude},${dest.latitude}?overview=full&geometries=geojson&steps=true`;
         const routeRes = await fetch(osrmUrl);
         const routeData = await routeRes.json();
 
@@ -404,7 +417,7 @@ export default function MapScreen({ navigation, route }: any) {
           setDirections({
             origin,
             destination: dest,
-            destName: `${destName} (${closest.dist.toFixed(1)} km away)`,
+            destName: `${destName} (${closest.dist < 1 ? Math.round(closest.dist * 1000) + 'm' : closest.dist.toFixed(1) + 'km'} away)`,
             coords: coords,
             distance: r.distance,
             duration: r.duration
@@ -416,8 +429,8 @@ export default function MapScreen({ navigation, route }: any) {
           mapRef.current?.animateToRegion({
             latitude: (origin.latitude + dest.latitude) / 2,
             longitude: (origin.longitude + dest.longitude) / 2,
-            latitudeDelta: Math.abs(origin.latitude - dest.latitude) * 2 + 0.03,
-            longitudeDelta: Math.abs(origin.longitude - dest.longitude) * 2 + 0.03,
+            latitudeDelta: Math.max(Math.abs(origin.latitude - dest.latitude) * 2, 0.02),
+            longitudeDelta: Math.max(Math.abs(origin.longitude - dest.longitude) * 2, 0.02),
           }, 1000);
         } else {
           throw new Error("No route found");
@@ -433,7 +446,7 @@ export default function MapScreen({ navigation, route }: any) {
         mapRef.current?.animateToRegion({ ...dest, latitudeDelta: 0.03, longitudeDelta: 0.03 }, 1000);
       }
     } catch (e) {
-      Alert.alert('Error', 'Failed to search nearby places. Check your internet connection.');
+      Alert.alert('Error', 'Category search failed. Check network connection.');
     } finally {
       setLoading(false);
     }
@@ -545,6 +558,33 @@ export default function MapScreen({ navigation, route }: any) {
         heading: 0
       });
     }
+
+    if (directions) {
+      Alert.alert(
+        '🎉 Navigation Complete!',
+        'Would you like to post this completed route to the community feed?',
+        [
+          { text: 'Later', style: 'cancel' },
+          {
+            text: 'Post Route',
+            onPress: () => {
+              navigation.navigate('PostRoute', {
+                routeData: {
+                  distance: directions.distance || 0,
+                  duration: directions.duration || 0,
+                  origin_name: 'My Location',
+                  destination_name: directions.destName?.split(',')[0] || 'Destination',
+                  origin_lat: directions.origin.latitude,
+                  origin_lng: directions.origin.longitude,
+                  destination_lat: directions.destination.latitude,
+                  destination_lng: directions.destination.longitude
+                }
+              });
+            }
+          }
+        ]
+      );
+    }
   };
 
   return (
@@ -630,7 +670,7 @@ export default function MapScreen({ navigation, route }: any) {
         )}
       </MapView>
 
-      {/* ── Google Maps-style Search Bar ───────────────────────────────── */}
+      {/* ── Google Maps-style Floating Glass Search Bar ───────────────── */}
       {!isNavigating && (
         <View style={s.searchContainer}>
           <View style={s.searchBar}>
@@ -644,24 +684,25 @@ export default function MapScreen({ navigation, route }: any) {
               </TouchableOpacity>
             ) : (
               <View style={s.searchPinIcon}>
-                <Ionicons name="location" size={20} color="#4caf7d" />
+                <Ionicons name="search" size={18} color="#006c44" />
               </View>
             )}
             <TextInput
               style={s.searchInput}
-              placeholder="Search here"
-              placeholderTextColor={isDark ? '#8899aa' : '#999'}
+              placeholder="Search places, routes, or categories..."
+              placeholderTextColor={isDark ? '#8899aa' : '#778899'}
               value={search}
               onChangeText={setSearch}
               onSubmitEditing={searchDestination}
               returnKeyType="search"
             />
             {loading && (
-              <ActivityIndicator size="small" color="#4caf7d" style={{ marginRight: 8 }} />
+              <ActivityIndicator size="small" color="#006c44" style={{ marginRight: 8 }} />
             )}
             <TouchableOpacity
               style={s.searchAvatar}
               onPress={() => navigation.navigate('Profile')}
+              activeOpacity={0.8}
             >
               {displayAvatar ? (
                 <Image source={{ uri: displayAvatar }} style={s.searchAvatarImg} />
@@ -719,13 +760,15 @@ export default function MapScreen({ navigation, route }: any) {
             <Ionicons name="locate" size={22} color={isDark ? '#ccc' : '#555'} />
           </TouchableOpacity>
 
-          {/* Report incident (right side, above directions FAB) */}
+          {/* Report Incident pill button (prominent bottom-left on map screen) */}
           {!isPickerMode && (
             <TouchableOpacity
-              style={[s.floatingBtn, { bottom: 130, right: 16 }]}
+              style={s.reportIncidentFab}
               onPress={() => navigation.navigate('Report')}
+              activeOpacity={0.85}
             >
-              <Ionicons name="warning-outline" size={22} color="#F59E0B" />
+              <Ionicons name="warning" size={18} color="#fff" />
+              <Text style={s.reportIncidentFabText}>Report Incident</Text>
             </TouchableOpacity>
           )}
 
@@ -799,6 +842,26 @@ export default function MapScreen({ navigation, route }: any) {
                   <Text style={s.routeStartText}>Start</Text>
                 </TouchableOpacity>
               )}
+              <TouchableOpacity
+                style={[s.routeStartBtn, { backgroundColor: '#7C3AED', marginLeft: 4 }]}
+                onPress={() => {
+                  navigation.navigate('PostRoute', {
+                    routeData: {
+                      distance: directions.distance || 0,
+                      duration: directions.duration || 0,
+                      origin_name: 'My Location',
+                      destination_name: directions.destName?.split(',')[0] || 'Destination',
+                      origin_lat: directions.origin.latitude,
+                      origin_lng: directions.origin.longitude,
+                      destination_lat: directions.destination.latitude,
+                      destination_lng: directions.destination.longitude
+                    }
+                  });
+                }}
+              >
+                <Ionicons name="share-social" size={15} color="#fff" />
+                <Text style={s.routeStartText}>Post</Text>
+              </TouchableOpacity>
               <TouchableOpacity style={s.routeSaveBtn} onPress={saveCurrentRoute}>
                 <Ionicons name="bookmark" size={16} color={COLORS.primary} />
               </TouchableOpacity>
@@ -983,6 +1046,16 @@ function makeStyles(COLORS: any) {
       alignItems: 'center', justifyContent: 'center',
       borderWidth: 1, borderColor: COLORS.border,
       ...SHADOW.md, zIndex: 15,
+    },
+    reportIncidentFab: {
+      position: 'absolute', bottom: 100, left: 16,
+      flexDirection: 'row', alignItems: 'center', gap: 6,
+      backgroundColor: '#DC2626', paddingHorizontal: 16, paddingVertical: 12,
+      borderRadius: RADIUS.full, ...SHADOW.lg, zIndex: 15,
+    },
+    reportIncidentFabText: {
+      color: '#ffffff', fontSize: FONTS.sizes.sm,
+      fontWeight: '700',
     },
     directionsFab: {
       position: 'absolute', bottom: 100, right: 16,

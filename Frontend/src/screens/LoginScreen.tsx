@@ -10,9 +10,6 @@ import { FONTS, RADIUS, SPACING, SHADOW } from '../config/theme';
 import { authAPI } from '../services/api';
 import useStore from '../store/useStore';
 
-const SANDBOX_USER  = { id: 0, name: 'Demo User', email: 'demo@pathy.app', role: 'user' };
-const SANDBOX_TOKEN = 'sandbox_dev_token';
-
 export default function LoginScreen({ navigation }: any) {
   const C = useColors();
   const s = makeStyles(C);
@@ -200,13 +197,6 @@ export default function LoginScreen({ navigation }: any) {
                 <Text style={s.switchLink}>{isLogin ? 'Sign Up' : 'Sign In'}</Text>
               </Text>
             </TouchableOpacity>
-
-            {__DEV__ && (
-              <TouchableOpacity style={s.sandboxBtn} onPress={() => setAuth(SANDBOX_TOKEN, SANDBOX_USER)} activeOpacity={0.85}>
-                <Ionicons name="flask-outline" size={14} color="#7c3aed" />
-                <Text style={s.sandboxText}>Dev Sandbox — Skip Login</Text>
-              </TouchableOpacity>
-            )}
           </Animated.View>
         </ScrollView>
       </Animated.View>
@@ -253,8 +243,5 @@ function makeStyles(C: any) {
   switchRow: { alignItems: 'center', marginTop: SPACING.lg },
   switchText:{ fontSize: FONTS.sizes.sm, color: C.textSecondary },
   switchLink:{ color: '#006c44', fontWeight: '700' },
-
-  sandboxBtn:  { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: SPACING.sm, marginTop: SPACING.xl, paddingVertical: 12, paddingHorizontal: SPACING.xl, borderRadius: RADIUS.full, borderWidth: 1.5, borderColor: 'rgba(124,58,237,0.3)', backgroundColor: 'rgba(124,58,237,0.06)' },
-  sandboxText: { fontSize: FONTS.sizes.xs, color: '#7c3aed', fontWeight: '600' },
 });
 }

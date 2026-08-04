@@ -180,7 +180,7 @@ function RootFlow({ token }: { token: string | null }) {
   }, []);
 
   if (phase === 'splash') {
-    return <SplashScreen onFinish={() => setPhase(hasOnboarded ? 'app' : 'onboarding')} />;
+    return <SplashScreen onFinish={() => setPhase(hasOnboarded === true ? 'app' : 'onboarding')} />;
   }
   if (phase === 'onboarding') {
     return (
