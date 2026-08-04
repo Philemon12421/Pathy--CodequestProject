@@ -47,31 +47,6 @@ public class AiController extends BaseController {
     this.mapper = mapper;
   }
 
-  @PostMapping(value = "/transcribe", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-  public ResponseEntity<?> transcribe(@RequestParam("file") MultipartFile file) {
-    if (!hasText(properties.groqApiKey()) || file.isEmpty()) {
-      return ResponseEntity.ok(Map.of("text", ""));
-    }
-    try {
-      MultiValueMap<String, Object> form = new LinkedMultiValueMap<>();
-      form.add("file", file.getResource());
-      form.add("model", "whisper-large-v3-turbo");
-
-      JsonNode response = groqClient.post()
-          .uri("/audio/transcriptions")
-          .header("Authorization", "Bearer " + properties.groqApiKey())
-          .contentType(MediaType.MULTIPART_FORM_DATA)
-          .body(form)
-          .retrieve()
-          .body(JsonNode.class);
-
-      String text = response != null && response.has("text") ? response.path("text").asText("") : "";
-      return ResponseEntity.ok(Map.of("text", text));
-    } catch (Exception e) {
-      System.err.println("⚠️ Groq Whisper Transcription Error: " + e.getMessage());
-      return ResponseEntity.ok(Map.of("text", ""));
-    }
-  }
 
   @PostMapping("/chat")
   public ResponseEntity<?> chat(HttpServletRequest request, @RequestBody Map<String, Object> body) throws Exception {

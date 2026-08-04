@@ -180,6 +180,6 @@ public class AuthController {
   private boolean blank(String value) { return value == null || value.isBlank(); }
 
   private String generateCode() {
-    return String.format("%06d", new java.util.Random().nextInt(999999));
+    return String.format("%06d", new java.security.SecureRandom().nextInt(1000000));
   }
 }

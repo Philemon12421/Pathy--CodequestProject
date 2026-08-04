@@ -180,6 +180,15 @@ export default function AIScreen({ navigation }: any) {
   const [histLoading, setHistLoading] = useState(true);
   const [submittingActionId, setSubmittingActionId] = useState<string | null>(null);
 
+  // ── Multi-step incident report conversation flow ───────────────────────────
+  const incidentFlowRef = useRef<{
+    step: 'type' | 'title' | 'description' | 'severity' | null;
+    incident_type: string;
+    title: string;
+    description: string;
+    severity: string;
+  }>({ step: null, incident_type: '', title: '', description: '', severity: '' });
+
   const [isListening, setIsListening] = useState(false);
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [voiceStatus, setVoiceStatus] = useState<'listening' | 'thinking' | 'speaking'>('listening');
@@ -188,6 +197,7 @@ export default function AIScreen({ navigation }: any) {
   const webRecognitionRef = useRef<any>(null);
   const recordingRef = useRef<Audio.Recording | null>(null);
   const silenceTimerRef = useRef<any>(null);
+  const maxRecordingTimerRef = useRef<any>(null);
   const voiceModeActiveRef = useRef(false); // tracks if voice modal session is active
 
   // ChatGPT Orb & Wave Visualizer Animations
@@ -213,11 +223,11 @@ export default function AIScreen({ navigation }: any) {
       setVoiceText((transcriptTallyRef.current + ' ' + transcript).trim());
     }
 
-    // Reset 5-second silence timer whenever user speaks
+    // Reset 2.2-second silence timer whenever user speaks (auto-detect when finished)
     if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
     silenceTimerRef.current = setTimeout(() => {
       stopVoiceInputAndSend();
-    }, 5000);
+    }, 2200);
   });
 
   useSpeechRecognitionEventHook('end', () => {
@@ -309,6 +319,7 @@ export default function AIScreen({ navigation }: any) {
   const startVoiceInput = async () => {
     // Clean up any ongoing timer or previous recording first
     if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
+    if (maxRecordingTimerRef.current) clearTimeout(maxRecordingTimerRef.current);
     if (recordingRef.current) {
       try { await recordingRef.current.stopAndUnloadAsync(); } catch {}
       recordingRef.current = null;
@@ -324,10 +335,16 @@ export default function AIScreen({ navigation }: any) {
     // Stop any active TTS out-loud speech
     stopCurrentSpeech();
 
-    // Schedule 8-second silence auto-respond timer (gives user time to start speaking)
+    // Schedule 6-second max hard cap timer (prevents background fan/air noise from running forever)
+    maxRecordingTimerRef.current = setTimeout(() => {
+      console.log('[VoiceMode] Hard 6s cap reached. Processing voice input...');
+      stopVoiceInputAndSend();
+    }, 6000);
+
+    // Schedule 6-second silence auto-respond timer (if user doesn't start speaking)
     silenceTimerRef.current = setTimeout(() => {
       stopVoiceInputAndSend();
-    }, 8000);
+    }, 6000);
 
     // ── Web (Expo Web) path ────────────────────────────────────────────────
     if (Platform.OS === 'web') {
@@ -349,7 +366,7 @@ export default function AIScreen({ navigation }: any) {
             if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
             silenceTimerRef.current = setTimeout(() => {
               stopVoiceInputAndSend();
-            }, 5000);
+            }, 2200);
           };
           recognition.onerror = (e: any) => console.log('Web STT error:', e);
           recognition.start();
@@ -409,7 +426,7 @@ export default function AIScreen({ navigation }: any) {
       await recording.startAsync();
       recordingRef.current = recording;
 
-      // Monitor audio levels: reset the silence timer whenever we detect speech
+      // Monitor audio levels: reset the silence timer whenever we detect human speech (> -35 dB)
       const meteringInterval = setInterval(async () => {
         if (!recordingRef.current) {
           clearInterval(meteringInterval);
@@ -417,15 +434,15 @@ export default function AIScreen({ navigation }: any) {
         }
         try {
           const status = await recordingRef.current.getStatusAsync();
-          // metering dB: -160 = silence, -40+ = speech
+          // metering dB: -160 = silence, -35+ = human speech (ignores low ambient air/fan noise)
           const metering = (status as any)?.metering ?? -160;
-          if (metering > -45) {
+          if (metering > -35) {
             console.log('[VoiceMode] Speech detected! Level:', metering.toFixed(1), 'dB');
-            // Reset silence timer — user is speaking
+            // Reset silence timer — user is speaking (auto-process after 2.2s pause)
             if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
             silenceTimerRef.current = setTimeout(() => {
               stopVoiceInputAndSend();
-            }, 5000);
+            }, 2200);
           }
         } catch {}
       }, 500);
@@ -437,8 +454,24 @@ export default function AIScreen({ navigation }: any) {
     }
   };
 
+  const isNoiseHallucination = (text: string): boolean => {
+    const lower = text.toLowerCase().trim();
+    if (lower.length < 2) return true;
+    const noisePatterns = [
+      /^thank\s*you\.?$/i,
+      /^subtitles\s*by/i,
+      /^\[.*\]$/,
+      /^\(.*\)$/,
+      /amara\.org/i,
+      /^you$/i,
+      /^bye\.?$/i,
+    ];
+    return noisePatterns.some((pattern) => pattern.test(lower));
+  };
+
   const stopVoiceInputAndSend = async (customText?: string) => {
     if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
+    if (maxRecordingTimerRef.current) clearTimeout(maxRecordingTimerRef.current);
     setIsListening(false);
     let finalQuery = (customText || voiceText || transcriptTallyRef.current).trim();
 
@@ -498,6 +531,12 @@ export default function AIScreen({ navigation }: any) {
       }
     }
 
+    // Filter out Whisper ambient noise hallucinations (e.g. "Thank you.")
+    if (finalQuery && isNoiseHallucination(finalQuery)) {
+      console.log('[VoiceMode] Filtered ambient noise hallucination:', finalQuery);
+      finalQuery = '';
+    }
+
     if (finalQuery) {
       console.log('[VoiceMode] Processing query:', finalQuery);
       setVoiceStatus('thinking');
@@ -509,7 +548,7 @@ export default function AIScreen({ navigation }: any) {
       if (voiceModeActiveRef.current) {
         setTimeout(() => {
           if (voiceModeActiveRef.current) startVoiceInput();
-        }, 300);
+        }, 400);
       }
     }
   };
@@ -550,6 +589,105 @@ const detectKeywordAction = (msg: string): { type: string; [key: string]: any } 
   return null;
 };
 
+  // ── Conversational incident report flow handler ─────────────────────────────
+  const handleIncidentFlow = async (msg: string, isVoiceCall: boolean) => {
+    const flow = incidentFlowRef.current;
+    let replyText = '';
+
+    if (flow.step === 'type') {
+      // Detect incident type from user response
+      const lower = msg.toLowerCase();
+      if (lower.includes('accident') || lower.includes('crash')) flow.incident_type = 'accident';
+      else if (lower.includes('crime') || lower.includes('theft') || lower.includes('robbery') || lower.includes('block')) flow.incident_type = 'crime';
+      else if (lower.includes('weather') || lower.includes('rain') || lower.includes('flood') || lower.includes('storm')) flow.incident_type = 'weather';
+      else if (lower.includes('hazard') || lower.includes('pothole') || lower.includes('spill') || lower.includes('debris')) flow.incident_type = 'hazard';
+      else flow.incident_type = msg.trim() || 'hazard';
+
+      flow.step = 'title';
+      replyText = `Got it — reporting a **${flow.incident_type}** incident. Now, what should the **title** be? (e.g. "Oil spill on 3rd Avenue")`;
+    } else if (flow.step === 'title') {
+      flow.title = msg.trim();
+      flow.step = 'description';
+      replyText = `Title set to: "${flow.title}". Now, please provide the **incident details / description**:`;
+    } else if (flow.step === 'description') {
+      flow.description = msg.trim();
+      flow.step = 'severity';
+      replyText = `Details recorded. Finally, how **severe** is this incident?\n\n• **Low** — Minor, no immediate danger\n• **Medium** — Moderate concern\n• **High** — Significant danger\n• **Critical** — Extremely dangerous, urgent`;
+    } else if (flow.step === 'severity') {
+      const lower = msg.toLowerCase();
+      if (lower.includes('critical')) flow.severity = 'critical';
+      else if (lower.includes('high')) flow.severity = 'high';
+      else if (lower.includes('medium') || lower.includes('moderate')) flow.severity = 'medium';
+      else if (lower.includes('low') || lower.includes('minor')) flow.severity = 'low';
+      else flow.severity = 'medium';
+
+      // All details collected — auto-submit
+      flow.step = null;
+      replyText = `Submitting your incident report now...\n\n📋 **Type:** ${flow.incident_type}\n📝 **Title:** ${flow.title}\n📄 **Details:** ${flow.description}\n⚠️ **Severity:** ${flow.severity}`;
+
+      addChatMessage({ role: 'assistant', content: replyText, id: `a-${Date.now()}` });
+
+      if (isVoiceCall) {
+        setVoiceStatus('speaking');
+        setIsSpeaking(true);
+        speakOutLoud(replyText, () => {
+          setIsSpeaking(false);
+          if (voiceModeActiveRef.current) {
+            setTimeout(() => { if (voiceModeActiveRef.current) startVoiceInput(); }, 400);
+          } else { setIsListening(false); }
+        });
+      }
+
+      // Auto-submit the incident
+      await submitIncidentFromFlow(flow);
+      return;
+    }
+
+    addChatMessage({ role: 'assistant', content: replyText, id: `a-${Date.now()}` });
+
+    if (isVoiceCall) {
+      setVoiceStatus('speaking');
+      setIsSpeaking(true);
+      speakOutLoud(replyText, () => {
+        setIsSpeaking(false);
+        if (voiceModeActiveRef.current) {
+          setTimeout(() => { if (voiceModeActiveRef.current) startVoiceInput(); }, 400);
+        } else { setIsListening(false); }
+      });
+    }
+  };
+
+  const submitIncidentFromFlow = async (flow: { incident_type: string; title: string; description: string; severity: string }) => {
+    if (!userLocation) {
+      addChatMessage({ role: 'assistant', content: '❌ Could not submit — GPS location is unavailable. Please enable location services and try again.', id: `a-${Date.now()}` });
+      return;
+    }
+    try {
+      const formData = new FormData();
+      formData.append('type', flow.incident_type || 'hazard');
+      formData.append('title', flow.title || 'AI Reported Incident');
+      formData.append('description', flow.description || flow.title || '');
+      formData.append('latitude', userLocation.latitude.toString());
+      formData.append('longitude', userLocation.longitude.toString());
+      formData.append('severity', flow.severity || 'medium');
+
+      const incident = await incidentsAPI.create(formData);
+      addIncident(incident);
+
+      addChatMessage({
+        role: 'assistant',
+        content: `✅ Report published successfully! "${flow.title}" is now live on the map for nearby drivers.`,
+        id: `a-${Date.now()}`,
+      });
+    } catch (err: any) {
+      addChatMessage({
+        role: 'assistant',
+        content: `❌ Failed to submit report: ${err?.error || 'Unknown error. Please try again.'}`,
+        id: `a-${Date.now()}`,
+      });
+    }
+  };
+
   const send = async (text?: string, isVoiceCall: boolean = false) => {
     const msg = (text ?? input).trim();
     if (!msg || loading) return;
@@ -557,6 +695,17 @@ const detectKeywordAction = (msg: string): { type: string; [key: string]: any } 
 
     const userMsg = { role: 'user', content: msg, id: `u-${Date.now()}` };
     addChatMessage(userMsg);
+
+    // Check if we are in the middle of a conversational incident flow
+    if (incidentFlowRef.current.step) {
+      setLoading(true);
+      try {
+        await handleIncidentFlow(msg, isVoiceCall);
+      } finally {
+        setLoading(false);
+      }
+      return;
+    }
 
     setLoading(true);
     try {
@@ -570,10 +719,45 @@ const detectKeywordAction = (msg: string): { type: string; [key: string]: any } 
         if (detected) action = detected;
       }
 
+      // If the action is to report an incident, start conversational flow instead
+      if (action?.type === 'report_incident') {
+        // Detect incident type from the original message if possible
+        const lower = msg.toLowerCase();
+        let detectedType = '';
+        if (lower.includes('accident') || lower.includes('crash')) detectedType = 'accident';
+        else if (lower.includes('crime') || lower.includes('theft') || lower.includes('robbery')) detectedType = 'crime';
+        else if (lower.includes('weather') || lower.includes('rain') || lower.includes('flood')) detectedType = 'weather';
+        else if (lower.includes('hazard') || lower.includes('pothole') || lower.includes('spill')) detectedType = 'hazard';
+
+        if (detectedType) {
+          // Type was already mentioned — skip to title
+          incidentFlowRef.current = { step: 'title', incident_type: detectedType, title: '', description: '', severity: '' };
+          replyText = `I'll help you report a **${detectedType}** incident. What should the **title** be? (e.g. "Oil spill on 3rd Avenue")`;
+        } else {
+          // Need to ask for type first
+          incidentFlowRef.current = { step: 'type', incident_type: '', title: '', description: '', severity: '' };
+          replyText = `I'll help you report an incident! First, what **type** of incident is it?\n\n• 🚗 **Accident** / Crash\n• ⚠️ **Hazard** (pothole, oil spill, debris)\n• 🚨 **Crime** (theft, roadblock)\n• 🌩️ **Weather** (flood, storm)`;
+        }
+
+        addChatMessage({ role: 'assistant', content: replyText, id: `a-${Date.now()}` });
+
+        if (isVoiceCall) {
+          setVoiceStatus('speaking');
+          setIsSpeaking(true);
+          speakOutLoud(replyText, () => {
+            setIsSpeaking(false);
+            if (voiceModeActiveRef.current) {
+              setTimeout(() => { if (voiceModeActiveRef.current) startVoiceInput(); }, 400);
+            } else { setIsListening(false); }
+          });
+        }
+
+        setLoading(false);
+        return;
+      }
+
       if (!replyText) {
-        if (action?.type === 'report_incident') {
-          replyText = `I have extracted the incident details for your report. You can review, auto-submit, or customize the form below:`;
-        } else if (action?.type === 'navigate') {
+        if (action?.type === 'navigate') {
           replyText = `Opening map navigation to ${action.destination || 'your destination'}.`;
         } else if (action?.type === 'place_ad') {
           replyText = `Opening the Ad Portal so you can launch a merchant campaign on the map.`;
@@ -586,55 +770,55 @@ const detectKeywordAction = (msg: string): { type: string; [key: string]: any } 
 
       addChatMessage({ role: 'assistant', content: replyText, id: `a-${Date.now()}`, action });
 
-      // ChatGPT-style: speak response, then auto-restart listening
-      setVoiceStatus('speaking');
-      setIsSpeaking(true);
-      speakOutLoud(replyText, () => {
-        setIsSpeaking(false);
-
-        // Auto execute navigation & app actions
-        if (action?.type === 'navigate') {
+      const executeAppAction = (act: any) => {
+        if (act?.type === 'navigate') {
           voiceModeActiveRef.current = false;
           setIsListening(false);
-          navigation.navigate('Tabs', { screen: 'Map', params: { destination: action.destination } });
-          return;
-        } else if (action?.type === 'report_incident') {
+          setIsSpeaking(false);
+          navigation.navigate('Tabs', { screen: 'Map', params: { destination: act.destination } });
+        } else if (act?.type === 'music') {
           voiceModeActiveRef.current = false;
           setIsListening(false);
-          navigation.navigate('Report', {
-            type: action.incident_type || 'hazard',
-            title: action.title || '',
-            description: action.description || '',
-            severity: action.severity || 'high',
-          });
-          return;
-        } else if (action?.type === 'music') {
-          voiceModeActiveRef.current = false;
-          setIsListening(false);
+          setIsSpeaking(false);
           navigation.navigate('Music');
-          return;
-        } else if (action?.type === 'place_ad') {
+        } else if (act?.type === 'place_ad') {
           voiceModeActiveRef.current = false;
           setIsListening(false);
+          setIsSpeaking(false);
           navigation.navigate('Ads', {
-            business_name: action.business_name || '',
-            description: action.description || '',
-            radius_km: action.radius_km || 2,
+            business_name: act.business_name || '',
+            description: act.description || '',
+            radius_km: act.radius_km || 2,
           });
-          return;
         }
+      };
 
-        // ChatGPT loop: auto-restart listening if voice mode is still active
-        if (voiceModeActiveRef.current) {
-          setTimeout(() => {
-            if (voiceModeActiveRef.current) {
-              startVoiceInput();
-            }
-          }, 400);
-        } else {
-          setIsListening(false);
+      if (isVoiceCall) {
+        setVoiceStatus('speaking');
+        setIsSpeaking(true);
+        speakOutLoud(replyText, () => {
+          setIsSpeaking(false);
+
+          if (action?.type) {
+            executeAppAction(action);
+            return;
+          }
+
+          if (voiceModeActiveRef.current) {
+            setTimeout(() => {
+              if (voiceModeActiveRef.current) {
+                startVoiceInput();
+              }
+            }, 400);
+          } else {
+            setIsListening(false);
+          }
+        });
+      } else {
+        if (action?.type) {
+          executeAppAction(action);
         }
-      });
+      }
     } catch {
       const fallbackAction = detectKeywordAction(msg);
       const reply = fallbackAction ? 'Here is the requested action card:' : FALLBACK_REPLY;
@@ -645,24 +829,26 @@ const detectKeywordAction = (msg: string): { type: string; [key: string]: any } 
         action: fallbackAction || undefined,
       });
 
-      setVoiceStatus('speaking');
-      setIsSpeaking(true);
-      speakOutLoud(reply, () => {
-        setIsSpeaking(false);
-        // ChatGPT loop: auto-restart listening if voice mode still active
-        if (voiceModeActiveRef.current) {
-          setTimeout(() => {
-            if (voiceModeActiveRef.current) {
-              startVoiceInput();
-            }
-          }, 400);
-        } else {
-          setIsListening(false);
-        }
-      });
+      if (isVoiceCall) {
+        setVoiceStatus('speaking');
+        setIsSpeaking(true);
+        speakOutLoud(reply, () => {
+          setIsSpeaking(false);
+          if (voiceModeActiveRef.current) {
+            setTimeout(() => {
+              if (voiceModeActiveRef.current) {
+                startVoiceInput();
+              }
+            }, 400);
+          } else {
+            setIsListening(false);
+          }
+        });
+      }
     } finally {
       setLoading(false);
     }
+
   };
 
   // ── Auto-submit incident directly from AI Action Card ─────────────────────

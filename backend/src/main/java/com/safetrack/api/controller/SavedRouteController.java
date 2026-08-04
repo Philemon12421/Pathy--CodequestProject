@@ -110,10 +110,13 @@ public class SavedRouteController extends BaseController {
   }
 
   @PatchMapping("/{id}/favorite")
-  public Object toggleFavorite(HttpServletRequest request, @PathVariable("id") UUID id) {
-    return jdbc.sql("UPDATE saved_routes SET is_favorite = NOT is_favorite WHERE id=:id AND user_id=:user_id RETURNING *")
-        .param("id", id).param("user_id", user(request).id()).query().singleRow();
+  public ResponseEntity<?> toggleFavorite(HttpServletRequest request, @PathVariable("id") UUID id) {
+    List<java.util.Map<String, Object>> rows = jdbc.sql("UPDATE saved_routes SET is_favorite = NOT is_favorite WHERE id=:id AND user_id=:user_id RETURNING *")
+        .param("id", id).param("user_id", user(request).id()).query().listOfRows();
+    if (rows.isEmpty()) return ResponseEntity.status(404).body(java.util.Map.of("error", "Route not found"));
+    return ResponseEntity.ok(rows.get(0));
   }
+
 
   @DeleteMapping("/{id}")
   public Object delete(HttpServletRequest request, @PathVariable("id") UUID id) {

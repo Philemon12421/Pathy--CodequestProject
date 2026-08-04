@@ -78,7 +78,20 @@ public class IncidentController extends BaseController {
       case "critical" -> 15;
       default -> 2;
     };
-    Instant created = ((Timestamp) incident.get("created_at")).toInstant();
+    Object createdAtObj = incident.get("created_at");
+    Instant created;
+    if (createdAtObj instanceof Timestamp ts) {
+      created = ts.toInstant();
+    } else if (createdAtObj instanceof java.time.OffsetDateTime odt) {
+      created = odt.toInstant();
+    } else if (createdAtObj instanceof java.time.LocalDateTime ldt) {
+      created = ldt.toInstant(java.time.ZoneOffset.UTC);
+    } else if (createdAtObj instanceof Instant inst) {
+      created = inst;
+    } else {
+      created = Instant.now();
+    }
+
     long elapsedSeconds = Instant.now().getEpochSecond() - created.getEpochSecond();
     long requiredSeconds = requiredMinutes * 60L;
     if (elapsedSeconds < requiredSeconds) {

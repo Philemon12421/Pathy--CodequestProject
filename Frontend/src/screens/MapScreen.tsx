@@ -69,8 +69,9 @@ export default function MapScreen({ navigation, route }: any) {
   const COLORS = useColors();
   const s = makeStyles(COLORS);
   const mapRef = useRef<any>(null);
-  const { user, userLocation, setUserLocation, incidents, setIncidents, myAds, ads, setAds, theme } = useStore();
+  const { user, userLocation, setUserLocation, incidents, setIncidents, myAds, ads, setAds, theme, avatarUri } = useStore();
   const isDark = theme === 'dark';
+  const displayAvatar = avatarUri || (user?.avatar_url ? (user.avatar_url.startsWith('http') ? user.avatar_url : `${(process.env.EXPO_PUBLIC_API_URL || 'http://localhost:4000/api').replace('/api', '')}${user.avatar_url}`) : null);
   const [search, setSearch] = useState('');
   const [directions, setDirections] = useState<any>(null);
   const [selectedMarker, setSelectedMarker] = useState<any>(null);
@@ -161,6 +162,15 @@ export default function MapScreen({ navigation, route }: any) {
     };
     load();
   }, [route.params?.communityRoute]);
+
+  // Auto-search and plot route when navigated from AI with destination
+  useEffect(() => {
+    const dest = route.params?.destination;
+    if (!dest) return;
+    navigation.setParams({ destination: null });
+    searchDestination(dest);
+  }, [route.params?.destination]);
+
 
   const initLocation = async () => {
     const { status } = await Location.requestForegroundPermissionsAsync();
@@ -271,59 +281,67 @@ export default function MapScreen({ navigation, route }: any) {
     }, 800);
   };
 
-  const searchDestination = async () => {
-    if (!search.trim()) return;
+  const searchDestination = async (overrideQuery?: any) => {
+    const query = (typeof overrideQuery === 'string' ? overrideQuery : search).trim();
+    if (!query) return;
+    if (typeof overrideQuery === 'string') setSearch(overrideQuery);
     setLoading(true);
     try {
       // Geocode using Nominatim (free, no key needed)
       const res = await fetch(
-        `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(search)}&format=json&limit=1`,
+        `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(query)}&format=json&limit=1`,
         { headers: { 'User-Agent': 'RouthFlowPathy/1.0' } }
       );
       const data = await res.json();
-      if (!data.length) { Alert.alert('Not found', 'No results for that search.'); return; }
+      if (!data.length) { Alert.alert('Not found', `No results found for "${query}".`); return; }
 
       const dest = { latitude: parseFloat(data[0].lat), longitude: parseFloat(data[0].lon) };
-      mapRef.current?.animateToRegion({ ...dest, latitudeDelta: 0.05, longitudeDelta: 0.05 }, 1000);
 
-      // Simulate route (in prod use Google Directions API or OSRM)
-      if (userLocation) {
-        try {
-          const osrmUrl = `http://router.project-osrm.org/route/v1/driving/${userLocation.longitude},${userLocation.latitude};${dest.longitude},${dest.latitude}?overview=full&geometries=geojson&steps=true`;
-          const routeRes = await fetch(osrmUrl);
-          const routeData = await routeRes.json();
+      // Calculate route from user location or fallback location
+      const origin = userLocation || { latitude: 5.6037, longitude: -0.1870 };
+      try {
+        const osrmUrl = `http://router.project-osrm.org/route/v1/driving/${origin.longitude},${origin.latitude};${dest.longitude},${dest.latitude}?overview=full&geometries=geojson&steps=true`;
+        const routeRes = await fetch(osrmUrl);
+        const routeData = await routeRes.json();
 
-          if (routeData.code === 'Ok' && routeData.routes.length > 0) {
-            const route = routeData.routes[0];
-            const coords = route.geometry.coordinates.map((c: any) => ({
-              latitude: c[1],
-              longitude: c[0]
-            }));
+        if (routeData.code === 'Ok' && routeData.routes.length > 0) {
+          const route = routeData.routes[0];
+          const coords = route.geometry.coordinates.map((c: any) => ({
+            latitude: c[1],
+            longitude: c[0]
+          }));
 
-            setDirections({
-              origin: userLocation,
-              destination: dest,
-              destName: data[0].display_name,
-              coords: coords,
-              distance: route.distance,
-              duration: route.duration
-            });
-
-            setNavSteps(route.legs[0].steps);
-            setCurrentStepIndex(0);
-          } else {
-            throw new Error("No route found");
-          }
-        } catch (err) {
-          // Fallback to straight line
           setDirections({
-            origin: userLocation,
+            origin,
             destination: dest,
             destName: data[0].display_name,
-            coords: [userLocation, dest]
+            coords: coords,
+            distance: route.distance,
+            duration: route.duration
           });
-          setNavSteps([]);
+
+          setNavSteps(route.legs[0].steps);
+          setCurrentStepIndex(0);
+
+          mapRef.current?.animateToRegion({
+            latitude: (origin.latitude + dest.latitude) / 2,
+            longitude: (origin.longitude + dest.longitude) / 2,
+            latitudeDelta: Math.abs(origin.latitude - dest.latitude) * 2 + 0.05,
+            longitudeDelta: Math.abs(origin.longitude - dest.longitude) * 2 + 0.05,
+          }, 1000);
+        } else {
+          throw new Error("No route found");
         }
+      } catch (err) {
+        // Fallback to straight line
+        setDirections({
+          origin,
+          destination: dest,
+          destName: data[0].display_name,
+          coords: [origin, dest]
+        });
+        setNavSteps([]);
+        mapRef.current?.animateToRegion({ ...dest, latitudeDelta: 0.05, longitudeDelta: 0.05 }, 1000);
       }
     } catch (e) {
       Alert.alert('Error', 'Search failed. Check your connection.');
@@ -332,10 +350,93 @@ export default function MapScreen({ navigation, route }: any) {
     }
   };
 
-  // Search for nearby places by category chip
-  const searchCategory = (query: string) => {
-    setSearch(query);
-    searchDestination();
+  // Search for nearby places by category chip and automatically navigate to the closest one
+  const searchCategory = async (categoryQuery: string, label?: string) => {
+    setSearch(label || categoryQuery);
+    setLoading(true);
+    try {
+      const origin = userLocation || { latitude: 5.6037, longitude: -0.1870 };
+      const delta = 0.15;
+      const viewbox = `${origin.longitude - delta},${origin.latitude + delta},${origin.longitude + delta},${origin.latitude - delta}`;
+
+      // Search Nominatim with location bias and viewbox bounds to find local places around user
+      const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(categoryQuery)}&format=json&lat=${origin.latitude}&lon=${origin.longitude}&viewbox=${viewbox}&limit=15`;
+      const res = await fetch(url, { headers: { 'User-Agent': 'SafeTrackApp/1.0' } });
+      const data = await res.json();
+
+      let places = Array.isArray(data) ? data : [];
+      if (places.length === 0) {
+        // Fallback search without viewbox constraint if none nearby
+        const fallbackRes = await fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(categoryQuery)}&format=json&limit=10`, { headers: { 'User-Agent': 'SafeTrackApp/1.0' } });
+        const fallbackData = await fallbackRes.json();
+        if (Array.isArray(fallbackData) && fallbackData.length > 0) {
+          places = fallbackData;
+        }
+      }
+
+      if (places.length === 0) {
+        Alert.alert('Not found', `No nearby ${label || categoryQuery} found around your location.`);
+        return;
+      }
+
+      // Calculate exact distance for each candidate and sort to find the absolute CLOSEST one
+      const sorted = places.map((place: any) => {
+        const pLat = parseFloat(place.lat);
+        const pLng = parseFloat(place.lon);
+        const dist = getDistance(origin.latitude, origin.longitude, pLat, pLng);
+        return { ...place, pLat, pLng, dist };
+      }).sort((a: any, b: any) => a.dist - b.dist);
+
+      const closest = sorted[0];
+      const dest = { latitude: closest.pLat, longitude: closest.pLng };
+      const destName = closest.display_name?.split(',')[0] || closest.name || label || categoryQuery;
+
+      // Plot route to the closest location
+      try {
+        const osrmUrl = `http://router.project-osrm.org/route/v1/driving/${origin.longitude},${origin.latitude};${dest.longitude},${dest.latitude}?overview=full&geometries=geojson&steps=true`;
+        const routeRes = await fetch(osrmUrl);
+        const routeData = await routeRes.json();
+
+        if (routeData.code === 'Ok' && routeData.routes.length > 0) {
+          const r = routeData.routes[0];
+          const coords = r.geometry.coordinates.map((c: any) => ({ latitude: c[1], longitude: c[0] }));
+
+          setDirections({
+            origin,
+            destination: dest,
+            destName: `${destName} (${closest.dist.toFixed(1)} km away)`,
+            coords: coords,
+            distance: r.distance,
+            duration: r.duration
+          });
+
+          setNavSteps(r.legs[0].steps);
+          setCurrentStepIndex(0);
+
+          mapRef.current?.animateToRegion({
+            latitude: (origin.latitude + dest.latitude) / 2,
+            longitude: (origin.longitude + dest.longitude) / 2,
+            latitudeDelta: Math.abs(origin.latitude - dest.latitude) * 2 + 0.03,
+            longitudeDelta: Math.abs(origin.longitude - dest.longitude) * 2 + 0.03,
+          }, 1000);
+        } else {
+          throw new Error("No route found");
+        }
+      } catch (err) {
+        setDirections({
+          origin,
+          destination: dest,
+          destName: `${destName} (${closest.dist.toFixed(1)} km away)`,
+          coords: [origin, dest]
+        });
+        setNavSteps([]);
+        mapRef.current?.animateToRegion({ ...dest, latitudeDelta: 0.03, longitudeDelta: 0.03 }, 1000);
+      }
+    } catch (e) {
+      Alert.alert('Error', 'Failed to search nearby places. Check your internet connection.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   const saveCurrentRoute = async () => {
@@ -555,18 +656,18 @@ export default function MapScreen({ navigation, route }: any) {
               onSubmitEditing={searchDestination}
               returnKeyType="search"
             />
-            {loading ? (
+            {loading && (
               <ActivityIndicator size="small" color="#4caf7d" style={{ marginRight: 8 }} />
-            ) : (
-              <TouchableOpacity onPress={searchDestination} style={s.searchIconBtn}>
-                <Ionicons name="mic" size={20} color={isDark ? '#8899aa' : '#888'} />
-              </TouchableOpacity>
             )}
             <TouchableOpacity
               style={s.searchAvatar}
               onPress={() => navigation.navigate('Profile')}
             >
-              <Ionicons name="person-circle" size={30} color={isDark ? '#6EE7A0' : '#4caf7d'} />
+              {displayAvatar ? (
+                <Image source={{ uri: displayAvatar }} style={s.searchAvatarImg} />
+              ) : (
+                <Ionicons name="person-circle" size={32} color={isDark ? '#6EE7A0' : '#4caf7d'} />
+              )}
             </TouchableOpacity>
           </View>
 
@@ -580,11 +681,7 @@ export default function MapScreen({ navigation, route }: any) {
               <TouchableOpacity
                 key={chip.label}
                 style={s.chip}
-                onPress={() => {
-                  setSearch(chip.query);
-                  // Tiny delay so the state updates before search fires
-                  setTimeout(() => searchDestination(), 50);
-                }}
+                onPress={() => searchCategory(chip.query, chip.label)}
                 activeOpacity={0.7}
               >
                 <Ionicons name={chip.icon as any} size={14} color={isDark ? '#bcc8d6' : '#555'} />
@@ -863,6 +960,7 @@ function makeStyles(COLORS: any) {
       fontWeight: '500', paddingVertical: 8,
     },
     searchAvatar: { marginLeft: 6 },
+    searchAvatarImg: { width: 32, height: 32, borderRadius: 16 },
     chipsRow: {
       paddingHorizontal: SPACING.md, paddingTop: 10,
       paddingBottom: 6, gap: 8,
