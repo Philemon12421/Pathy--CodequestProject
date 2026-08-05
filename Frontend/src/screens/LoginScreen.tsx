@@ -71,6 +71,7 @@ export default function LoginScreen({ navigation }: any) {
     try {
       const fn  = isLogin ? authAPI.login : authAPI.register;
       const res = await fn(form);
+      AsyncStorage.setItem('pathy_has_onboarded', 'true').catch(() => {});
       setTimeout(() => {
         setAuth(res.token, res.user);
       }, 0);
@@ -78,6 +79,7 @@ export default function LoginScreen({ navigation }: any) {
       Alert.alert('Oops', err.error || 'Something went wrong. Please try again.');
     } finally { setLoading(false); }
   };
+
 
   const bdr = (f: string) => focused === f ? '#006c44' : 'rgba(0,108,68,0.15)';
 

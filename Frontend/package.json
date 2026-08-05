@@ -27,6 +27,7 @@
     "expo-font": "~14.0.12",
     "expo-image-picker": "~17.0.11",
     "expo-location": "~19.0.8",
+    "expo-notifications": "^0.30.7",
     "expo-speech": "~14.0.8",
     "expo-speech-recognition": "56.0.1",
     "expo-status-bar": "~3.0.9",

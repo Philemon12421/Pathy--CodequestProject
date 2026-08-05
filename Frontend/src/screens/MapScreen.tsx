@@ -182,9 +182,13 @@ export default function MapScreen({ navigation, route }: any) {
     const coords = { latitude: loc.coords.latitude, longitude: loc.coords.longitude };
     setUserLocation(coords);
 
-    // Watch location
-    Location.watchPositionAsync({ accuracy: Location.Accuracy.Balanced, timeInterval: 3000, distanceInterval: 5 }, (l: any) => {
-      const newLoc = { latitude: l.coords.latitude, longitude: l.coords.longitude };
+    // High-precision real-time location watch
+    Location.watchPositionAsync({ accuracy: Location.Accuracy.High, timeInterval: 1000, distanceInterval: 1 }, (l: any) => {
+      const newLoc = { 
+        latitude: l.coords.latitude, 
+        longitude: l.coords.longitude,
+        heading: l.coords.heading || 0,
+      };
       setUserLocation(newLoc);
 
       if (isNavigating && mapRef.current) {
@@ -212,6 +216,7 @@ export default function MapScreen({ navigation, route }: any) {
       }
     });
   };
+
 
   // Reload public ad list whenever user activates/deletes their own ads
   useEffect(() => {
@@ -287,18 +292,28 @@ export default function MapScreen({ navigation, route }: any) {
     if (typeof overrideQuery === 'string') setSearch(overrideQuery);
     setLoading(true);
     try {
-      // Geocode using Nominatim (free, no key needed)
+      const origin = userLocation || { latitude: 5.6037, longitude: -0.1870 };
+
+      // Geocode using Nominatim with lat/lon proximity bias and limit 15 to pick the NEAREST match
       const res = await fetch(
-        `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(query)}&format=json&limit=1`,
-        { headers: { 'User-Agent': 'RouthFlowPathy/1.0' } }
+        `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(query)}&format=json&lat=${origin.latitude}&lon=${origin.longitude}&limit=15`,
+        { headers: { 'User-Agent': 'PathyApp/1.0' } }
       );
       const data = await res.json();
-      if (!data.length) { Alert.alert('Not found', `No results found for "${query}".`); return; }
+      if (!Array.isArray(data) || !data.length) { Alert.alert('Not found', `No results found for "${query}".`); return; }
 
-      const dest = { latitude: parseFloat(data[0].lat), longitude: parseFloat(data[0].lon) };
+      // Calculate distance for each result and sort to get the absolute CLOSEST match
+      const sorted = data.map((place: any) => {
+        const pLat = parseFloat(place.lat);
+        const pLng = parseFloat(place.lon);
+        const dist = getDistance(origin.latitude, origin.longitude, pLat, pLng);
+        return { ...place, pLat, pLng, dist };
+      }).sort((a: any, b: any) => a.dist - b.dist);
 
-      // Calculate route from user location or fallback location
-      const origin = userLocation || { latitude: 5.6037, longitude: -0.1870 };
+      const closest = sorted[0];
+      const dest = { latitude: closest.pLat, longitude: closest.pLng };
+      const destName = `${closest.display_name?.split(',')[0] || closest.name || query} (${closest.dist < 1 ? Math.round(closest.dist * 1000) + 'm' : closest.dist.toFixed(1) + 'km'} away)`;
+
       try {
         const osrmUrl = `https://router.project-osrm.org/route/v1/driving/${origin.longitude},${origin.latitude};${dest.longitude},${dest.latitude}?overview=full&geometries=geojson&steps=true`;
         const routeRes = await fetch(osrmUrl);
@@ -314,7 +329,7 @@ export default function MapScreen({ navigation, route }: any) {
           setDirections({
             origin,
             destination: dest,
-            destName: data[0].display_name,
+            destName,
             coords: coords,
             distance: route.distance,
             duration: route.duration
@@ -326,18 +341,17 @@ export default function MapScreen({ navigation, route }: any) {
           mapRef.current?.animateToRegion({
             latitude: (origin.latitude + dest.latitude) / 2,
             longitude: (origin.longitude + dest.longitude) / 2,
-            latitudeDelta: Math.abs(origin.latitude - dest.latitude) * 2 + 0.05,
-            longitudeDelta: Math.abs(origin.longitude - dest.longitude) * 2 + 0.05,
+            latitudeDelta: Math.max(Math.abs(origin.latitude - dest.latitude) * 2, 0.02),
+            longitudeDelta: Math.max(Math.abs(origin.longitude - dest.longitude) * 2, 0.02),
           }, 1000);
         } else {
           throw new Error("No route found");
         }
       } catch (err) {
-        // Fallback to straight line
         setDirections({
           origin,
           destination: dest,
-          destName: data[0].display_name,
+          destName,
           coords: [origin, dest]
         });
         setNavSteps([]);
@@ -349,6 +363,7 @@ export default function MapScreen({ navigation, route }: any) {
       setLoading(false);
     }
   };
+
 
   // Search for nearby places by category chip strictly within user country & closest proximity
   const searchCategory = async (categoryQuery: string, label?: string) => {

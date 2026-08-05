@@ -578,8 +578,8 @@ const detectKeywordAction = (msg: string): { type: string; [key: string]: any } 
       description: extracted,
     };
   }
-  if (/\b(navigate|directions|where is|take me)\b/i.test(lower)) {
-    const dest = msg.replace(/.*(?:navigate to|take me to|where is|directions to)/i, '').trim() || 'Destination';
+  if (/\b(navigate|directions|where is|take me|find|search|nearest|closest|look for|locate)\b/i.test(lower)) {
+    const dest = msg.replace(/.*(?:navigate to|take me to|where is|directions to|help me find|find nearest|find me|find a|find|search for|look for|locate)/i, '').trim() || msg;
     return { type: 'navigate', destination: dest };
   }
   if (/\b(ad|advertise|business|promote)\b/.test(lower)) {
@@ -588,6 +588,7 @@ const detectKeywordAction = (msg: string): { type: string; [key: string]: any } 
   if (/\bmusic\b/.test(lower)) return { type: 'music', action: 'play' };
   return null;
 };
+
 
   // ── Conversational incident report flow handler ─────────────────────────────
   const handleIncidentFlow = async (msg: string, isVoiceCall: boolean) => {
@@ -758,8 +759,9 @@ const detectKeywordAction = (msg: string): { type: string; [key: string]: any } 
 
       if (!replyText) {
         if (action?.type === 'navigate') {
-          replyText = `Opening map navigation to ${action.destination || 'your destination'}.`;
+          replyText = `Finding the nearest ${action.destination || 'location'} for you and opening map navigation...`;
         } else if (action?.type === 'place_ad') {
+
           replyText = `Opening the Ad Portal so you can launch a merchant campaign on the map.`;
         } else if (action?.type === 'music') {
           replyText = `Opening the music player for your trip 🎵`;

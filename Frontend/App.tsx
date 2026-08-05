@@ -36,11 +36,13 @@ import NotificationsScreen     from './src/screens/NotificationsScreen';
 
 import useStore from './src/store/useStore';
 import { ThemeProvider, useColors } from './src/config/ThemeContext';
+import { requestNotificationPermissions } from './src/services/NotificationService';
 
 const Tab = createBottomTabNavigator();
 const AppStack = createNativeStackNavigator();
 const MainStack = createNativeStackNavigator();
 const ONBOARDING_KEY = 'pathy_has_onboarded';
+
 
 // ─── Elegant frosted-glass bottom navbar ─────────────────────────────────────
 const TABS = [
@@ -175,12 +177,18 @@ function RootFlow({ token }: { token: string | null }) {
 
   useEffect(() => {
     AsyncStorage.getItem(ONBOARDING_KEY)
-      .then(v => setHasOnboarded(v === 'true'))
+      .then(v => {
+        if (v === 'true' || token) {
+          setHasOnboarded(true);
+        } else {
+          setHasOnboarded(false);
+        }
+      })
       .catch(() => setHasOnboarded(false));
-  }, []);
+  }, [token]);
 
   if (phase === 'splash') {
-    return <SplashScreen onFinish={() => setPhase(hasOnboarded === true ? 'app' : 'onboarding')} />;
+    return <SplashScreen onFinish={() => setPhase((hasOnboarded === true || !!token) ? 'app' : 'onboarding')} />;
   }
   if (phase === 'onboarding') {
     return (
@@ -212,7 +220,13 @@ function RootFlow({ token }: { token: string | null }) {
 }
 
 export default function App() {
-  const { token, theme } = useStore();
+  const { token, theme, hydrateFromCache } = useStore();
+
+  useEffect(() => {
+    hydrateFromCache();
+    requestNotificationPermissions();
+  }, []);
+
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <SafeAreaProvider>
@@ -226,3 +240,4 @@ export default function App() {
     </GestureHandlerRootView>
   );
 }
+

@@ -9,7 +9,9 @@ import { useColors } from '../config/ThemeContext';
 import { FONTS, RADIUS, SPACING, SHADOW } from '../config/theme';
 import { routesAPI } from '../services/api';
 import useStore from '../store/useStore';
+import { sendOffAppNotification } from '../services/NotificationService';
 import type { FeedPost } from './HomeScreen';
+
 
 const ACTIVITIES = [
   { key: 'running',  label: 'Running',  icon: 'walk-outline'    },
@@ -100,18 +102,24 @@ export default function PostRouteScreen({ navigation, route }: any) {
         addRouteFeedPost(feedPost);
 
         // Notify user/community
+        const notifTitle = '🗺️ New Route Posted';
+        const notifMessage = `${authorName} shared a new ${activity} route: "${name.trim()}" (${(routeData?.distance ? routeData.distance / 1000 : 0).toFixed(1)} km)`;
+        
         useStore.getState().setNotifications([
           {
             id: 'notif_' + Date.now(),
-            title: '🗺️ New Route Posted',
-            message: `${authorName} shared a new ${activity} route: "${name.trim()}" (${(routeData?.distance ? routeData.distance / 1000 : 0).toFixed(1)} km)`,
+            title: notifTitle,
+            message: notifMessage,
             created_at: new Date().toISOString(),
             read: false,
             type: 'route',
           },
           ...(useStore.getState().notifications || [])
         ]);
+
+        sendOffAppNotification(notifTitle, notifMessage, { routeId: saved.id || Date.now() });
       }
+
 
       Alert.alert(
         isPublic ? '🎉 Posted!' : '✅ Saved!',

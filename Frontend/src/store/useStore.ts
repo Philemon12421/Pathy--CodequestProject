@@ -1,12 +1,17 @@
 import { create } from 'zustand';
 import { Audio } from 'expo-av';
 import * as FileSystem from 'expo-file-system/legacy';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { FeedPost, Comment } from '../screens/HomeScreen';
 import { notificationsAPI, setAuthToken } from '../services/api';
 
 
 export interface StoreState {
+  // ── Cache Hydration ───────────────────────────────────────────────────────
+  hydrateFromCache: () => Promise<void>;
+
   // ── Auth ──────────────────────────────────────────────────────────────────
+
   token: string | null;
   user: any | null;
   setAuth: (token: string | null, user: any) => void;
@@ -97,16 +102,57 @@ export interface StoreState {
 
 
 const useStore = create<StoreState>((set, get) => ({
+  // ── Cache Hydration ───────────────────────────────────────────────────────
+  hydrateFromCache: async () => {
+    try {
+      const [token, user, savedRoutes, routePosts, incidents, notifications] = await Promise.all([
+        AsyncStorage.getItem('pathy_cache_token'),
+        AsyncStorage.getItem('pathy_cache_user'),
+        AsyncStorage.getItem('pathy_cache_saved_routes'),
+        AsyncStorage.getItem('pathy_cache_route_posts'),
+        AsyncStorage.getItem('pathy_cache_incidents'),
+        AsyncStorage.getItem('pathy_cache_notifications'),
+      ]);
+
+      if (token) {
+        setAuthToken(token);
+        set({ token });
+      }
+      if (user) set({ user: JSON.parse(user) });
+      if (savedRoutes) set({ savedRoutes: JSON.parse(savedRoutes) });
+      if (routePosts) set({ routePosts: JSON.parse(routePosts) });
+      if (incidents) set({ incidents: JSON.parse(incidents) });
+      if (notifications) {
+        const notifs = JSON.parse(notifications);
+        set({ notifications: notifs, unreadNotificationsCount: notifs.filter((n: any) => !n.read).length });
+      }
+    } catch (e) {
+      console.log('Cache hydration error:', e);
+    }
+  },
+
   // ── Auth ──────────────────────────────────────────────────────────────────
   token: null,
   user: null,
   setAuth: (token, user) => {
     setAuthToken(token);
     set({ token, user });
+    if (token) AsyncStorage.setItem('pathy_cache_token', token).catch(() => {});
+    else AsyncStorage.removeItem('pathy_cache_token').catch(() => {});
+    if (user) AsyncStorage.setItem('pathy_cache_user', JSON.stringify(user)).catch(() => {});
+    else AsyncStorage.removeItem('pathy_cache_user').catch(() => {});
   },
   logout: () => {
     setAuthToken(null);
     set({ token: null, user: null });
+    AsyncStorage.multiRemove([
+      'pathy_cache_token',
+      'pathy_cache_user',
+      'pathy_cache_saved_routes',
+      'pathy_cache_route_posts',
+      'pathy_cache_incidents',
+      'pathy_cache_notifications'
+    ]).catch(() => {});
   },
 
   // ── Location ──────────────────────────────────────────────────────────────
@@ -115,19 +161,38 @@ const useStore = create<StoreState>((set, get) => ({
 
   // ── Incidents ─────────────────────────────────────────────────────────────
   incidents: [],
-  setIncidents: (incidents) => set({ incidents }),
-  addIncident: (inc) => set((s) => ({ incidents: [inc, ...s.incidents] })),
+  setIncidents: (incidents) => {
+    set({ incidents });
+    AsyncStorage.setItem('pathy_cache_incidents', JSON.stringify(incidents)).catch(() => {});
+  },
+  addIncident: (inc) => set((s) => {
+    const updated = [inc, ...s.incidents];
+    AsyncStorage.setItem('pathy_cache_incidents', JSON.stringify(updated)).catch(() => {});
+    return { incidents: updated };
+  }),
 
   // ── Saved routes ──────────────────────────────────────────────────────────
   savedRoutes: [],
-  setSavedRoutes: (routes) => set({ savedRoutes: routes }),
-  addRoute: (r) => set((s) => ({ savedRoutes: [r, ...s.savedRoutes] })),
+  setSavedRoutes: (routes) => {
+    set({ savedRoutes: routes });
+    AsyncStorage.setItem('pathy_cache_saved_routes', JSON.stringify(routes)).catch(() => {});
+  },
+  addRoute: (r) => set((s) => {
+    const updated = [r, ...s.savedRoutes];
+    AsyncStorage.setItem('pathy_cache_saved_routes', JSON.stringify(updated)).catch(() => {});
+    return { savedRoutes: updated };
+  }),
 
   // ── Community feed ────────────────────────────────────────────────────────
   routePosts: [],
 
   addRouteFeedPost: (post) =>
-    set((s) => ({ routePosts: [post, ...s.routePosts] })),
+    set((s) => {
+      const updated = [post, ...s.routePosts];
+      AsyncStorage.setItem('pathy_cache_route_posts', JSON.stringify(updated)).catch(() => {});
+      return { routePosts: updated };
+    }),
+
 
   likeRouteFeedPost: (postId, userId) =>
     set((s) => ({

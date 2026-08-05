@@ -870,16 +870,51 @@ export default function HomeScreen({ navigation }: any) {
 
   const load = async () => {
     try {
-      const [inc, rts] = await Promise.all([
-        incidentsAPI.getAll(),
-        routesAPI.getAll(),
+      const [inc, rts, feedData] = await Promise.all([
+        incidentsAPI.getAll().catch(() => []),
+        routesAPI.getAll().catch(() => []),
+        routesAPI.getFeed().catch(() => []),
       ]);
-      setIncidents(inc);
+      setIncidents(inc as any);
       setSavedRoutes(rts as any);
+
+      if (Array.isArray(feedData) && feedData.length > 0) {
+        const formattedFeed: FeedPost[] = feedData.map((item: any) => {
+          const authorName = item.author_name || 'Pathy User';
+          return {
+            id: (item.id || Date.now()).toString(),
+            title: item.title || 'Public Route',
+            authorName,
+            authorInitials: authorName.split(' ').map((n: string) => n[0]).join('').toUpperCase().slice(0, 2),
+            authorColor: colorFor(authorName),
+            distanceKm: item.distance ? item.distance / 1000 : 0,
+            durationMin: item.duration ? Math.round(item.duration / 60) : 0,
+            caption: item.caption || '',
+            likes: [],
+            comments: [],
+            createdAt: item.created_at || new Date().toISOString(),
+            activityType: item.activity_type || 'walking',
+            originName: item.origin_name,
+            destinationName: item.destination_name,
+            originLat: item.origin_lat ? parseFloat(item.origin_lat) : undefined,
+            originLng: item.origin_lng ? parseFloat(item.origin_lng) : undefined,
+            destinationLat: item.destination_lat ? parseFloat(item.destination_lat) : undefined,
+            destinationLng: item.destination_lng ? parseFloat(item.destination_lng) : undefined,
+            distanceMeters: item.distance || 0,
+            durationSeconds: item.duration || 0,
+          };
+        });
+
+        const existingIds = new Set(formattedFeed.map(f => f.id));
+        const localOnly = (useStore.getState().routePosts || []).filter(p => !existingIds.has(p.id));
+        const combined = [...formattedFeed, ...localOnly];
+        useStore.setState({ routePosts: combined });
+      }
     } catch {}
   };
   useEffect(() => { load(); }, []);
   const onRefresh = async () => { setRefreshing(true); await load(); setRefreshing(false); };
+
 
   const openComments = (post: FeedPost) => { setCommentPost(post); setCommentVisible(true); };
   const closeComments = () => { setCommentVisible(false); setTimeout(() => setCommentPost(null), 300); };
