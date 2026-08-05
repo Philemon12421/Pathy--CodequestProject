@@ -4,11 +4,13 @@ import {
   KeyboardAvoidingView, Platform, ActivityIndicator, ScrollView,
   Alert, Animated, Easing,
 } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Ionicons } from '@expo/vector-icons';
 import { useColors } from '../config/ThemeContext';
 import { FONTS, RADIUS, SPACING, SHADOW } from '../config/theme';
 import { authAPI } from '../services/api';
 import useStore from '../store/useStore';
+
 
 export default function LoginScreen({ navigation }: any) {
   const C = useColors();
@@ -76,8 +78,9 @@ export default function LoginScreen({ navigation }: any) {
         setAuth(res.token, res.user);
       }, 0);
     } catch (err: any) {
-      Alert.alert('Oops', err.error || 'Something went wrong. Please try again.');
+      Alert.alert('Oops', err?.error || err?.message || 'Something went wrong. Please try again.');
     } finally { setLoading(false); }
+
   };
 
 
