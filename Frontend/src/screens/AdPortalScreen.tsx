@@ -378,7 +378,7 @@ export default function AdPortalScreen({ route }: any) {
                   <SafeMapView
                     style={s.miniMap}
                     initialRegion={{ ...pin, latitudeDelta: 0.04, longitudeDelta: 0.04 }}
-                    onRegionChangeComplete={(r) => setPin({ latitude: r.latitude, longitude: r.longitude })}
+                    onRegionChangeComplete={(r: any) => setPin({ latitude: r.latitude, longitude: r.longitude })}
                   >
                     <Marker coordinate={pin} draggable onDragEnd={(e) => setPin(e.nativeEvent.coordinate)}>
                       <View style={s.pinMarker}>

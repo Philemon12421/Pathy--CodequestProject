@@ -7,7 +7,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as ImagePicker from 'expo-image-picker';
 import { Ionicons } from '@expo/vector-icons';
-import SafeMapView, { Marker, MapPressEvent } from '../components/SafeMapView';
+import SafeMapView, { Marker } from '../components/SafeMapView';
 import { useColors } from '../config/ThemeContext';
 import { FONTS, RADIUS, SPACING, SHADOW } from '../config/theme';
 import { incidentsAPI } from '../services/api';
@@ -77,7 +77,7 @@ export default function ReportScreen({ route, navigation }: any) {
     pickerMapRef.current?.animateToRegion({ ...loc, latitudeDelta: 0.01, longitudeDelta: 0.01 }, 400);
   };
 
-  const handleMapPress = (e: MapPressEvent) => {
+  const handleMapPress = (e: any) => {
     setTempLocation(e.nativeEvent.coordinate);
   };
 
