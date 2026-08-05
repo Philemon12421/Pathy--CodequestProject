@@ -29,6 +29,34 @@ public class SavedRouteController extends BaseController {
         .param("user_id", user(request).id()).query().listOfRows();
   }
 
+  @GetMapping("/feed")
+  public Object feed(HttpServletRequest request) {
+    return jdbc.sql("""
+        SELECT 
+          r.id,
+          r.user_id,
+          r.name AS title,
+          u.name AS author_name,
+          u.avatar_url AS author_avatar,
+          r.origin_name,
+          r.destination_name,
+          r.origin_lat,
+          r.origin_lng,
+          r.destination_lat,
+          r.destination_lng,
+          COALESCE(r.distance, 0) AS distance,
+          COALESCE(r.duration, 0) AS duration,
+          r.caption,
+          COALESCE(r.activity_type, 'walking') AS activity_type,
+          r.created_at
+        FROM saved_routes r
+        JOIN users u ON r.user_id = u.id
+        WHERE r.is_public = TRUE
+        ORDER BY r.created_at DESC
+        LIMIT 100
+        """)
+        .query().listOfRows();
+  }
 
   /**
    * Leaderboard — all-time: aggregate total km per user using the Haversine
@@ -93,21 +121,39 @@ public class SavedRouteController extends BaseController {
   @PostMapping
   public ResponseEntity<?> create(HttpServletRequest request, @RequestBody Map<String, Object> body) throws Exception {
     String routeData = body.get("route_data") == null ? "{}" : mapper.writeValueAsString(body.get("route_data"));
+    Boolean isPublic = body.get("is_public") != null && Boolean.parseBoolean(body.get("is_public").toString());
+    String caption = body.get("caption") != null ? body.get("caption").toString() : "";
+    String activityType = body.get("activity_type") != null ? body.get("activity_type").toString() : "walking";
+    Object distance = body.get("distance");
+    Object duration = body.get("duration");
+
     Map<String, Object> route = jdbc.sql("""
-        INSERT INTO saved_routes (user_id, name, origin_name, destination_name, origin_lat, origin_lng, destination_lat, destination_lng, route_data)
-        VALUES (:user_id,:name,:origin_name,:destination_name,:origin_lat,:origin_lng,:destination_lat,:destination_lng,CAST(:route_data AS jsonb)) RETURNING *
+        INSERT INTO saved_routes (user_id, name, origin_name, destination_name, origin_lat, origin_lng, destination_lat, destination_lng, route_data, is_public, caption, activity_type, distance, duration)
+        VALUES (:user_id,:name,:origin_name,:destination_name,:origin_lat,:origin_lng,:destination_lat,:destination_lng,CAST(:route_data AS jsonb),:is_public,:caption,:activity_type,:distance,:duration) RETURNING *
         """)
-        .param("user_id", user(request).id()).param("name", body.get("name")).param("origin_name", body.get("origin_name"))
-        .param("destination_name", body.get("destination_name")).param("origin_lat", body.get("origin_lat"))
-        .param("origin_lng", body.get("origin_lng")).param("destination_lat", body.get("destination_lat"))
-        .param("destination_lng", body.get("destination_lng")).param("route_data", routeData)
+        .param("user_id", user(request).id())
+        .param("name", body.get("name"))
+        .param("origin_name", body.get("origin_name"))
+        .param("destination_name", body.get("destination_name"))
+        .param("origin_lat", body.get("origin_lat"))
+        .param("origin_lng", body.get("origin_lng"))
+        .param("destination_lat", body.get("destination_lat"))
+        .param("destination_lng", body.get("destination_lng"))
+        .param("route_data", routeData)
+        .param("is_public", isPublic)
+        .param("caption", caption)
+        .param("activity_type", activityType)
+        .param("distance", distance)
+        .param("duration", duration)
         .query().singleRow();
 
-    notifications.create(user(request).id(), "Route Saved", "You successfully saved a new route: \"" + body.get("name") + "\".", "route_saved");
+    notifications.create(user(request).id(), isPublic ? "Route Posted" : "Route Saved", 
+        "You successfully " + (isPublic ? "posted" : "saved") + " a new route: \"" + body.get("name") + "\".", 
+        "route_saved");
 
     return ResponseEntity.status(201).body(route);
-
   }
+
 
   @PatchMapping("/{id}/favorite")
   public ResponseEntity<?> toggleFavorite(HttpServletRequest request, @PathVariable("id") UUID id) {

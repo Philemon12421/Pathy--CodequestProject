@@ -161,4 +161,9 @@ CREATE TABLE IF NOT EXISTS notifications (
 
 CREATE INDEX IF NOT EXISTS idx_notifications_user ON notifications(user_id, created_at DESC);
 
-
+-- Community route feed columns (safe migration)
+ALTER TABLE saved_routes ADD COLUMN IF NOT EXISTS is_public BOOLEAN DEFAULT FALSE;
+ALTER TABLE saved_routes ADD COLUMN IF NOT EXISTS caption TEXT;
+ALTER TABLE saved_routes ADD COLUMN IF NOT EXISTS activity_type VARCHAR(50) DEFAULT 'walking';
+ALTER TABLE saved_routes ADD COLUMN IF NOT EXISTS distance NUMERIC(12, 2);
+ALTER TABLE saved_routes ADD COLUMN IF NOT EXISTS duration INTEGER;

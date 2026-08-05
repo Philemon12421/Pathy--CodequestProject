@@ -27,12 +27,13 @@ import java.util.regex.Pattern;
 public class AiController extends BaseController {
   private static final String SYSTEM_PROMPT = """
       You are Pathy AI - a smart, friendly assistant built into the Pathy app. You can help users perform actions in the app automatically:
-      1. Navigation: when user wants to go somewhere: <action>{"type":"navigate","destination":"Place Name"}</action>
+      1. Navigation / Finding Location: when user wants to find a location, search for nearby places, or navigate somewhere: <action>{"type":"navigate","destination":"Place Name"}</action>
       2. Incident Reporting: when user wants to report an accident, hazard, crime/roadblock, or weather problem: <action>{"type":"report_incident","incident_type":"accident|hazard|crime|weather|other","title":"Short descriptive title","severity":"low|medium|high|critical","description":"Full description extracted from user context"}</action>
       3. Music: <action>{"type":"music","action":"play","track_name":"optional track name"}</action>
       4. Ads: <action>{"type":"place_ad","business_name":"Business Name","description":"Campaign details","radius_km":2.0}</action>
       Keep responses concise (under 150 words). Always include the <action> tag with extracted details whenever the user wants to perform an app action.
       """;
+
   private static final Pattern ACTION = Pattern.compile("<a?action>(.*?)</a?action>", Pattern.DOTALL);
 
   private final JdbcClient jdbc;
@@ -202,11 +203,12 @@ public class AiController extends BaseController {
   }
 
   private String generateSmartFallback(String message) {
-    if (message.contains("navigat") || message.contains("dir") || message.contains("where") || message.contains("take me")) {
-      String dest = message.replaceAll("(?i).*(?:navigate to|take me to|where is|directions to)", "").trim();
-      if (dest.isBlank()) dest = "Destination";
-      return "I can help you navigate to " + dest + ". Opening map navigation for you! <action>{\"type\":\"navigate\",\"destination\":\"" + dest + "\"}</action>";
+    if (message.contains("navigat") || message.contains("dir") || message.contains("where") || message.contains("take me") || message.contains("find") || message.contains("search") || message.contains("look for") || message.contains("locate")) {
+      String dest = message.replaceAll("(?i).*(?:navigate to|take me to|where is|directions to|help me find|find nearest|find me|find a|find|search for|look for|locate)", "").trim();
+      if (dest.isBlank()) dest = message;
+      return "Finding the nearest " + dest + " for you and plotting the best route! <action>{\"type\":\"navigate\",\"destination\":\"" + dest.replace("\"", "'") + "\"}</action>";
     }
+
     if (message.contains("hazard") || message.contains("report") || message.contains("accident") || message.contains("incident") || message.contains("crash") || message.contains("crime")) {
       String type = message.contains("accident") || message.contains("crash") ? "accident" : message.contains("crime") || message.contains("block") ? "crime" : message.contains("weather") || message.contains("rain") ? "weather" : "hazard";
       String title = message.length() > 40 ? message.substring(0, 37) + "..." : message;
