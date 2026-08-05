@@ -9,6 +9,9 @@
     },
     "preview": {
       "distribution": "internal",
+      "env": {
+        "EXPO_PUBLIC_API_URL": "https://safetrack-api-production-130f.up.railway.app/api"
+      },
       "android": {
         "buildType": "apk"
       },
@@ -17,7 +20,10 @@
       }
     },
     "production": {
-      "autoIncrement": true
+      "autoIncrement": true,
+      "env": {
+        "EXPO_PUBLIC_API_URL": "https://safetrack-api-production-130f.up.railway.app/api"
+      }
     }
   },
   "submit": {

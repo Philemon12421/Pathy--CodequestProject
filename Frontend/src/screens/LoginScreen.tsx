@@ -71,7 +71,9 @@ export default function LoginScreen({ navigation }: any) {
     try {
       const fn  = isLogin ? authAPI.login : authAPI.register;
       const res = await fn(form);
-      setAuth(res.token, res.user);
+      setTimeout(() => {
+        setAuth(res.token, res.user);
+      }, 0);
     } catch (err: any) {
       Alert.alert('Oops', err.error || 'Something went wrong. Please try again.');
     } finally { setLoading(false); }

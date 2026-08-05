@@ -7,7 +7,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as ImagePicker from 'expo-image-picker';
 import { Ionicons } from '@expo/vector-icons';
-import MapView, { Marker, MapPressEvent } from 'react-native-maps';
+import SafeMapView, { Marker, MapPressEvent } from '../components/SafeMapView';
 import { useColors } from '../config/ThemeContext';
 import { FONTS, RADIUS, SPACING, SHADOW } from '../config/theme';
 import { incidentsAPI } from '../services/api';
@@ -216,7 +216,7 @@ export default function ReportScreen({ route, navigation }: any) {
         <View style={s.locationCard}>
           <TouchableOpacity style={s.miniMapBox} onPress={openPicker} activeOpacity={0.85}>
             {selectedLocation ? (
-              <MapView
+              <SafeMapView
                 style={StyleSheet.absoluteFillObject}
                 region={{
                   ...selectedLocation,
@@ -228,13 +228,14 @@ export default function ReportScreen({ route, navigation }: any) {
                 pitchEnabled={false}
                 rotateEnabled={false}
                 pointerEvents="none"
+                liteMode={true}
               >
                 <Marker coordinate={selectedLocation}>
                   <View style={s.miniMarker}>
                     <Ionicons name="location" size={16} color="#fff" />
                   </View>
                 </Marker>
-              </MapView>
+              </SafeMapView>
             ) : (
               <View style={s.miniMapPlaceholder}>
                 <Ionicons name="map-outline" size={26} color="#006c44" />
@@ -338,7 +339,7 @@ export default function ReportScreen({ route, navigation }: any) {
           </View>
 
           {/* Full-screen map */}
-          <MapView
+          <SafeMapView
             ref={pickerMapRef}
             style={s.pickerMap}
             initialRegion={{
@@ -361,7 +362,7 @@ export default function ReportScreen({ route, navigation }: any) {
                 </View>
               </Marker>
             )}
-          </MapView>
+          </SafeMapView>
 
           {/* Bottom action bar */}
           <View style={s.modalFooter}>

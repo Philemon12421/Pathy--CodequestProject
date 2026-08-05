@@ -5,7 +5,7 @@ import {
   RefreshControl, Linking, Image
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import MapView, { Marker, Circle } from 'react-native-maps';
+import SafeMapView, { Marker, Circle } from '../components/SafeMapView';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import { useColors } from '../config/ThemeContext';
@@ -375,7 +375,7 @@ export default function AdPortalScreen({ route }: any) {
                 <Text style={s.stepDesc}>Drag the pin to your exact business location</Text>
 
                 <View style={s.mapWrap}>
-                  <MapView
+                  <SafeMapView
                     style={s.miniMap}
                     initialRegion={{ ...pin, latitudeDelta: 0.04, longitudeDelta: 0.04 }}
                     onRegionChangeComplete={(r) => setPin({ latitude: r.latitude, longitude: r.longitude })}
@@ -391,7 +391,7 @@ export default function AdPortalScreen({ route }: any) {
                       strokeColor={COLORS.accent + '88'}
                       fillColor={COLORS.accent + '22'}
                     />
-                  </MapView>
+                  </SafeMapView>
                   <View style={s.mapHint}>
                     <Ionicons name="move" size={12} color={COLORS.textSecondary} />
                     <Text style={s.mapHintText}>Drag pin or map to reposition</Text>

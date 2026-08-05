@@ -6,7 +6,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { BlurView } from 'expo-blur';
-import MapView, { Marker } from 'react-native-maps';
+import SafeMapView, { Marker } from '../components/SafeMapView';
 import { useColors } from '../config/ThemeContext';
 import { FONTS, RADIUS, SPACING, SHADOW } from '../config/theme';
 import { adsAPI } from '../services/api';
@@ -68,7 +68,7 @@ export default function NearbyDealsScreen({ navigation }: any) {
       {/* Mini map — real MapView with nearby ad markers */}
       <View style={s.mapWrap}>
         {userLocation ? (
-          <MapView
+          <SafeMapView
             style={StyleSheet.absoluteFillObject}
             region={{
               latitude: userLocation.latitude,
@@ -102,7 +102,7 @@ export default function NearbyDealsScreen({ navigation }: any) {
                 </Marker>
               ))
             }
-          </MapView>
+          </SafeMapView>
         ) : (
           <View style={s.mapPlaceholderBg}>
             <Ionicons name="map-outline" size={32} color="rgba(0,108,68,0.2)" />

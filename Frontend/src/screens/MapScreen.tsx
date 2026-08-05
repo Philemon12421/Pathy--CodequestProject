@@ -3,7 +3,7 @@ import {
   View, Text, StyleSheet, TouchableOpacity, TextInput,
   ActivityIndicator, Alert, ScrollView, Dimensions, Image, Platform
 } from 'react-native';
-import MapView, { Marker, Polyline, Callout, Circle } from 'react-native-maps';
+import SafeMapView, { Marker, Polyline, Callout, Circle } from '../components/SafeMapView';
 import * as Location from 'expo-location';
 import { Ionicons } from '@expo/vector-icons';
 import { useColors } from '../config/ThemeContext';
@@ -123,7 +123,7 @@ export default function MapScreen({ navigation, route }: any) {
       try {
         const origin = { latitude: cr.originLat, longitude: cr.originLng };
         const dest   = { latitude: cr.destinationLat, longitude: cr.destinationLng };
-        const osrmUrl = `http://router.project-osrm.org/route/v1/driving/${origin.longitude},${origin.latitude};${dest.longitude},${dest.latitude}?overview=full&geometries=geojson&steps=true`;
+        const osrmUrl = `https://router.project-osrm.org/route/v1/driving/${origin.longitude},${origin.latitude};${dest.longitude},${dest.latitude}?overview=full&geometries=geojson&steps=true`;
         const routeRes = await fetch(osrmUrl);
         const routeData = await routeRes.json();
         if (routeData.code === 'Ok' && routeData.routes.length > 0) {
@@ -300,7 +300,7 @@ export default function MapScreen({ navigation, route }: any) {
       // Calculate route from user location or fallback location
       const origin = userLocation || { latitude: 5.6037, longitude: -0.1870 };
       try {
-        const osrmUrl = `http://router.project-osrm.org/route/v1/driving/${origin.longitude},${origin.latitude};${dest.longitude},${dest.latitude}?overview=full&geometries=geojson&steps=true`;
+        const osrmUrl = `https://router.project-osrm.org/route/v1/driving/${origin.longitude},${origin.latitude};${dest.longitude},${dest.latitude}?overview=full&geometries=geojson&steps=true`;
         const routeRes = await fetch(osrmUrl);
         const routeData = await routeRes.json();
 
@@ -484,7 +484,7 @@ export default function MapScreen({ navigation, route }: any) {
       const destName = data.display_name || `${coords.latitude.toFixed(4)}, ${coords.longitude.toFixed(4)}`;
       
       if (userLocation) {
-        const osrmUrl = `http://router.project-osrm.org/route/v1/driving/${userLocation.longitude},${userLocation.latitude};${coords.longitude},${coords.latitude}?overview=full&geometries=geojson&steps=true`;
+        const osrmUrl = `https://router.project-osrm.org/route/v1/driving/${userLocation.longitude},${userLocation.latitude};${coords.longitude},${coords.latitude}?overview=full&geometries=geojson&steps=true`;
         const routeRes = await fetch(osrmUrl);
         const routeData = await routeRes.json();
 
@@ -589,7 +589,7 @@ export default function MapScreen({ navigation, route }: any) {
 
   return (
     <View style={s.container}>
-      <MapView
+      <SafeMapView
         ref={mapRef}
         style={s.map}
         initialRegion={defaultRegion}
@@ -668,7 +668,7 @@ export default function MapScreen({ navigation, route }: any) {
             />
           </>
         )}
-      </MapView>
+      </SafeMapView>
 
       {/* ── Google Maps-style Floating Glass Search Bar ───────────────── */}
       {!isNavigating && (

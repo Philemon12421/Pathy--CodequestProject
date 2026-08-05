@@ -7,7 +7,7 @@ import {
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import MapView, { Marker, Polyline } from 'react-native-maps';
+import SafeMapView, { Marker, Polyline } from '../components/SafeMapView';
 import { FONTS, RADIUS, SPACING, SHADOW } from '../config/theme';
 import { useColors } from '../config/ThemeContext';
 import { incidentsAPI, routesAPI } from '../services/api';
@@ -285,7 +285,7 @@ function RouteDetailModal({ visible, post, onClose, navigation }: {
         {/* Thumbnail */}
         <View style={rd.thumb}>
           {post.originLat != null && post.destinationLat != null && post.originLng != null && post.destinationLng != null ? (
-            <MapView
+            <SafeMapView
               style={StyleSheet.absoluteFillObject}
               initialRegion={{
                 latitude: (post.originLat + post.destinationLat) / 2,
@@ -297,6 +297,7 @@ function RouteDetailModal({ visible, post, onClose, navigation }: {
               zoomEnabled={false}
               pitchEnabled={false}
               rotateEnabled={false}
+              liteMode={true}
             >
               <Marker
                 coordinate={{ latitude: post.originLat, longitude: post.originLng }}
@@ -318,7 +319,7 @@ function RouteDetailModal({ visible, post, onClose, navigation }: {
                 strokeWidth={3}
                 strokeColor="#006c44"
               />
-            </MapView>
+            </SafeMapView>
           ) : (
             <>
               <View style={rd.thumbBg} />
@@ -547,7 +548,7 @@ function FeedCard({ post, currentUserId, onLike, onOpenComments, onOpenDetail, o
       {/* Route thumbnail — tappable to open detail */}
       <TouchableOpacity style={fc.thumb} onPress={() => onOpenDetail(post)} activeOpacity={0.9}>
         {post.originLat != null && post.destinationLat != null && post.originLng != null && post.destinationLng != null ? (
-          <MapView
+          <SafeMapView
             style={StyleSheet.absoluteFillObject}
             initialRegion={{
               latitude: (post.originLat + post.destinationLat) / 2,
@@ -560,6 +561,7 @@ function FeedCard({ post, currentUserId, onLike, onOpenComments, onOpenDetail, o
             pitchEnabled={false}
             rotateEnabled={false}
             cacheEnabled={true}
+            liteMode={true}
           >
             <Marker
               coordinate={{ latitude: post.originLat, longitude: post.originLng }}
@@ -581,7 +583,7 @@ function FeedCard({ post, currentUserId, onLike, onOpenComments, onOpenDetail, o
               strokeWidth={3}
               strokeColor="#006c44"
             />
-          </MapView>
+          </SafeMapView>
         ) : (
           <>
             <View style={fc.thumbBg} />
